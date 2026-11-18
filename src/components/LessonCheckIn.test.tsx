@@ -27,8 +27,9 @@ describe("lesson check-in", () => {
   it("accepts a selected answer and gives feedback", async () => {
     const user = userEvent.setup();
     const lesson = lessons[0];
-    render(<LessonCheckIn lesson={lesson} phaseIndex={0} />);
+    render(<LessonCheckIn lesson={lesson} phaseIndex={0} priorEvidence={[]} onEvidence={vi.fn()} />);
 
+    expect(screen.getByText("Ditt svar och tidigare stödsignaler skickas till OpenAI")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Skoldagen borde börja senare." }));
     expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Svara" }));
@@ -39,7 +40,7 @@ describe("lesson check-in", () => {
   it("shows a text field without choices when the student should answer in writing", async () => {
     const user = userEvent.setup();
     const lesson = lessons[0];
-    render(<LessonCheckIn lesson={lesson} phaseIndex={2} />);
+    render(<LessonCheckIn lesson={lesson} phaseIndex={2} priorEvidence={[]} onEvidence={vi.fn()} />);
 
     expect(screen.queryByRole("group", { name: "Välj ett svar" })).not.toBeInTheDocument();
     await user.type(screen.getByLabelText("Ditt svar"), "Tesen visar skribentens ståndpunkt.");
@@ -50,14 +51,14 @@ describe("lesson check-in", () => {
   it("offers a hint when the student is allowed to use support", async () => {
     const user = userEvent.setup();
     const lesson = lessons[0];
-    render(<LessonCheckIn lesson={lesson} phaseIndex={0} />);
+    render(<LessonCheckIn lesson={lesson} phaseIndex={0} priorEvidence={[]} onEvidence={vi.fn()} />);
 
     await user.click(screen.getByRole("button", { name: "Jag behöver en ledtråd" }));
     expect(screen.getByText(lesson.hint)).toBeInTheDocument();
   });
 
   it("does not offer hints during recall without support", () => {
-    render(<LessonCheckIn lesson={lessons[0]} phaseIndex={2} />);
+    render(<LessonCheckIn lesson={lessons[0]} phaseIndex={2} priorEvidence={[]} onEvidence={vi.fn()} />);
 
     expect(screen.queryByRole("button", { name: "Jag behöver en ledtråd" })).not.toBeInTheDocument();
   });

@@ -22,10 +22,18 @@ afterEach(() => {
 describe("chapter exit ticket", () => {
   it("sends a written answer only after the student chooses Svara and advances after feedback", async () => {
     const user = userEvent.setup();
-    render(<ChapterExitTicket lesson={lessons[0]} />);
+    render(
+      <ChapterExitTicket
+        lesson={lessons[0]}
+        exitTicket={lessons[0].exitTicket ?? []}
+        priorEvidence={[]}
+        onEvidence={vi.fn()}
+      />,
+    );
 
     expect(screen.getByRole("heading", { name: "Textens övergripande delar" })).toBeInTheDocument();
     expect(fetch).not.toHaveBeenCalled();
+    expect(screen.getByText("Ditt svar och tidigare stödsignaler skickas till OpenAI")).toBeInTheDocument();
 
     await user.type(screen.getByRole("textbox", { name: "Ditt svar" }), "Tes, argument och avslutning hjälper läsaren.");
     await user.click(screen.getByRole("button", { name: "Svara" }));
@@ -37,9 +45,9 @@ describe("chapter exit ticket", () => {
       focus: string;
     };
     expect(request).toMatchObject({
-      question: lessons[0].exitTicket[0].question,
+      question: lessons[0].exitTicket?.[0].question,
       answer: "Tes, argument och avslutning hjälper läsaren.",
-      focus: lessons[0].exitTicket[0].focus,
+      focus: lessons[0].exitTicket?.[0].focus,
     });
 
     await user.click(screen.getByRole("button", { name: "Nästa fråga" }));

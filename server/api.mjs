@@ -50,7 +50,21 @@ const checkInSchema = {
   required: ["kind", "feedback"],
 };
 
+const exampleSchema = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    needsWork: { type: "string" },
+    developed: { type: "string" },
+    question: { type: "string" },
+  },
+  required: ["needsWork", "developed", "question"],
+};
+
 const categories = new Set(["structure", "reasoning", "cohesion", "sentence", "language"]);
+const evidenceStatuses = new Set(["independent", "supported", "needs_support"]);
+const interestIds = new Set(["animals", "sports", "music", "technology", "community"]);
+const difficultyRatings = new Set(["too_easy", "about_right", "too_hard"]);
 const maxRequestsPerMinute = 12;
 
 class ModelOutputError extends Error {
@@ -154,6 +168,7 @@ function validateReviewResult(result, draft) {
       quote: draft.slice(range.start, range.end),
       title: item.title,
       message: item.comment,
+      category: item.category,
     });
   }
 
@@ -191,6 +206,98 @@ function parseModelJson(content) {
 
 function validateText(value, maxLength) {
   return typeof value === "string" && value.trim().length > 0 && value.length <= maxLength;
+}
+
+function validateLearningContext(value) {
+  if (value === undefined) return true;
+  if (
+    !value ||
+    typeof value !== "object" ||
+    Array.isArray(value) ||
+    !Number.isInteger(value.attempt) ||
+    value.attempt < 1 ||
+    value.attempt > 10 ||
+    ![0, 1, 2].includes(value.supportLevel) ||
+    !Array.isArray(value.priorEvidence) ||
+    value.priorEvidence.length > categories.size
+  ) {
+    return false;
+  }
+
+  const seenSkills = new Set();
+  return value.priorEvidence.every((item) => {
+    const hasSummary = ["observations", "independent", "supported", "needsSupport"]
+      .some((key) => Object.hasOwn(item ?? {}, key));
+    const validSummary = !hasSummary || (
+      Number.isInteger(item.observations) &&
+      item.observations > 0 &&
+      item.observations <= 1_000 &&
+      Number.isInteger(item.independent) &&
+      Number.isInteger(item.supported) &&
+      Number.isInteger(item.needsSupport) &&
+      item.independent >= 0 &&
+      item.supported >= 0 &&
+      item.needsSupport >= 0 &&
+      item.observations === item.independent + item.supported + item.needsSupport
+    );
+    const validSelfReport = !Object.hasOwn(item ?? {}, "selfReport") ||
+      item.selfReport === null ||
+      difficultyRatings.has(item.selfReport);
+    if (
+      !item ||
+      typeof item !== "object" ||
+      !categories.has(item.skillId) ||
+      !evidenceStatuses.has(item.evidence) ||
+      seenSkills.has(item.skillId) ||
+      !validSummary ||
+      !validSelfReport
+    ) {
+      return false;
+    }
+
+    seenSkills.add(item.skillId);
+    return true;
+  });
+}
+
+function validateExampleRequest(value) {
+  if (
+    !value ||
+    !categories.has(value.skillId) ||
+    !validateText(value.lessonTitle, 120) ||
+    !validateText(value.goal, 600) ||
+    !(value.interest === null || interestIds.has(value.interest)) ||
+    !Number.isInteger(value.supportLevel) ||
+    value.supportLevel < 0 ||
+    value.supportLevel > 2 ||
+    !Array.isArray(value.evidence) ||
+    value.evidence.length > categories.size
+  ) {
+    return false;
+  }
+
+  const seen = new Set();
+  return value.evidence.every((item) => {
+    if (
+      !item ||
+      !categories.has(item.skillId) ||
+      seen.has(item.skillId) ||
+      !evidenceStatuses.has(item.latest) ||
+      !Number.isInteger(item.observations) ||
+      item.observations < 1 ||
+      item.observations > 1_000 ||
+      !Number.isInteger(item.independent) ||
+      !Number.isInteger(item.supported) ||
+      !Number.isInteger(item.needsSupport) ||
+      !(item.selfReport === null || difficultyRatings.has(item.selfReport)) ||
+      item.independent < 0 ||
+      item.supported < 0 ||
+      item.needsSupport < 0 ||
+      item.observations !== item.independent + item.supported + item.needsSupport
+    ) return false;
+    seen.add(item.skillId);
+    return true;
+  });
 }
 
 function createRateLimiter() {
@@ -334,6 +441,7 @@ export function createApiApp(options = {}) {
               "Skriv aldrig om, färdigställ eller ersätt elevens text. Ge ingen ersättningsmening.",
               "Ge återkoppling i fyra delar: spegla lektionsmålet, lyft en specifik framgång med ett ordagrant citat, peka ut vad eleven kan utveckla genom högst tre frågor kopplade till textspann, och formulera ett konkret nästa steg som en öppen fråga.",
               "Framgången måste ha stöd i den citerade elevtexten. Om ingen tydlig styrka finns, beskriv sakligt vad eleven redan har påbörjat utan överdrivet beröm.",
+              "När lessonTitle gäller slutdiagnosen, var särskilt uppmuntrande och generös med konkret beröm för det som faktiskt fungerar i texten. Knyt berömmet till citatet och undvik överdrifter eller betyg.",
               "Välj högst tre konkreta, relevanta förbättringspunkter som eleven själv kan undersöka.",
               "Prioritera återkoppling som passar det aktuella lektionsmålet och fasen.",
               "Kopiera varje kort citat ordagrant från elevtexten; hitta inte på en sammanfattning eller exempeltext.",
@@ -364,14 +472,15 @@ export function createApiApp(options = {}) {
   });
 
   app.post("/api/check-in", async (req, res) => {
-    const { mode, question, answer, focus, isCorrect } = req.body ?? {};
+    const { mode, question, answer, focus, isCorrect, learningContext } = req.body ?? {};
 
     if (
       !["choice", "text"].includes(mode) ||
       !validateText(question, 500) ||
       !validateText(answer, 2_000) ||
       !validateText(focus, 300) ||
-      (mode === "choice" && typeof isCorrect !== "boolean")
+      (mode === "choice" && typeof isCorrect !== "boolean") ||
+      !validateLearningContext(learningContext)
     ) {
       return res.status(400).json({ error: "Svaret kunde inte skickas eftersom underlaget är ogiltigt." });
     }
@@ -392,12 +501,20 @@ export function createApiApp(options = {}) {
               "Ge en kort återkoppling på svenska som hjälper eleven att tänka vidare och avsluta med en coachande fråga.",
               "Vid flervalsfråga måste kind följa isCorrect. Om svaret är fel, ställ en ledande fråga utan att avslöja rätt alternativ.",
               "Vid fritext: bedöm om svaret verkar beröra fokus, inte stavning. Var varsam med korta eller alternativa formuleringar.",
+              "Använd learningContext enbart för att anpassa nästa steg: tidigare evidens, antal observationer och elevens frivilliga självskattning av svårighet är försiktiga signaler, inte en elevnivå, diagnos eller ett betyg. Återkommande behov av stöd eller självrapporterat svårt motiverar ett mindre delsteg; flera självständiga observationer eller självrapporterat lätt kan motivera en mer utmanande tillämpning. Väg signalerna varsamt mot varandra. Vid tidigare behov av stöd, hjälp eleven att återkalla en liten förkunskap. Om stöd redan använts, byt till en enklare fråga eller hänvisa till det lärargranskade exemplet. Ge aldrig en färdig elevformulering.",
               "Inget betyg. Högst två korta meningar.",
             ].join(" "),
           },
           {
             role: "user",
-            content: JSON.stringify({ mode, question, answer, focus, isCorrect: mode === "choice" ? isCorrect : null }),
+            content: JSON.stringify({
+              mode,
+              question,
+              answer,
+              focus,
+              isCorrect: mode === "choice" ? isCorrect : null,
+              learningContext: learningContext ?? null,
+            }),
           },
         ],
         response_format: {
@@ -423,6 +540,70 @@ export function createApiApp(options = {}) {
     } catch (error) {
       return res.status(502).json({
         error: reportModelFailure("OpenAI avstämning misslyckades", error),
+      });
+    }
+  });
+
+  app.post("/api/example", async (req, res) => {
+    const request = req.body ?? {};
+    if (!validateExampleRequest(request)) {
+      return res.status(400).json({ error: "Exempelunderlaget är ogiltigt." });
+    }
+
+    if (!client) return res.status(503).json({ error: "AI-tjänsten är inte konfigurerad på servern." });
+
+    try {
+      const completion = await client.chat.completions.create({
+        model: process.env.OPENAI_MODEL || "gpt-4o-mini",
+        max_completion_tokens: 500,
+        messages: [
+          {
+            role: "system",
+            content: [
+              "Skapa två korta, helt påhittade elevexempel på svenska för en skrivcoach i årskurs 9.",
+              "Exemplen ska visa samma färdighet: ett mindre utvecklat exempel och ett tydligare, mer utvecklat exempel.",
+              "Använd intresset enbart som en vardaglig ämneskontext; dra inga slutsatser om eleven och nämn inte att eleven har en profil.",
+              "Väg in elevens frivilliga svårighetsskattning varsamt när du väljer komplexitet, men behandla den inte som en kognitiv diagnos eller säker kunskapsnivå.",
+              "Anpassa komplexiteten till supportLevel: 0 konkret och grundläggande, 1 tydlig standardnivå, 2 mer utvecklat med en ytterligare koppling.",
+              "Exemplen ska vara korta (högst två meningar vardera), inte utgöra en hel text och inte vara färdiga formuleringar som kan klistras in i elevens utkast.",
+              "Använd inte elevtext; ingen elevtext har skickats. Följ skillId, lessonTitle och goal utan att hitta på bedömningskriterier.",
+              "Svara på svenska. question ska vara en kort fråga som hjälper eleven att jämföra exemplen.",
+            ].join(" "),
+          },
+          {
+            role: "user",
+            content: JSON.stringify(request),
+          },
+        ],
+        response_format: {
+          type: "json_schema",
+          json_schema: { name: "personalized_writing_examples", strict: true, schema: exampleSchema },
+        },
+      });
+
+      const result = readModelText(completion);
+      if (
+        typeof result.needsWork !== "string" ||
+        result.needsWork.trim().length === 0 ||
+        result.needsWork.length > 240 ||
+        typeof result.developed !== "string" ||
+        result.developed.trim().length === 0 ||
+        result.developed.length > 320 ||
+        typeof result.question !== "string" ||
+        result.question.trim().length === 0 ||
+        result.question.length > 180
+      ) {
+        throw new ModelOutputError("invalid_example");
+      }
+
+      return res.json({
+        needsWork: result.needsWork,
+        developed: result.developed,
+        question: result.question,
+      });
+    } catch (error) {
+      return res.status(502).json({
+        error: reportModelFailure("OpenAI-exempel kunde inte skapas", error),
       });
     }
   });

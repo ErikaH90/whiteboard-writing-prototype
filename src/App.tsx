@@ -1,9 +1,39 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import FinalRecall from "./components/FinalRecall";
+import DemoTeacherInbox from "./components/DemoTeacherInbox";
+import LessonEntryCheck from "./components/LessonEntryCheck";
 import LessonCheckIn from "./components/LessonCheckIn";
-import { lessons, phases } from "./data/lessons";
-import { reviewDraft, type Finding, type ReviewFeedback } from "./lib/coachApi";
+import { finalRecallQuestions, lessons, phases, type LearningEvidence, type SkillId } from "./data/lessons";
+import {
+  generatePersonalizedExample,
+  reviewDraft,
+  type Finding,
+  type PersonalizedExample,
+  type ReviewFeedback,
+} from "./lib/coachApi";
+import {
+  clearLearnerProfile,
+  emptyLearnerProfile,
+  getEvidenceSummaries,
+  getLatestEvidence,
+  interestOptions,
+  readLearnerProfile,
+  recordEvidence as appendEvidence,
+  recordDifficulty as saveDifficultyRating,
+  writeLearnerProfile,
+  type DifficultyRating,
+  type InterestId,
+  type LearnerProfile,
+} from "./lib/learnerProfile";
+import {
+  clearDemoSubmissions,
+  readDemoSubmissions,
+  saveDemoSubmission,
+  type DemoSubmission,
+} from "./lib/demoSubmissions";
 
 const storageKey = "skrivcoach-argumenterande-draft";
+const diagnosisPrompt = "Ta ställning: Borde ungdomar få åka gratis med kollektivtrafiken i sin kommun?";
 
 function readSavedDraft(): { draft: string; error: boolean } {
   try {
@@ -17,7 +47,30 @@ function App() {
   const [lessonIndex, setLessonIndex] = useState(0);
   const [phaseIndex, setPhaseIndex] = useState(0);
   const [savedDraft] = useState(readSavedDraft);
+  const [savedLearnerProfile] = useState(() => {
+    try {
+      return readLearnerProfile(window.localStorage);
+    } catch {
+      return { profile: emptyLearnerProfile, error: true };
+    }
+  });
   const [draft, setDraft] = useState(savedDraft.draft);
+  const [diagnosisDraft, setDiagnosisDraft] = useState("");
+  const [isDiagnosisSubmitted, setIsDiagnosisSubmitted] = useState(false);
+  const [teacherSubmissionId, setTeacherSubmissionId] = useState<string | null>(null);
+  const [demoSubmissions, setDemoSubmissions] = useState<DemoSubmission[]>([]);
+  const [showTeacherInbox, setShowTeacherInbox] = useState(false);
+  const [submissionError, setSubmissionError] = useState<string | null>(null);
+  const [learnerProfile, setLearnerProfile] = useState<LearnerProfile>(savedLearnerProfile.profile);
+  const [profileLoadError, setProfileLoadError] = useState(savedLearnerProfile.error);
+  const [profileSaveError, setProfileSaveError] = useState(false);
+  const [personalizedExample, setPersonalizedExample] = useState<PersonalizedExample | null>(null);
+  const [exampleLoading, setExampleLoading] = useState(false);
+  const [exampleError, setExampleError] = useState<string | null>(null);
+  const [completedEntryLessons, setCompletedEntryLessons] = useState<number[]>([]);
+  const [showFinalRecall, setShowFinalRecall] = useState(false);
+  const [finalRecallIndex, setFinalRecallIndex] = useState(0);
+  const [finalRecallAnswers, setFinalRecallAnswers] = useState<string[]>([]);
   const editorRef = useRef<HTMLTextAreaElement>(null);
   const editorWrapRef = useRef<HTMLDivElement>(null);
   const findingButtonsRef = useRef(new Map<string, HTMLButtonElement>());
@@ -35,9 +88,21 @@ function App() {
 
   const lesson = lessons[lessonIndex];
   const phase = phases[phaseIndex];
+  const learningEvidence = getLatestEvidence(learnerProfile);
+  const priorEvidence = getEvidenceSummaries(learnerProfile).map(({ skillId, latest, ...summary }) => ({
+    skillId,
+    evidence: latest,
+    ...summary,
+  }));
+  const isFinalDiagnosis = lessonIndex === lessons.length - 1 && phaseIndex === phases.length - 1 && !showFinalRecall;
+  const isFinalRecall = showFinalRecall;
+  const hasCompletedEntry = completedEntryLessons.includes(lessonIndex);
+  const activeDraft = isFinalDiagnosis ? diagnosisDraft : draft;
   const findings = reviewFeedback?.findings ?? null;
-  const activeCycleStep = reviewLoading || reviewError ? 2 : reviewFeedback ? 3 : 1;
-  const wordCount = useMemo(() => draft.trim().split(/\s+/).filter(Boolean).length, [draft]);
+  const wordCount = useMemo(() => activeDraft.trim().split(/\s+/).filter(Boolean).length, [activeDraft]);
+  const recommendedLessonIndex = reviewFeedback?.findings.length
+    ? lessons.findIndex((item) => item.skillIds.includes(reviewFeedback.findings[0].category))
+    : -1;
 
   useEffect(() => {
     try {
@@ -48,14 +113,27 @@ function App() {
     }
   }, [draft]);
 
+  useEffect(() => {
+    if (profileLoadError) return;
+    try {
+      setProfileSaveError(!writeLearnerProfile(window.localStorage, learnerProfile));
+    } catch {
+      setProfileSaveError(true);
+    }
+  }, [learnerProfile, profileLoadError]);
+
   function updateDraft(value: string) {
     reviewRequestId.current += 1;
-    setDraft(value);
+    if (isFinalDiagnosis) setDiagnosisDraft(value);
+    else setDraft(value);
     setReviewFeedback(null);
     setActiveFinding(null);
     setIsRevising(false);
     setReviewError(null);
     setReviewLoading(false);
+    setIsDiagnosisSubmitted(false);
+    setTeacherSubmissionId(null);
+    setSubmissionError(null);
   }
 
   function selectLesson(index: number) {
@@ -69,9 +147,27 @@ function App() {
     setIsRevising(false);
     setReviewError(null);
     setReviewLoading(false);
+    setIsDiagnosisSubmitted(false);
+    setTeacherSubmissionId(null);
+    setSubmissionError(null);
+    setShowFinalRecall(false);
+    setPersonalizedExample(null);
+    setExampleError(null);
   }
 
   function movePhase(index: number) {
+    if (lessonIndex === lessons.length - 1 && index === phases.length - 1 && !showFinalRecall) {
+      reviewRequestId.current += 1;
+      setShowFinalRecall(true);
+      setFinalRecallIndex(0);
+      setFinalRecallAnswers([]);
+      setReviewFeedback(null);
+      setReviewError(null);
+      setReviewLoading(false);
+      setActiveFinding(null);
+      return;
+    }
+
     reviewRequestId.current += 1;
     setPhaseIndex(index);
     setShowHint(false);
@@ -81,11 +177,151 @@ function App() {
     setIsRevising(false);
     setReviewError(null);
     setReviewLoading(false);
+    setIsDiagnosisSubmitted(false);
+    setTeacherSubmissionId(null);
+    setSubmissionError(null);
+    setShowFinalRecall(false);
+  }
+
+  function recordEvidence(skillIds: SkillId[], evidence: LearningEvidence) {
+    setLearnerProfile((current) => appendEvidence(current, skillIds, evidence));
+  }
+
+  function recordDifficulty(skillIds: SkillId[], rating: DifficultyRating) {
+    setLearnerProfile((current) => saveDifficultyRating(current, skillIds, rating));
+  }
+
+  function setInterest(value: InterestId | null) {
+    setLearnerProfile((current) => ({ ...current, interest: value }));
+    setPersonalizedExample(null);
+    setExampleError(null);
+  }
+
+  async function createPersonalizedExample() {
+    setExampleError(null);
+    setExampleLoading(true);
+    try {
+      const currentEvidence = learnerProfile.evidence[lesson.skillIds[0]];
+      const currentDifficulty = learnerProfile.difficulty[lesson.skillIds[0]];
+      const supportLevel = currentEvidence?.latest === "needs_support" || currentDifficulty === "too_hard"
+        ? 0
+        : currentDifficulty === "too_easy" || currentEvidence?.latest === "independent" && currentEvidence.independent >= 2
+          ? 2
+          : 1;
+      const result = await generatePersonalizedExample({
+        skillId: lesson.skillIds[0],
+        lessonTitle: lesson.title,
+        goal: lesson.goal,
+        interest: learnerProfile.interest,
+        supportLevel,
+        evidence: getEvidenceSummaries(learnerProfile),
+      });
+      setPersonalizedExample(result);
+    } catch (error) {
+      setExampleError(error instanceof Error ? error.message : "Det anpassade exemplet kunde inte skapas.");
+    } finally {
+      setExampleLoading(false);
+    }
+  }
+
+  function completeEntryCheck() {
+    setCompletedEntryLessons((current) => current.includes(lessonIndex) ? current : [...current, lessonIndex]);
+  }
+
+  const entryDifficultyRating = lesson.entryCheck.skillIds
+    .map((skillId) => learnerProfile.difficulty[skillId])
+    .find((rating) => rating !== undefined) ?? null;
+
+  function startFinalDiagnosis() {
+    reviewRequestId.current += 1;
+    setDiagnosisDraft("");
+    setShowFinalRecall(false);
+    setPhaseIndex(phases.length - 1);
+    setReviewFeedback(null);
+    setReviewError(null);
+    setReviewLoading(false);
+    setActiveFinding(null);
+    setIsDiagnosisSubmitted(false);
+    setTeacherSubmissionId(null);
+    setSubmissionError(null);
+  }
+
+  function markDiagnosisComplete() {
+    setReviewFeedback(null);
+    setReviewError(null);
+    setActiveFinding(null);
+    setIsDiagnosisSubmitted(true);
+  }
+
+  function submitDiagnosisToTeacher() {
+    setSubmissionError(null);
+    try {
+      const result = saveDemoSubmission(
+        window.localStorage,
+        diagnosisDraft,
+        diagnosisPrompt,
+        reviewFeedback,
+      );
+      const submission = result.submission;
+      if (result.error || !submission) {
+        setSubmissionError("Den lokala demo-inlämningen kunde inte sparas. Kontrollera webbläsarens lagring och försök igen.");
+        return;
+      }
+
+      setTeacherSubmissionId(submission.id);
+      setDemoSubmissions((current) => [...current, submission]);
+    } catch {
+      setSubmissionError("Den lokala demo-inlämningen kunde inte sparas. Kontrollera webbläsarens lagring och försök igen.");
+    }
+  }
+
+  function openTeacherInbox() {
+    try {
+      const result = readDemoSubmissions(window.localStorage);
+      if (result.error) {
+        setSubmissionError("Den lokala lärarvyn kunde inte läsa demo-inlämningarna.");
+        return;
+      }
+      setDemoSubmissions(result.submissions);
+      setShowTeacherInbox(true);
+      setSubmissionError(null);
+    } catch {
+      setSubmissionError("Den lokala lärarvyn kunde inte läsa demo-inlämningarna.");
+    }
+  }
+
+  function clearTeacherInbox() {
+    try {
+      if (!clearDemoSubmissions(window.localStorage)) {
+        setSubmissionError("Demo-inlämningarna kunde inte rensas från webbläsaren.");
+        return;
+      }
+    } catch {
+      setSubmissionError("Demo-inlämningarna kunde inte rensas från webbläsaren.");
+      return;
+    }
+    setDemoSubmissions([]);
+    setTeacherSubmissionId(null);
+    setSubmissionError(null);
+  }
+
+  function resetLearnerProfile() {
+    try {
+      if (!clearLearnerProfile(window.localStorage)) {
+        setProfileSaveError(true);
+        return;
+      }
+      setLearnerProfile(emptyLearnerProfile);
+      setProfileLoadError(false);
+      setProfileSaveError(false);
+    } catch {
+      setProfileSaveError(true);
+    }
   }
 
   async function runReview() {
     const requestId = ++reviewRequestId.current;
-    const reviewedDraft = draft;
+    const reviewedDraft = activeDraft;
     const reviewedLesson = lesson;
     const reviewedPhase = phase;
     setReviewLoading(true);
@@ -104,6 +340,7 @@ function App() {
       });
       if (reviewRequestId.current !== requestId) return;
       setReviewFeedback(result);
+      if (isFinalDiagnosis) setTeacherSubmissionId(null);
     } catch (error) {
       if (reviewRequestId.current !== requestId) return;
       setReviewError(error instanceof Error ? error.message : "AI-granskningen misslyckades. Försök igen.");
@@ -148,62 +385,89 @@ function App() {
 
   return (
     <main className="app-shell">
-      <header className="topbar">
-        <div className="topbar-main">
-          <h1 className="page-title">Argumenterande text</h1>
-          <div className="lesson-counter">
-            <span className="status-dot" />
-            <span>Moment {lessonIndex + 1} av {lessons.length}</span>
-          </div>
-        </div>
-
-        <nav className="lesson-progress" aria-label="Lektionens moment">
-          {lessons.map((item, index) => (
-            <button
-              className={`lesson-chip ${index === lessonIndex ? "is-current" : ""} ${index < lessonIndex ? "is-complete" : ""}`}
-              key={item.shortTitle}
-              onClick={() => selectLesson(index)}
-              aria-current={index === lessonIndex ? "step" : undefined}
-              title={item.title}
-            >
-              <span className="chip-number">{index < lessonIndex ? "✓" : index + 1}</span>
-              <span>{item.shortTitle}</span>
-            </button>
-          ))}
-        </nav>
-      </header>
-
-      <section className="phase-track" aria-label="Lektionssteg">
-        <span className="phase-label">DEL {lessonIndex + 1}: {lesson.shortTitle.toUpperCase()}</span>
-        <div className="phase-list">
-          {phases.map((item, index) => (
-            <div className="phase-item-wrap" key={item}>
-              <button
-                className={`phase-chip ${index === phaseIndex ? "is-current" : ""} ${index < phaseIndex ? "is-done" : ""}`}
-                onClick={() => movePhase(index)}
-                aria-current={index === phaseIndex ? "step" : undefined}
+      {!isFinalDiagnosis && !isFinalRecall && (
+        <header className="topbar">
+          <div className="topbar-main">
+            <h1 className="page-title">Argumenterande text</h1>
+            <label className="interest-control">
+              <span>Exempelämne</span>
+              <select
+                aria-label="Välj intresse för exempel"
+                value={learnerProfile.interest ?? ""}
+                onChange={(event) => setInterest(
+                  interestOptions.find((option) => option.value === event.currentTarget.value)?.value ?? null,
+                )}
               >
-                {item}
-              </button>
-              {index < phases.length - 1 && <span className="phase-arrow" aria-hidden="true">›</span>}
-            </div>
-          ))}
-        </div>
-      </section>
+                <option value="">Ingen särskild preferens</option>
+                {interestOptions.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </label>
+          </div>
 
-      <section className="workspace-grid" aria-label="Skrivcoachens arbetsyta">
-        <section className="board-frame" aria-labelledby="board-title">
+          <nav className="lesson-progress" aria-label="Lektionens moment">
+            {lessons.map((item, index) => (
+              <button
+                className={`lesson-chip ${index === lessonIndex ? "is-current" : ""} ${index < lessonIndex ? "is-complete" : ""}`}
+                key={item.shortTitle}
+                onClick={() => selectLesson(index)}
+                aria-current={index === lessonIndex ? "step" : undefined}
+                title={item.title}
+              >
+                <span className="chip-number">{index < lessonIndex ? "✓" : index + 1}</span>
+                <span>{item.shortTitle}</span>
+              </button>
+            ))}
+          </nav>
+        </header>
+      )}
+
+      <section
+        className={`workspace-grid ${isFinalDiagnosis ? "is-final-diagnosis" : ""} ${isFinalRecall ? "is-final-recall" : ""}`}
+        aria-label={isFinalDiagnosis ? "Slutdiagnos" : isFinalRecall ? "Återkallning inför slutdiagnos" : "Skrivcoachens arbetsyta"}
+      >
+        {!isFinalDiagnosis && <section
+          className="board-frame"
+          aria-label={isFinalRecall
+            ? "Återkallning inför slutdiagnos"
+            : hasCompletedEntry
+              ? `Whiteboard för ${lesson.shortTitle}. Aktivt steg: ${phase}.`
+              : `Startfråga inför ${lesson.shortTitle}`}
+        >
           <span className="frame-corner corner-top-left" aria-hidden="true" />
           <span className="frame-corner corner-top-right" aria-hidden="true" />
           <span className="frame-corner corner-bottom-left" aria-hidden="true" />
           <span className="frame-corner corner-bottom-right" aria-hidden="true" />
           <div className="board-surface">
-            <div className="board-progress-track" aria-label={`Del ${lessonIndex + 1} av ${lessons.length}`}>
-              <span style={{ width: `${((lessonIndex + 1) / lessons.length) * 100}%` }} />
-            </div>
             <div className="board-content">
+              {isFinalRecall ? (
+                <FinalRecall
+                  index={finalRecallIndex}
+                  answers={finalRecallAnswers}
+                  onAnswer={(index, answer) => setFinalRecallAnswers((current) => {
+                    const next = [...current];
+                    next[index] = answer;
+                    return next;
+                  })}
+                  onPrevious={() => setFinalRecallIndex((current) => Math.max(0, current - 1))}
+                  onNext={() => setFinalRecallIndex((current) => Math.min(finalRecallQuestions.length - 1, current + 1))}
+                  onComplete={startFinalDiagnosis}
+                />
+              ) : !hasCompletedEntry ? (
+                <LessonEntryCheck
+                  key={lessonIndex}
+                  lesson={lesson}
+                  learningEvidence={learningEvidence}
+                  priorEvidence={priorEvidence}
+                  difficultyRating={entryDifficultyRating}
+                  onEvidence={recordEvidence}
+                  onDifficulty={recordDifficulty}
+                  onComplete={completeEntryCheck}
+                />
+              ) : (
+                <>
               <p className="board-kicker">DEL {lessonIndex + 1}: {lesson.shortTitle.toUpperCase()}</p>
-              <h2 id="board-title">{phase}</h2>
               <p className="board-goal"><strong>Mål:</strong> {lesson.goal}</p>
               <div className="board-divider" />
               {phaseIndex === 0 && (
@@ -220,7 +484,28 @@ function App() {
                     </article>
                   </div>
                   <p className="board-question">{lesson.model.question}</p>
-                  <p className="board-small-note">Du kan börja skriva ditt eget utkast till höger redan nu.</p>
+                  <div className="personalized-example-control">
+                    <button className="text-button" disabled={exampleLoading} onClick={createPersonalizedExample} type="button">
+                      {exampleLoading ? "Skapar exempel …" : personalizedExample ? "Skapa ett nytt anpassat exempel" : "Skapa exempel med valt ämne"}
+                    </button>
+                    <p className="board-small-note">
+                      Skickar lektionsmål, valt ämne och sammanfattade lärsignaler till OpenAI – inte din text.
+                    </p>
+                    {exampleError && <p className="check-in-error" role="alert">{exampleError}</p>}
+                    {personalizedExample && (
+                      <div className="example-pair personalized-example-pair">
+                        <article className="example-card example-needs-work">
+                          <span className="example-label">MINDRE UTVECKLAT</span>
+                          <p>{personalizedExample.needsWork}</p>
+                        </article>
+                        <article className="example-card example-strong">
+                          <span className="example-label">MER UTVECKLAT</span>
+                          <p>{personalizedExample.developed}</p>
+                        </article>
+                        <p className="board-question">{personalizedExample.question}</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
               {phaseIndex === 1 && (
@@ -231,7 +516,6 @@ function App() {
                   <button className="text-button" onClick={() => setShowHint((visible) => !visible)}>
                     {showHint ? "Dölj ledtråd" : "Visa en ledtråd"}
                   </button>
-                  <p className="board-small-note">Skriv i din egen textyta till höger.</p>
                 </div>
               )}
               {phaseIndex === 2 && (
@@ -268,7 +552,13 @@ function App() {
                   <p className="board-small-note">Använd kriterierna när du granskar ditt utkast till höger.</p>
                 </div>
               )}
-              <LessonCheckIn key={`${lessonIndex}-${phaseIndex}`} lesson={lesson} phaseIndex={phaseIndex} />
+              <LessonCheckIn
+                key={`${lessonIndex}-${phaseIndex}`}
+                lesson={lesson}
+                phaseIndex={phaseIndex}
+                priorEvidence={priorEvidence}
+                onEvidence={recordEvidence}
+              />
               <div className="board-footer">
                 <div className="phase-controls">
                   <button className="quiet-button" onClick={() => movePhase(Math.max(0, phaseIndex - 1))} disabled={phaseIndex === 0}>Tillbaka</button>
@@ -279,42 +569,86 @@ function App() {
                   ) : <span className="finish-label">Sista momentet</span>}
                 </div>
               </div>
+                </>
+              )}
             </div>
           </div>
-        </section>
+        </section>}
 
-        <section className="writing-card" aria-label="Elevens skrivyta">
+        {!isFinalRecall && <section className={`writing-card ${isFinalDiagnosis ? "final-diagnosis-card" : ""}`} aria-label={isFinalDiagnosis ? "Slutdiagnosens skrivyta" : "Elevens skrivyta"}>
           <div className="writing-prompt">
-            <span className="prompt-label">SKRIVUPPGIFT</span>
-            <p>Ta ställning: Borde skoldagen börja senare för elever i högstadiet?</p>
+            {isFinalDiagnosis
+              ? <h1 className="prompt-label">SLUTDIAGNOS</h1>
+              : <span className="prompt-label">SKRIVUPPGIFT</span>}
+            <p>{isFinalDiagnosis ? diagnosisPrompt : "Ta ställning: Borde skoldagen börja senare för elever i högstadiet?"}</p>
+            {isFinalDiagnosis && (
+              <p className="demo-teacher-warning">
+                Lokal prototyp: använd endast syntetisk text. Inlämning visas i demolärarvyn på samma webbläsare.
+              </p>
+            )}
           </div>
-
-          <ol className="formative-cycle" aria-label="Formativ arbetsgång">
-            {["Producera", "Få återkoppling", "Revidera"].map((step, index) => {
-              const stepNumber = index + 1;
-              return (
-                <li
-                  className={`formative-cycle-step ${stepNumber < activeCycleStep ? "is-complete" : ""} ${stepNumber === activeCycleStep ? "is-current" : ""}`}
-                  key={step}
-                  aria-current={stepNumber === activeCycleStep ? "step" : undefined}
-                >
-                  <span>{stepNumber}</span>
-                  {step}
-                </li>
-              );
-            })}
-          </ol>
 
           <div className="editor-toolbar">
             <div className="editor-status">
               <span className="word-count">{wordCount} ord</span>
-              {saveError && <span className="save-status has-error" role="status">Kunde inte spara lokalt</span>}
+              {saveError && !isFinalDiagnosis && <span className="save-status has-error" role="status">Kunde inte spara lokalt</span>}
+              {(!isFinalDiagnosis || isDiagnosisSubmitted) && <span className="request-disclosure">Utkast skickas till OpenAI</span>}
             </div>
-            <button className="primary-button coach-review-button" onClick={runReview} disabled={!draft.trim() || reviewLoading} type="button">
-              {reviewLoading ? "Tutorn läser …" : reviewFeedback ? "Få ny återkoppling" : "Få återkoppling"}
-            </button>
+            <div className="editor-actions">
+              {isFinalDiagnosis && isDiagnosisSubmitted && (
+                <button
+                  className="quiet-button"
+                  onClick={() => selectLesson(recommendedLessonIndex >= 0 ? recommendedLessonIndex : lessonIndex - 1)}
+                  type="button"
+                >
+                  {recommendedLessonIndex >= 0 ? `Öva vidare på ${lessons[recommendedLessonIndex].shortTitle}` : "Tillbaka till undervisningen"}
+                </button>
+              )}
+              {isFinalDiagnosis && (
+                <button className="quiet-button" onClick={openTeacherInbox} type="button">
+                  Lärarvy (demoläge)
+                </button>
+              )}
+              <button
+                className="primary-button coach-review-button"
+                onClick={isFinalDiagnosis && !isDiagnosisSubmitted ? markDiagnosisComplete : runReview}
+                disabled={!activeDraft.trim() || reviewLoading}
+                type="button"
+              >
+                {isFinalDiagnosis && !isDiagnosisSubmitted
+                  ? "Markera slutdiagnosen som klar"
+                  : reviewLoading
+                    ? "Tutorn läser …"
+                    : reviewFeedback
+                      ? "Få ny återkoppling"
+                      : "Få återkoppling"}
+              </button>
+            </div>
           </div>
-          <p className="ai-privacy-note">När du väljer Få återkoppling skickas utkastet och lektionsfokuset till OpenAI. Du gör själv alla ändringar.</p>
+          {isFinalDiagnosis && isDiagnosisSubmitted && (
+            <div className="diagnosis-handoff">
+              <p className="diagnosis-status" role="status">
+                Slutdiagnosen är markerad som klar. AI-återkoppling är valfri.
+              </p>
+              <p className="demo-teacher-warning">
+                Demoläge: inlämningen sparas i samma webbläsares lärarvy, inte till en verklig lärare. Använd endast syntetisk text.
+                Sluttexten och eventuell AI-återkoppling delas när du väljer att lämna in.
+              </p>
+              {teacherSubmissionId ? (
+                <p className="diagnosis-status" role="status">Inlämnad i den lokala lärarvyn.</p>
+              ) : (
+                <button className="primary-button" onClick={submitDiagnosisToTeacher} type="button">
+                  Lämna in till läraren (demo)
+                </button>
+              )}
+            </div>
+          )}
+          {isFinalDiagnosis && submissionError && <p className="check-in-error" role="alert">{submissionError}</p>}
+          {isFinalDiagnosis && profileLoadError && (
+            <p className="check-in-error" role="alert">
+              Den tidigare demoprofilen kunde inte läsas. Anpassning från tidigare besök är pausad.
+            </p>
+          )}
 
           {reviewLoading && <p className="review-state" role="status">Tutorn läser texten med fokus på {lesson.shortTitle.toLocaleLowerCase("sv")} …</p>}
           {reviewError && <p className="review-error" role="alert">{reviewError}</p>}
@@ -332,6 +666,13 @@ function App() {
                   : "Ingen tydlig förbättringspunkt markerades den här gången."}
               </p>
               <p><strong>Nästa steg</strong>{reviewFeedback.nextStep}</p>
+              {isFinalDiagnosis && <p className="diagnosis-disclaimer">Återkopplingen är vägledande, inte ett officiellt betyg.</p>}
+              {isFinalDiagnosis && recommendedLessonIndex >= 0 && (
+                <p className="diagnosis-recommendation">
+                  <strong>Förslag på fortsatt övning</strong>
+                  {lessons[recommendedLessonIndex].title}
+                </p>
+              )}
             </section>
           )}
           {findings?.length === 0 && <p className="empty-review" role="status">Läs ändå texten själv – AI kan missa saker.</p>}
@@ -340,7 +681,7 @@ function App() {
             <textarea
               ref={editorRef}
               className={`text-editor ${findings?.length ? "has-inline-findings" : ""} ${isRevising ? "is-revising" : ""}`}
-              value={draft}
+              value={activeDraft}
               onChange={(event) => updateDraft(event.target.value)}
               onFocus={() => setActiveFinding(null)}
               onBlur={() => setIsRevising(false)}
@@ -348,7 +689,7 @@ function App() {
                 setEditorScrollTop(event.currentTarget.scrollTop);
                 setActiveFinding(null);
               }}
-              placeholder={"Skriv din rubrik här …\n\nBörja sedan med att presentera din ståndpunkt. Du kan alltid ändra texten senare."}
+              placeholder={isFinalDiagnosis ? "" : "Skriv din rubrik här …\n\nBörja sedan med att presentera din ståndpunkt. Du kan alltid ändra texten senare."}
               aria-label="Din argumenterande text"
               spellCheck
             />
@@ -359,7 +700,7 @@ function App() {
                     const previousEnd = index > 0 ? findings[index - 1].end : 0;
                     return (
                       <Fragment key={finding.id}>
-                        <span aria-hidden="true">{draft.slice(previousEnd, finding.start)}</span>
+                        <span aria-hidden="true">{activeDraft.slice(previousEnd, finding.start)}</span>
                         <button
                           ref={(element) => {
                             if (element) findingButtonsRef.current.set(finding.id, element);
@@ -375,12 +716,12 @@ function App() {
                             if (event.key === "Escape") setActiveFinding(null);
                           }}
                         >
-                          {draft.slice(finding.start, finding.end)}
+                          {activeDraft.slice(finding.start, finding.end)}
                         </button>
                       </Fragment>
                     );
                   })}
-                  <span aria-hidden="true">{draft.slice(findings[findings.length - 1].end)}</span>
+                  <span aria-hidden="true">{activeDraft.slice(findings[findings.length - 1].end)}</span>
                 </div>
                 {activeFinding && (() => {
                   const finding = findings.find((item) => item.id === activeFinding);
@@ -428,12 +769,35 @@ function App() {
               </div>
             )}
           </div>
-        </section>
+          {showTeacherInbox && (
+            <DemoTeacherInbox
+              submissions={demoSubmissions}
+              onClose={() => setShowTeacherInbox(false)}
+              onClear={clearTeacherInbox}
+            />
+          )}
+        </section>}
       </section>
-      <footer className="page-footer">
-        <span>Formativt skrivstöd · Svenska årskurs 9</span>
-        <span>Kursplansanknytning är vägledande, inte ett automatiskt betyg.</span>
-      </footer>
+      {!isFinalDiagnosis && !isFinalRecall && (
+        <footer className="page-footer">
+          <span>DEMO · Använd endast syntetiska elevtexter</span>
+          <span>
+            {profileLoadError
+              ? "Sparad lärprofil kunde inte läsas"
+              : profileSaveError
+                ? "Lärprofilen kunde inte sparas lokalt"
+                : "Lärsignaler och ämnesval sparas lokalt i demoläget"}
+          </span>
+          {profileLoadError && (
+            <button className="text-button" onClick={resetLearnerProfile} type="button">
+              Rensa felaktig demo-profil
+            </button>
+          )}
+          <button className="text-button" onClick={openTeacherInbox} type="button">Lärarvy (demoläge)</button>
+          {submissionError && <span role="alert">{submissionError}</span>}
+          <span>Kursplansanknytning är vägledande, inte ett automatiskt betyg.</span>
+        </footer>
+      )}
     </main>
   );
 }

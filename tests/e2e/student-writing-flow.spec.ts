@@ -1,5 +1,20 @@
 import { expect, test } from "@playwright/test";
 
+async function completeEntry(page: import("@playwright/test").Page, answer = "En tes visar skribentens ståndpunkt.") {
+  await page.getByRole("textbox", { name: "Ditt svar, utan ledtråd" }).fill(answer);
+  await page.getByRole("button", { name: "Svara" }).click();
+  await page.getByRole("button", { name: "Börja momentet" }).click();
+}
+
+async function completeFinalRecall(page: import("@playwright/test").Page) {
+  for (let index = 0; index < 5; index += 1) {
+    await page.getByRole("textbox", { name: "Ditt svar, utan stöd" }).fill(`Syntetiskt återkallningssvar ${index + 1}.`);
+    await page.getByRole("button", {
+      name: index === 4 ? "Starta slutdiagnosen" : "Nästa fråga",
+    }).click();
+  }
+}
+
 test("student can ask for contextual tips while keeping their draft editable", async ({ page }) => {
   await page.route("**/api/review", async (route) => {
     const request = route.request().postDataJSON() as { draft: string };
@@ -25,6 +40,7 @@ test("student can ask for contextual tips while keeping their draft editable", a
           quote,
           title: "Upprepad meningsstart",
           message: "Behöver varje mening börja så?",
+          category: "sentence",
         }],
       }),
     });
@@ -45,8 +61,8 @@ test("student can ask for contextual tips while keeping their draft editable", a
   await page.getByRole("button", { name: /Visa förklaring.*Upprepad meningsstart/ }).click();
   await expect(page.getByRole("dialog", { name: "Förklaring: Upprepad meningsstart" })).toContainText("Behöver varje mening börja så?");
   await expect(editor).toHaveValue(draft);
-  await expect(page.locator(".formative-cycle-step.is-current")).toHaveAttribute("aria-current", "step");
-  await expect(page.locator(".formative-cycle-step.is-current")).toContainText("Revidera");
+  await expect(page.getByText("Utkast skickas till OpenAI")).toBeVisible();
+  await expect(page.getByRole("list", { name: "Formativ arbetsgång" })).toHaveCount(0);
   await expect(page.locator(".feedback-card")).toHaveCount(0);
 
   const quoteStart = draft.indexOf("Jag tycker", "Jag tycker".length);
@@ -76,12 +92,14 @@ test("whiteboard accepts a choice or a written answer and responds", async ({ pa
   });
   await page.goto("/");
 
+  await completeEntry(page);
   await page.getByRole("button", { name: "Skoldagen borde börja senare." }).click();
   await page.getByRole("button", { name: "Svara" }).click();
   await expect(page.getByRole("status")).toContainText("Precis.");
 
   await expect(page.getByRole("textbox", { name: "Ditt svar" })).not.toBeVisible();
-  await page.getByRole("button", { name: "Återkalla utan stöd" }).click();
+  await page.getByRole("button", { name: /Nästa steg/ }).click();
+  await page.getByRole("button", { name: /Nästa steg/ }).click();
   await page.getByRole("textbox", { name: "Ditt svar" }).fill("En tes visar skribentens ståndpunkt.");
   await expect(page.getByRole("group", { name: "Välj ett svar" })).not.toBeVisible();
   await page.getByRole("button", { name: "Svara" }).click();
@@ -97,7 +115,10 @@ test("student completes all five steps of the chapter exit ticket", async ({ pag
     });
   });
   await page.goto("/");
-  await page.getByRole("button", { name: "Slutbedömning" }).click();
+  await completeEntry(page);
+  for (let step = 0; step < 4; step += 1) {
+    await page.getByRole("button", { name: /Nästa steg/ }).click();
+  }
 
   const titles = [
     "Textens övergripande delar",
@@ -117,6 +138,65 @@ test("student completes all five steps of the chapter exit ticket", async ({ pag
 
   await expect(page.getByRole("region", { name: "Exit ticket klar" })).toContainText("Syntetiskt svar 5.");
   await expect(page.getByRole("region", { name: "Exit ticket klar" })).toContainText("Gå tillbaka till första frågan");
+});
+
+test("final diagnosis hides teaching support until completion and offers optional feedback", async ({ page }) => {
+  let reviewRequests = 0;
+  await page.route("**/api/check-in", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ kind: "on_track", feedback: "Du är på rätt spår. Kan du ge ett exempel?" }),
+    });
+  });
+  await page.route("**/api/review", async (route) => {
+    reviewRequests += 1;
+    const request = route.request().postDataJSON() as { draft: string };
+    const quote = request.draft.match(/[\p{L}\p{N}]+/u)?.[0] ?? "";
+    const start = request.draft.indexOf(quote);
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        success: { start, end: start + quote.length, quote, message: "Du uttrycker en tydlig tanke." },
+        nextStep: "Vilket exempel kan hjälpa läsaren att förstå din tanke?",
+        findings: [],
+      }),
+    });
+  });
+  await page.goto("/");
+
+  await page.getByRole("textbox", { name: "Din argumenterande text" }).fill("Träningsutkast som inte ska följa med till diagnosen.");
+  await page.getByRole("button", { name: /Slutdiagnos/ }).click();
+  await completeEntry(page, "Jag kontrollerar meningsgränser.");
+  for (let step = 0; step < 4; step += 1) {
+    await page.getByRole("button", { name: /Nästa steg/ }).click();
+  }
+
+  await expect(page.getByRole("heading", { name: "Struktur" })).toBeVisible();
+  await expect(page.getByText("Svaren stannar i den här sessionen och skickas inte till AI.")).toBeVisible();
+  await completeFinalRecall(page);
+
+  await expect(page.getByRole("region", { name: /Whiteboard/ })).toHaveCount(0);
+  await expect(page.getByRole("navigation", { name: "Lektionens moment" })).toHaveCount(0);
+  await expect(page.getByText("Språkliga normer")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Få återkoppling" })).toHaveCount(0);
+
+  const editor = page.getByRole("textbox", { name: "Din argumenterande text" });
+  await expect(editor).toHaveValue("");
+  await editor.fill("Ungdomar borde få åka gratis eftersom det kan göra fler aktiviteter möjliga.");
+  await expect(page.getByText("Ta ställning: Borde ungdomar få åka gratis med kollektivtrafiken i sin kommun?")).toBeVisible();
+  const workspace = await page.locator(".workspace-grid").boundingBox();
+  const writingCard = await page.locator(".writing-card").boundingBox();
+  expect(workspace).not.toBeNull();
+  expect(writingCard).not.toBeNull();
+  expect(writingCard!.width).toBeCloseTo(workspace!.width, 0);
+  await page.getByRole("button", { name: "Markera slutdiagnosen som klar" }).click();
+
+  expect(reviewRequests).toBe(0);
+  await page.getByRole("button", { name: "Få återkoppling" }).click();
+  await expect(page.getByRole("region", { name: "Återkoppling på ditt utkast" })).toBeVisible();
+  expect(reviewRequests).toBe(1);
 });
 
 test("board uses 45 percent on desktop and stacks on narrow screens", async ({ page }) => {

@@ -36,7 +36,11 @@ function reviewModelResult(successQuote: string, findings: unknown[] = []) {
       message: "Du uttrycker din ståndpunkt tydligt.",
     },
     nextStep: "Vilket exempel kan hjälpa dig att utveckla resonemanget?",
-    findings,
+    findings: findings.map((item) => {
+      if (!item || typeof item !== "object" || Array.isArray(item)) return item;
+      const finding = item as Record<string, unknown>;
+      return { ...finding, category: finding.category ?? "structure" };
+    }),
   };
 }
 
@@ -100,9 +104,62 @@ describe("server AI API", () => {
         quote: "tes",
         title: "Undersök upprepningen",
         message: "Behöver den här formuleringen upprepas?",
+        category: "structure",
       }],
     });
     expect(draft.slice(result.body.findings[0].start, result.body.findings[0].end)).toBe("tes");
+  });
+
+  it("creates a fictional personalized example without sending student text", async () => {
+    const client = mockClient({
+      needsWork: "Skoldagen ska börja senare.",
+      developed: "En senare start kan ge fler elever tid att resa till skolan utan stress.",
+      question: "Vilken förklaring gör det andra exemplet tydligare?",
+    });
+    const result = await post(createApiApp({ client }), "/api/example", {
+      skillId: "reasoning",
+      lessonTitle: "Resonemang",
+      goal: "Utveckla skäl med förklaringar.",
+      interest: "sports",
+      supportLevel: 1,
+      evidence: [{
+        skillId: "structure",
+        latest: "independent",
+        observations: 2,
+        independent: 2,
+        supported: 0,
+        needsSupport: 0,
+        selfReport: null,
+      }],
+    });
+
+    expect(result.status).toBe(200);
+    expect(client.chat.completions.create).toHaveBeenCalledWith(expect.objectContaining({
+      messages: expect.arrayContaining([
+        expect.objectContaining({ role: "system", content: expect.stringContaining("ingen elevtext har skickats") }),
+        expect.objectContaining({ role: "user", content: expect.not.stringContaining('"draft"') }),
+      ]),
+    }));
+    expect(result.body).toEqual({
+      needsWork: "Skoldagen ska börja senare.",
+      developed: "En senare start kan ge fler elever tid att resa till skolan utan stress.",
+      question: "Vilken förklaring gör det andra exemplet tydligare?",
+    });
+  });
+
+  it("rejects personalized examples with unknown interests or invalid evidence", async () => {
+    const client = mockClient({});
+    const result = await post(createApiApp({ client }), "/api/example", {
+      skillId: "reasoning",
+      lessonTitle: "Resonemang",
+      goal: "Utveckla skäl.",
+      interest: "sensitive-personal-topic",
+      supportLevel: 1,
+      evidence: [],
+    });
+
+    expect(result.status).toBe(400);
+    expect(client.chat.completions.create).not.toHaveBeenCalled();
   });
 
   it("accepts a short improvement hint that is not phrased as a question", async () => {
@@ -248,6 +305,49 @@ describe("server AI API", () => {
 
     expect(result.status).toBe(200);
     expect(result.body).toEqual({ kind: "on_track", feedback: "Kan du ge ett exempel?" });
+  });
+
+  it("passes only validated learning signals with the student's submitted answer", async () => {
+    const client = mockClient({ kind: "on_track", feedback: "Kan du ge ett exempel?" });
+    const result = await post(createApiApp({ client }), "/api/check-in", {
+      mode: "text",
+      question: "Vad är en tes?",
+      answer: "En tydlig ståndpunkt.",
+      focus: "tesens funktion",
+      learningContext: {
+        attempt: 2,
+        supportLevel: 1,
+        priorEvidence: [{ skillId: "structure", evidence: "supported" }],
+      },
+    });
+
+    expect(result.status).toBe(200);
+    expect(client.chat.completions.create).toHaveBeenCalledWith(expect.objectContaining({
+      messages: expect.arrayContaining([
+        expect.objectContaining({
+          role: "user",
+          content: expect.stringContaining('"evidence":"supported"'),
+        }),
+      ]),
+    }));
+  });
+
+  it("rejects malformed or unknown learning evidence", async () => {
+    const client = mockClient({ kind: "on_track", feedback: "Kan du ge ett exempel?" });
+    const result = await post(createApiApp({ client }), "/api/check-in", {
+      mode: "text",
+      question: "Vad är en tes?",
+      answer: "En tydlig ståndpunkt.",
+      focus: "tesens funktion",
+      learningContext: {
+        attempt: 99,
+        supportLevel: 4,
+        priorEvidence: [{ skillId: "unknown", evidence: "mastered" }],
+      },
+    });
+
+    expect(result.status).toBe(400);
+    expect(client.chat.completions.create).not.toHaveBeenCalled();
   });
 
   it("does not allow the model to contradict the known correctness of a choice", async () => {

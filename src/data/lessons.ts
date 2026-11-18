@@ -5,6 +5,19 @@ export type Phase =
   | "Självkontroll"
   | "Slutbedömning";
 
+export type SkillId = "structure" | "reasoning" | "cohesion" | "sentence" | "language";
+export type LearningEvidence = "independent" | "supported" | "needs_support";
+
+export type EntryCheck = {
+  skillIds: SkillId[];
+  previousTopic: string;
+  bridge: string;
+  question: string;
+  focus: string;
+  supportQuestion: string;
+  extensionQuestion: string;
+};
+
 export type CheckIn =
   | {
       mode: "choice";
@@ -27,6 +40,10 @@ export type ExitTicketStep = {
 export type Lesson = {
   title: string;
   shortTitle: string;
+  skillIds: SkillId[];
+  entryCheck: EntryCheck;
+  foundationSupport: string;
+  foundationExample: string;
   goal: string;
   model: {
     strong: string;
@@ -40,7 +57,14 @@ export type Lesson = {
   criteria: string[];
   checkInFocus: string;
   checkIns: [CheckIn, CheckIn, CheckIn, CheckIn];
-  exitTicket: ExitTicketStep[];
+  exitTicket: ExitTicketStep[] | null;
+};
+
+export type FinalRecallQuestion = {
+  skillId: SkillId;
+  title: string;
+  question: string;
+  placeholder: string;
 };
 
 export const phases: Phase[] = [
@@ -51,11 +75,59 @@ export const phases: Phase[] = [
   "Slutbedömning",
 ];
 
+const writingCriterion = "Eleven skriver olika slags texter med fungerande struktur och god anpassning till texttyp, syfte och mottagare.";
+const languageCriterion = "Eleven följer språkliga normer på ett i huvudsak fungerande sätt.";
+
+export const finalRecallQuestions: FinalRecallQuestion[] = [
+  {
+    skillId: "structure",
+    title: "Struktur",
+    question: "Vilka delar hjälper läsaren att förstå din ståndpunkt och följa textens uppbyggnad?",
+    placeholder: "Återkalla textens delar och vad de gör...",
+  },
+  {
+    skillId: "reasoning",
+    title: "Resonemang",
+    question: "Vad kan du förklara efter ett argument för att visa hur det stödjer din tes?",
+    placeholder: "Beskriv hur du kan utveckla ett argument...",
+  },
+  {
+    skillId: "cohesion",
+    title: "Textbindning",
+    question: "Hur hjälper ett sambandsord läsaren att förstå relationen mellan två tankar?",
+    placeholder: "Beskriv en relation och hur du kan visa den...",
+  },
+  {
+    skillId: "sentence",
+    title: "Meningsbyggnad",
+    question: "Nämn två sätt att variera meningar utan att göra sambandet mellan idéerna otydligt.",
+    placeholder: "Återkalla två sätt att variera meningar...",
+  },
+  {
+    skillId: "language",
+    title: "Språklig korrekthet",
+    question: "Vilka språkliga saker kan du kontrollera för att göra texten lättare att följa?",
+    placeholder: "Beskriv vad du skulle kontrollera...",
+  },
+];
+
 export const lessons: Lesson[] = [
   {
     title: "Bygg upp en argumenterande text",
     shortTitle: "Struktur",
-    goal: "Känna igen hur tes, argument, motargument och avslutning hjälper läsaren att följa en ståndpunkt.",
+    skillIds: ["structure"],
+    entryCheck: {
+      skillIds: ["structure"],
+      previousTopic: "Dina förkunskaper",
+      bridge: "Du börjar med att samla det du redan vet om argumenterande texter.",
+      question: "Utan ledtråd: vad behöver läsaren förstå för att känna igen en argumenterande text?",
+      focus: "förkunskaper om argumenterande texter och deras struktur",
+      supportQuestion: "Vad är det en skribent gör när hen tar ställning i en text?",
+      extensionQuestion: "Hur kan en tes och ett skäl tillsammans hjälpa läsaren att förstå en ståndpunkt?",
+    },
+    foundationSupport: "En argumenterande text visar en ståndpunkt och ger skäl som hjälper läsaren att förstå den.",
+    foundationExample: "Skoldagen borde börja senare. Då kan fler elever hinna vakna ordentligt.",
+    goal: writingCriterion,
     model: {
       strong: "Skoldagen borde börja senare. Många ungdomar är trötta på morgonen, vilket gör det svårare att koncentrera sig. En senare start skulle därför kunna ge fler en bättre början på dagen.",
       needsWork: "Skolan är dålig. Jag gillar inte att gå upp. Det borde vara annorlunda.",
@@ -114,7 +186,19 @@ export const lessons: Lesson[] = [
   {
     title: "Utveckla innehåll och resonemang",
     shortTitle: "Resonemang",
-    goal: "Utveckla argument genom att förklara hur de hänger ihop med tesen och ta hänsyn till andra perspektiv.",
+    skillIds: ["reasoning"],
+    entryCheck: {
+      skillIds: ["structure"],
+      previousTopic: "Struktur",
+      bridge: "En tydlig tes visar ståndpunkten. Nu bygger du resonemang som hjälper läsaren att förstå skälen.",
+      question: "Vad hjälper tesen läsaren att förstå i en argumenterande text?",
+      focus: "återkallning av tesens funktion och textens struktur",
+      supportQuestion: "Vad kallas meningen som visar skribentens ståndpunkt?",
+      extensionQuestion: "Hur kan en inledning förbereda läsaren på både tesen och textens fortsatta argument?",
+    },
+    foundationSupport: "Ett argument blir tydligare när du förklarar hur skälet hänger ihop med din tes.",
+    foundationExample: "En senare start kan göra elever piggare. Då kan det bli lättare att fokusera.",
+    goal: writingCriterion,
     model: {
       strong: "En senare start kan göra det lättare att koncentrera sig. När elever är piggare kan de också få bättre förutsättningar att delta i undervisningen.",
       needsWork: "Det är bättre med en senare start för att det är bättre.",
@@ -173,7 +257,19 @@ export const lessons: Lesson[] = [
   {
     title: "Skapa tydlig textbindning",
     shortTitle: "Textbindning",
-    goal: "Använda sambandsord och hänvisningar som visar hur idéerna i texten hör ihop.",
+    skillIds: ["cohesion"],
+    entryCheck: {
+      skillIds: ["structure", "reasoning"],
+      previousTopic: "Struktur och resonemang",
+      bridge: "Argument blir tydligare när de kopplas till tesen. Nu visar du hur tankarna hänger ihop.",
+      question: "Hur kan du visa att ett skäl hör ihop med din tes, i stället för att bara rada upp påståenden?",
+      focus: "återkallning av sambandet mellan tes och utvecklade skäl",
+      supportQuestion: "Vad gör en tes tydlig för läsaren?",
+      extensionQuestion: "Hur kan du utveckla ett sakargument så att läsaren ser hur det stödjer tesen?",
+    },
+    foundationSupport: "Ett utvecklat resonemang förklarar hur ett skäl stödjer tesen; textbindning hjälper läsaren att följa kopplingen.",
+    foundationExample: "Många elever är trötta på morgonen. Därför kan en senare start hjälpa.",
+    goal: writingCriterion,
     model: {
       strong: "Många elever är trötta tidigt på morgonen. Därför kan en senare skolstart göra det lättare att koncentrera sig.",
       needsWork: "Många elever är trötta tidigt på morgonen. Däremot kan en senare skolstart göra det lättare att koncentrera sig.",
@@ -232,7 +328,19 @@ export const lessons: Lesson[] = [
   {
     title: "Variera meningsbyggnaden",
     shortTitle: "Meningsbyggnad",
-    goal: "Skapa meningar som är tydliga och varierade utan att tappa den egna tanken.",
+    skillIds: ["sentence"],
+    entryCheck: {
+      skillIds: ["reasoning", "cohesion"],
+      previousTopic: "Resonemang och textbindning",
+      bridge: "Sambandsord synliggör relationer mellan idéer. Nu varierar du meningarna som bär resonemanget.",
+      question: "Hur kan ett sambandsord hjälpa läsaren att se varför ett argument stödjer din ståndpunkt?",
+      focus: "återkallning av sambandet mellan argument, tes och textbindning",
+      supportQuestion: "Nämn ett samband som ett sambandsord kan visa, till exempel orsak eller motsats.",
+      extensionQuestion: "Hur kan ett sambandsord och en förklaring tillsammans visa relationen mellan argument och tes?",
+    },
+    foundationSupport: "Välj först vilken relation du vill visa, till exempel orsak eller motsats. Välj sedan meningsbyggnad och sambandsord som gör relationen tydlig.",
+    foundationExample: "En senare start kan göra skillnad. Fler elever kanske orkar delta.",
+    goal: languageCriterion,
     model: {
       strong: "En senare start kan göra stor skillnad. Fler elever kanske orkar lyssna och delta när skoldagen börjar.",
       needsWork: "Jag tycker att skolan borde börja senare. Jag tycker att elever är trötta. Jag tycker att det är ett problem.",
@@ -291,7 +399,19 @@ export const lessons: Lesson[] = [
   {
     title: "Utveckla variation och språklig korrekthet",
     shortTitle: "Språk",
-    goal: "Bearbeta språket så att ordval, stavning och skiljetecken hjälper läsaren att förstå texten.",
+    skillIds: ["language"],
+    entryCheck: {
+      skillIds: ["cohesion", "sentence"],
+      previousTopic: "Textbindning och meningsbyggnad",
+      bridge: "Textbindning och meningsbyggnad hjälper läsaren att följa tanken. Nu granskar du språkets tydlighet.",
+      question: "Hur kan du variera en mening och ändå hjälpa läsaren att följa sambandet mellan idéerna?",
+      focus: "återkallning av textbindning och varierad meningsbyggnad",
+      supportQuestion: "Nämn ett sätt att ändra hur en mening börjar.",
+      extensionQuestion: "Hur kan du kombinera en varierad meningsstart och ett sambandsord utan att förlora tydlighet?",
+    },
+    foundationSupport: "En variation hjälper bara om meningen fortfarande är tydlig. Kontrollera att läsaren kan följa sambandet mellan idéerna.",
+    foundationExample: "En senare skolstart kan ge elever bättre möjlighet att möta dagen utvilade.",
+    goal: languageCriterion,
     model: {
       strong: "En senare skolstart kan ge elever bättre möjlighet att möta skoldagen utvilade.",
       needsWork: "en senare skolstart kan ge elever bättre möjligheter möta skoldagen utvilad",
@@ -350,7 +470,19 @@ export const lessons: Lesson[] = [
   {
     title: "Slutdiagnos: bearbeta och granska texten",
     shortTitle: "Slutdiagnos",
-    goal: "Använda dina kunskaper självständigt för att granska och bearbeta en sammanhängande text.",
+    skillIds: ["structure", "reasoning", "cohesion", "sentence", "language"],
+    entryCheck: {
+      skillIds: ["sentence", "language"],
+      previousTopic: "Meningsbyggnad och språk",
+      bridge: "Du har arbetat med meningsbyggnad och språk. Nu prövar du strategierna i en ny skrivsituation.",
+      question: "Vilka två saker kan du kontrollera när du vill göra en mening både tydlig och språkligt korrekt?",
+      focus: "återkallning av meningsbyggnad och språkliga normer",
+      supportQuestion: "Vad kan du kontrollera först för att se var en mening börjar och slutar?",
+      extensionQuestion: "Hur kan du granska språklig tydlighet utan att ändra en formulering som redan fungerar?",
+    },
+    foundationSupport: "Läs meningen högt och kontrollera sedan meningsgräns, ord som passar ihop och om meningen uttrycker det du menar.",
+    foundationExample: "En tydlig mening hjälper läsaren att förstå en tanke.",
+    goal: `${writingCriterion}\n${languageCriterion}`,
     model: {
       strong: "Börja med att läsa texten som en läsare. Välj sedan ett utvecklingsområde och gör en egen ändring som du kan förklara.",
       needsWork: "Försök ändra allt på en gång utan att veta vad du vill förbättra.",
@@ -368,42 +500,6 @@ export const lessons: Lesson[] = [
       { mode: "text", question: "Beskriv med egna ord ett steg du själv kan använda för att granska en text." },
       { mode: "choice", question: "Vad är ett bra mål med självkontrollen?", options: [{ label: "Hitta en ändring jag själv kan motivera.", correct: true }, { label: "Ändra så mycket som möjligt.", correct: false }] },
     ],
-    exitTicket: [
-      {
-        learningProcess: "Återkallning · Retrieval practice",
-        title: "Samla dina strategier",
-        question: "Utan att titta på tidigare svar: nämn minst tre strategier du kan använda för att granska en argumenterande text, från struktur och argument till språk.",
-        placeholder: "Beskriv tre granskningsstrategier med egna ord...",
-        focus: "återkallning av tidigare strategier för argumenterande text",
-      },
-      {
-        learningProcess: "Tillämpning · Interleaving",
-        title: "Se hur delarna samverkar",
-        question: "Välj ett ställe i din text där ett argument kopplas till tesen. Hur hjälper textbindning och meningsbyggnad läsaren att följa ditt resonemang?",
-        placeholder: "Beskriv hur argument, tes, textbindning och meningsbyggnad samverkar...",
-        focus: "tillämpning av struktur, argument, textbindning och meningsbyggnad i den egna texten",
-      },
-      {
-        learningProcess: "Självförklaring · Self-explanation",
-        title: "Varför behöver texten flera delar?",
-        question: "Varför blir en argumenterande text tydligare och mer övertygande när struktur, utvecklade argument, textbindning och språklig korrekthet samverkar?",
-        placeholder: "Förklara hur flera skrivstrategier tillsammans hjälper läsaren...",
-        focus: "varför flera språkliga och strukturella strategier samverkar för läsaren",
-      },
-      {
-        learningProcess: "Metakognition och självbedömning",
-        title: "Utvärdera din bearbetning",
-        question: "Vilken förändring i din text är du mest nöjd med, vad var svårast att bearbeta och hur vet du att ändringen hjälper läsaren?",
-        placeholder: "Reflektera över din bearbetning och vad du har lärt dig...",
-        focus: "elevens egen bedömning av bearbetning, svårigheter och textens tydlighet",
-      },
-      {
-        learningProcess: "Framåtkoppling · Överföring till framtida skrivande",
-        title: "Ta kunskaperna vidare",
-        question: "När du skriver nästa argumenterande text utan den här lektionsserien, vilken strategi vill du börja med och hur ska du märka att den hjälper din läsare?",
-        placeholder: "Beskriv vilken strategi du vill använda i nästa skrivuppgift...",
-        focus: "överföring av lärda skrivstrategier till framtida skrivuppgifter",
-      },
-    ],
+    exitTicket: null,
   },
 ];
