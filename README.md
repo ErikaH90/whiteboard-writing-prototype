@@ -23,6 +23,7 @@ Kör automatiserade tester med `npm test`. Kör webbläsartestet med `npm run te
 - Responsiv tvåkolumnslayout inspirerad av den angivna referensbilden.
 - Elevtext sparas lokalt i webbläsaren på den aktuella enheten.
 - OpenAI ger vägledande återkoppling vid textgranskning och lektionsavstämningar. AI:n skriver inte om texten och sätter inget betyg.
+- Utkastet är alltid redigerbart; eleven kan be om tips kopplade till det aktuella lektionsmomentet och hoppa från ett tips till det citerade textstället.
 - Text skickas till OpenAI först när eleven väljer **Granska** eller **Svara**. Den lokala servern använder `OPENAI_API_KEY` från rotens `.env.local`.
 - Lägg aldrig till nyckeln i en klientvariabel med `VITE_`-prefix. `.env.local` är ignorerad av Git; använd `.env.example` som mall.
 - Eleven bör inte skriva personuppgifter. Kontrollera skolans och vårdnadshavares dataskyddskrav innan verklig elevanvändning.

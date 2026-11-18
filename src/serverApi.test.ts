@@ -1,6 +1,7 @@
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { describe, expect, it, vi } from "vitest";
+import OpenAI from "openai";
 import { createApiApp } from "../server/api.mjs";
 
 function mockClient(result: unknown) {
@@ -10,6 +11,18 @@ function mockClient(result: unknown) {
         create: vi.fn(async () => ({
           choices: [{ message: { content: JSON.stringify(result) } }],
         })),
+      },
+    },
+  };
+}
+
+function failingClient(error: Error) {
+  return {
+    chat: {
+      completions: {
+        create: vi.fn(async () => {
+          throw error;
+        }),
       },
     },
   };
@@ -51,11 +64,17 @@ describe("server AI API", () => {
     const result = await post(createApiApp({ client }), "/api/review", {
       draft,
       lessonTitle: "Struktur",
+      phase: "Träna själv",
       goal: "Visa en tydlig tes.",
       criteria: ["Textens struktur"],
     });
 
     expect(result.status).toBe(200);
+    expect(client.chat.completions.create).toHaveBeenCalledWith(expect.objectContaining({
+      messages: expect.arrayContaining([
+        expect.objectContaining({ role: "user", content: expect.stringContaining('"phase":"Träna själv"') }),
+      ]),
+    }));
     expect(result.body).toEqual({
       findings: [{
         id: "ai-0-8",
@@ -80,12 +99,79 @@ describe("server AI API", () => {
     const result = await post(createApiApp({ client }), "/api/review", {
       draft: "En text.",
       lessonTitle: "Struktur",
+      phase: "Träna själv",
       goal: "Visa en tydlig tes.",
       criteria: ["Textens struktur"],
     });
 
     expect(result.status).toBe(502);
-    expect(result.body).toHaveProperty("error");
+    expect(result.body.error).toContain("citat");
+    expect(result.body.error).not.toContain("saknas");
+  });
+
+  it("binds capitalization and punctuation variants to the exact source span", async () => {
+    const client = mockClient({ findings: [{
+      quote: "TESEN är tydlig",
+      occurrence: 0,
+      title: "Undersök tesen",
+      comment: "Vilken ståndpunkt uttrycker den här meningen?",
+      category: "structure",
+    }] });
+    const result = await post(createApiApp({ client }), "/api/review", {
+      draft: "Tesen, är tydlig.",
+      lessonTitle: "Struktur",
+      phase: "Modellering",
+      goal: "Visa en tydlig tes.",
+      criteria: ["Textens struktur"],
+    });
+
+    expect(result.status).toBe(200);
+    expect(result.body.findings[0]).toMatchObject({
+      start: 0,
+      end: 16,
+      quote: "Tesen, är tydlig",
+    });
+  });
+
+  it("uses a unique exact quote when the model gives an incorrect occurrence number", async () => {
+    const client = mockClient({ findings: [{
+      quote: "Skoldagen",
+      occurrence: 4,
+      title: "Undersök tesen",
+      comment: "Vilken ståndpunkt uttrycker den här meningen?",
+      category: "structure",
+    }] });
+    const result = await post(createApiApp({ client }), "/api/review", {
+      draft: "Skoldagen borde börja senare.",
+      lessonTitle: "Struktur",
+      phase: "Modellering",
+      goal: "Visa en tydlig tes.",
+      criteria: ["Textens struktur"],
+    });
+
+    expect(result.status).toBe(200);
+    expect(result.body.findings[0]).toMatchObject({ start: 0, end: 9, quote: "Skoldagen" });
+  });
+
+  it("explains an OpenAI quota error without exposing provider details", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const error = new OpenAI.APIError(
+      429,
+      { code: "insufficient_quota", message: "provider detail" },
+      "provider detail",
+      new Headers(),
+    );
+    const result = await post(createApiApp({ client: failingClient(error) }), "/api/review", {
+      draft: "En syntetisk elevtext.",
+      lessonTitle: "Struktur",
+      phase: "Modellering",
+      goal: "Visa en tydlig tes.",
+      criteria: ["Textens struktur"],
+    });
+
+    expect(result.status).toBe(502);
+    expect(result.body.error).toContain("API-kvot");
+    expect(JSON.stringify(result.body)).not.toContain("provider detail");
   });
 
   it("returns an explicit configuration error instead of using a fallback when no server key is configured", async () => {

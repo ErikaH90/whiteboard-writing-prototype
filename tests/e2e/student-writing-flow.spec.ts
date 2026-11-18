@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-test("student can review a draft without replacing their text", async ({ page }) => {
+test("student can ask for contextual tips while keeping their draft editable", async ({ page }) => {
   await page.route("**/api/review", async (route) => {
     const request = route.request().postDataJSON() as { draft: string };
     const quote = "Jag tycker";
@@ -25,13 +25,14 @@ test("student can review a draft without replacing their text", async ({ page })
   const draft = "Jag tycker skoldagen ska börja senare. Jag tycker elever behöver mer vila.";
   const editor = page.getByRole("textbox", { name: "Din argumenterande text" });
   await editor.fill(draft);
-  await page.getByRole("tab", { name: "Granska" }).click();
+  await page.getByRole("button", { name: "Få tips på min text" }).click();
 
-  await expect(page.getByText(/AI-återkoppling/)).toBeVisible();
-  await expect(page.getByText("Upprepad meningsstart")).toBeVisible();
-  await page.getByRole("tab", { name: "Skriv" }).click();
-
+  await expect(page.getByText("Klicka på en röd markering för att läsa tutorns kommentar.")).toBeVisible();
   await expect(page.getByRole("textbox", { name: "Din argumenterande text" })).toHaveValue(draft);
+  await page.getByRole("button", { name: /Visa förklaring.*Upprepad meningsstart/ }).click();
+  await expect(page.getByRole("dialog", { name: "Förklaring: Upprepad meningsstart" })).toContainText("Behöver varje mening börja så?");
+  await expect(editor).toHaveValue(draft);
+  await expect(page.locator(".feedback-card")).toHaveCount(0);
 });
 
 test("whiteboard accepts a choice or a written answer and responds", async ({ page }) => {

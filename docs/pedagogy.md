@@ -12,6 +12,8 @@ Stödet ska minska över tid. Återkallning och slutdiagnos ska inte visa färdi
 
 Varje lektionssteg innehåller en kort avstämningsfråga. I modellering, träning och självkontroll väljer eleven mellan alternativ. Vid återkallning skriver eleven ett svar med egna ord utan svarsalternativ; slutbedömningen av texten görs i skrivytan. Visa aldrig alternativ och fritextfält samtidigt. Återkopplingen ska visa vad eleven verkar förstå och ge ett nästa tänkesteg, inte framställa en enkel kontroll som ett säkert kunskapstest.
 
+Elevens utkast är en pågående text från första momentet. Whiteboardens modellering och frågor ska hjälpa eleven att fortsätta skriva och bearbeta samma utkast. Eleven kan själv be tutorn om råd; råden knyts till aktuellt moment och steg. Eleven avgör vad hen ändrar, och AI:n gör inga rättelser direkt i texten.
+
 ## Momentens progression
 
 | Moment | Fokus |

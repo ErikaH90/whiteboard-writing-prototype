@@ -10,6 +10,7 @@ export type Finding = {
 type ReviewRequest = {
   draft: string;
   lessonTitle: string;
+  phase: string;
   goal: string;
   criteria: string[];
 };
@@ -75,7 +76,7 @@ async function postJson(path: string, body: unknown): Promise<unknown> {
 
 export async function reviewDraft(request: ReviewRequest): Promise<Finding[]> {
   const result = await postJson("/api/review", request);
-  if (!isRecord(result) || !Array.isArray(result.findings) || result.findings.length > 5) {
+  if (!isRecord(result) || !Array.isArray(result.findings) || result.findings.length > 3) {
     throw new Error("AI-granskningen gav ett ogiltigt resultat.");
   }
 

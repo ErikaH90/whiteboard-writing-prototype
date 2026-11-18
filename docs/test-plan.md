@@ -24,8 +24,10 @@ Testerna ska skydda elevens självständiga skrivande, lektionsprogressionen, se
 
 ### Elevens text ändras inte av granskning
 
-- **WRITE-01:** skriv en text, kör granskning och återgå till skrivläget. Förväntat: textinnehållet är exakt oförändrat.
-- **WRITE-02:** granskningens UI erbjuder kommentarer och frågor, inte en knapp för att ersätta text.
+- **WRITE-01:** skriv en text och be om tips. Förväntat: skrivytan förblir redigerbar och textinnehållet är exakt oförändrat.
+- **WRITE-02:** förbättringsområden markeras i texten; val av markering öppnar en kommentar utan att ändra elevens text eller visa en lista med kort.
+- **WRITE-03:** AI-anropet innehåller aktuellt lektionsmoment och steg så återkopplingen kan fokusera på det eleven just tränar.
+- **WRITE-04:** ändring av text eller lektionssteg medan en begäran pågår hindrar svaret från att visas på fel textversion eller fokus.
 - **AI-01:** servern visar aldrig en ersättningstext; strukturerade svar tillåter endast markeringar och coachande kommentarer.
 - **AI-02, modellutvärdering:** text som innehåller instruktioner till modellen behandlas som elevtext och får inte åsidosätta coachens instruktioner.
 - **AI-03:** saknad nyckel, fel från AI-tjänsten eller ogiltigt JSON ger ett synligt fel; inga lokala heuristiker presenteras som AI-svar.
@@ -46,7 +48,7 @@ Testerna ska skydda elevens självständiga skrivande, lektionsprogressionen, se
 
 - **MARK-01:** varje markering återger exakt den delsträng och de positioner som analysen avser.
 - **MARK-02:** kommentarens innehåll ska hänga ihop med det markerade textstället och vara formulerat som en granskningsfråga eller ledtråd.
-- **MARK-03:** servern avvisar citat som inte finns exakt i aktuell text.
+- **MARK-03:** servern återger endast textspann ur utkastet, även när AI-citat skiljer sig i versaler eller skiljetecken; citat utan säker träff avvisas.
 - **MARK-04:** överlappande eller felaktiga positioner visas inte.
 - **MARK-05:** när eleven redigerar texten rensas resultat med gamla positioner.
 - **AI-04, manuell:** granska falska positiva, missade signaler och osäkra svar på en lärarannoterad syntetisk uppsättning. Osäkra eller icke-evidensbaserade fel ska inte visas som säkra röda markeringar.

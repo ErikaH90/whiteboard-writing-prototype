@@ -32,7 +32,7 @@
 1. Eleven väljer **Granska** eller **Svara**.
 2. Klienten skickar endast aktuell text, lektionsmål och nödvändigt svarsinnehåll till samma-origin-servern.
 3. Servern validerar storlek och fält, skickar underlaget till OpenAI och kräver strukturerat JSON.
-4. Servern verifierar att varje markerat citat finns exakt i elevtexten och skickar endast godkänt resultat tillbaka.
+4. Servern verifierar att varje markerat citat kan bindas till ett säkert spann i elevtexten och skickar endast godkänt resultat tillbaka.
 5. Inga elevtexter skrivs till serverloggar eller serverdatabas av denna MVP. Leverantörens hantering omfattas av OpenAI:s villkor.
 
 Före pilot måste skolan besluta om personuppgiftsbehandling, information/samtycke, lagring/gallring, åtkomstkontroll och publicering av servern.

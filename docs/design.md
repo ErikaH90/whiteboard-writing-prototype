@@ -25,6 +25,8 @@ Whiteboarden använder det lokalt bundlade handskriftsfontet Patrick Hand för a
 ## Återkoppling och tillgänglighet
 
 - Rött reserveras för konkreta möjliga problem och kompletteras alltid med text.
+- Förbättringsområden markeras direkt i skrivtexten; kommentaren visas i en liten kontextuell ruta när eleven väljer markeringen.
+- Återkoppling visas inte som en lista med kort under skrivytan.
 - Positiv återkoppling och utvecklingsförslag skiljs visuellt från röda markeringar.
 - Färg är aldrig den enda informationsbäraren.
 - Kontroller ska kunna användas med tangentbord och ha begripliga namn.

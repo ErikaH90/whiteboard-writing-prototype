@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import LessonCheckIn from "./components/LessonCheckIn";
 import { lessons, phases } from "./data/lessons";
 import { reviewDraft, type Finding } from "./lib/coachApi";
@@ -18,12 +18,17 @@ function App() {
   const [phaseIndex, setPhaseIndex] = useState(0);
   const [savedDraft] = useState(readSavedDraft);
   const [draft, setDraft] = useState(savedDraft.draft);
+  const editorRef = useRef<HTMLTextAreaElement>(null);
+  const editorWrapRef = useRef<HTMLDivElement>(null);
+  const findingButtonsRef = useRef(new Map<string, HTMLButtonElement>());
+  const reviewRequestId = useRef(0);
   const [showHint, setShowHint] = useState(false);
-  const [reviewOpen, setReviewOpen] = useState(false);
   const [reviewLoading, setReviewLoading] = useState(false);
   const [reviewError, setReviewError] = useState<string | null>(null);
   const [findings, setFindings] = useState<Finding[] | null>(null);
   const [activeFinding, setActiveFinding] = useState<string | null>(null);
+  const [editorScrollTop, setEditorScrollTop] = useState(0);
+  const [popoverPosition, setPopoverPosition] = useState({ left: 8, top: 8 });
   const [checkedItems, setCheckedItems] = useState<string[]>([]);
   const [saveError, setSaveError] = useState(savedDraft.error);
 
@@ -41,32 +46,40 @@ function App() {
   }, [draft]);
 
   function updateDraft(value: string) {
+    reviewRequestId.current += 1;
     setDraft(value);
     setFindings(null);
-    setReviewOpen(false);
     setActiveFinding(null);
     setReviewError(null);
+    setReviewLoading(false);
   }
 
   function selectLesson(index: number) {
+    reviewRequestId.current += 1;
     setLessonIndex(index);
     setPhaseIndex(0);
     setShowHint(false);
     setCheckedItems([]);
     setFindings(null);
-    setReviewOpen(false);
+    setReviewError(null);
+    setReviewLoading(false);
   }
 
   function movePhase(index: number) {
+    reviewRequestId.current += 1;
     setPhaseIndex(index);
     setShowHint(false);
     setCheckedItems([]);
     setFindings(null);
-    setReviewOpen(false);
+    setReviewError(null);
+    setReviewLoading(false);
   }
 
   async function runReview() {
-    setReviewOpen(true);
+    const requestId = ++reviewRequestId.current;
+    const reviewedDraft = draft;
+    const reviewedLesson = lesson;
+    const reviewedPhase = phase;
     setReviewLoading(true);
     setReviewError(null);
     setFindings(null);
@@ -74,20 +87,46 @@ function App() {
 
     try {
       const result = await reviewDraft({
-        draft,
-        lessonTitle: lesson.title,
-        goal: lesson.goal,
-        criteria: lesson.criteria,
+        draft: reviewedDraft,
+        lessonTitle: reviewedLesson.title,
+        phase: reviewedPhase,
+        goal: reviewedLesson.goal,
+        criteria: reviewedLesson.criteria,
       });
+      if (reviewRequestId.current !== requestId) return;
       setFindings(result);
     } catch (error) {
+      if (reviewRequestId.current !== requestId) return;
       setReviewError(error instanceof Error ? error.message : "AI-granskningen misslyckades. Försök igen.");
     } finally {
-      setReviewLoading(false);
+      if (reviewRequestId.current === requestId) setReviewLoading(false);
     }
   }
 
-  const highlightedText = findings?.length ? renderHighlightedText(draft, findings, setActiveFinding, activeFinding) : null;
+  function toggleFinding(finding: Finding, button: HTMLButtonElement) {
+    if (activeFinding === finding.id) {
+      setActiveFinding(null);
+      return;
+    }
+
+    const wrapper = editorWrapRef.current;
+    if (wrapper) {
+      const wrapperRect = wrapper.getBoundingClientRect();
+      const buttonRect = button.getBoundingClientRect();
+      const popoverWidth = Math.min(280, Math.max(wrapper.clientWidth - 16, 0));
+      const left = Math.max(8, Math.min(
+        buttonRect.left - wrapperRect.left,
+        wrapper.clientWidth - popoverWidth - 8,
+      ));
+      const below = buttonRect.bottom - wrapperRect.top + 6;
+      const top = below + 120 <= wrapper.clientHeight
+        ? below
+        : Math.max(8, buttonRect.top - wrapperRect.top - 126);
+      setPopoverPosition({ left, top });
+    }
+
+    setActiveFinding(finding.id);
+  }
 
   return (
     <main className="app-shell">
@@ -163,6 +202,7 @@ function App() {
                     </article>
                   </div>
                   <p className="board-question">{lesson.model.question}</p>
+                  <p className="board-small-note">Du kan börja skriva ditt eget utkast till höger redan nu.</p>
                 </div>
               )}
               {phaseIndex === 1 && (
@@ -207,6 +247,7 @@ function App() {
                     {lesson.criteria.map((criterion) => <li key={criterion}>{criterion}</li>)}
                   </ul>
                   <p className="assessment-note">Detta är stöd för din bearbetning – inte ett officiellt betyg.</p>
+                  <p className="board-small-note">Använd kriterierna när du granskar ditt utkast till höger.</p>
                 </div>
               )}
               <LessonCheckIn key={`${lessonIndex}-${phaseIndex}`} lesson={lesson} phaseIndex={phaseIndex} />
@@ -231,86 +272,104 @@ function App() {
           </div>
 
           <div className="editor-toolbar">
-            <div className="editor-tabs" role="tablist" aria-label="Textläge">
-              <button
-                className={`editor-tab ${!reviewOpen ? "is-active" : ""}`}
-                role="tab"
-                aria-selected={!reviewOpen}
-                onClick={() => setReviewOpen(false)}
-              >Skriv</button>
-              <button
-                className={`editor-tab ${reviewOpen ? "is-active" : ""}`}
-                role="tab"
-                aria-selected={reviewOpen}
-                onClick={runReview}
-                disabled={!draft.trim() || reviewLoading}
-              >Granska{findings ? <span className="tab-count">{findings.length}</span> : null}</button>
-            </div>
             <div className="editor-status">
               <span className="word-count">{wordCount} ord</span>
               {saveError && <span className="save-status has-error" role="status">Kunde inte spara lokalt</span>}
             </div>
+            <button className="primary-button coach-review-button" onClick={runReview} disabled={!draft.trim() || reviewLoading} type="button">
+              {reviewLoading ? "Tutorn läser …" : findings ? "Få nya tips" : "Få tips på min text"}
+            </button>
           </div>
-          <p className="ai-privacy-note">Text skickas till OpenAI när du väljer Granska.</p>
+          <p className="ai-privacy-note">När du väljer tips skickas utkastet och lektionsfokuset till OpenAI. Tutorn föreslår frågor – du gör själv alla ändringar.</p>
 
-          {!reviewOpen ? (
-            <div className="editor-wrap">
-              <textarea
-                className="text-editor"
-                value={draft}
-                onChange={(event) => updateDraft(event.target.value)}
-                placeholder={"Skriv din rubrik här …\n\nBörja sedan med att presentera din ståndpunkt. Du kan alltid ändra texten senare."}
-                aria-label="Din argumenterande text"
-                spellCheck
-              />
-            </div>
-          ) : (
-            <div className="review-panel" role="tabpanel">
-              <div className="demo-notice">
-                <span className="notice-icon" aria-hidden="true">i</span>
-                <p><strong>AI-återkoppling</strong> · Förslagen är vägledande och kan missa saker.</p>
-              </div>
-              {draft.trim() ? (
-                <>
-                  {reviewLoading && <p className="review-state" role="status">AI:n granskar din text …</p>}
-                  {reviewError && <p className="review-error" role="alert">{reviewError}</p>}
-                  {findings && (
-                    <>
-                      <div className="review-text" aria-label="Text med möjliga förbättringsområden">
-                        {highlightedText ?? draft}
+          {reviewLoading && <p className="review-state" role="status">Tutorn läser texten med fokus på {lesson.shortTitle.toLocaleLowerCase("sv")} …</p>}
+          {reviewError && <p className="review-error" role="alert">{reviewError}</p>}
+          {findings && findings.length > 0 && <p className="annotation-hint">Klicka på en röd markering för att läsa tutorns kommentar.</p>}
+          {findings?.length === 0 && <p className="empty-review" role="status">Tutorn hittade inget tydligt att undersöka just nu. Läs ändå texten själv – AI kan missa saker.</p>}
+
+          <div className="editor-wrap" ref={editorWrapRef}>
+            <textarea
+              ref={editorRef}
+              className={`text-editor ${findings?.length ? "has-inline-findings" : ""}`}
+              value={draft}
+              onChange={(event) => updateDraft(event.target.value)}
+              onFocus={() => setActiveFinding(null)}
+              onScroll={(event) => {
+                setEditorScrollTop(event.currentTarget.scrollTop);
+                setActiveFinding(null);
+              }}
+              placeholder={"Skriv din rubrik här …\n\nBörja sedan med att presentera din ståndpunkt. Du kan alltid ändra texten senare."}
+              aria-label="Din argumenterande text"
+              spellCheck
+            />
+            {findings && findings.length > 0 && (
+              <div className="text-highlight-layer">
+                <div className="text-highlight-content" style={{ transform: `translateY(-${editorScrollTop}px)` }}>
+                  {findings.map((finding, index) => {
+                    const previousEnd = index > 0 ? findings[index - 1].end : 0;
+                    return (
+                      <Fragment key={finding.id}>
+                        <span aria-hidden="true">{draft.slice(previousEnd, finding.start)}</span>
+                        <button
+                          ref={(element) => {
+                            if (element) findingButtonsRef.current.set(finding.id, element);
+                            else findingButtonsRef.current.delete(finding.id);
+                          }}
+                          className="finding-mark"
+                          type="button"
+                          aria-label={`Visa förklaring för markeringen ”${finding.quote}”. ${finding.title}`}
+                          aria-expanded={activeFinding === finding.id}
+                          aria-controls="finding-feedback-popover"
+                          onClick={(event) => toggleFinding(finding, event.currentTarget)}
+                          onKeyDown={(event) => {
+                            if (event.key === "Escape") setActiveFinding(null);
+                          }}
+                        >
+                          {draft.slice(finding.start, finding.end)}
+                        </button>
+                      </Fragment>
+                    );
+                  })}
+                  <span aria-hidden="true">{draft.slice(findings[findings.length - 1].end)}</span>
+                </div>
+                {activeFinding && (() => {
+                  const finding = findings.find((item) => item.id === activeFinding);
+                  if (!finding) return null;
+                  return (
+                    <aside
+                      className="finding-popover"
+                      id="finding-feedback-popover"
+                      role="dialog"
+                      aria-label={`Förklaring: ${finding.title}`}
+                      style={{ left: popoverPosition.left, top: popoverPosition.top }}
+                      onKeyDown={(event) => {
+                        if (event.key === "Escape") {
+                          setActiveFinding(null);
+                          findingButtonsRef.current.get(finding.id)?.focus();
+                        }
+                      }}
+                    >
+                      <div className="finding-popover-heading">
+                        <strong>{finding.title}</strong>
+                        <button
+                          className="finding-popover-close"
+                          type="button"
+                          aria-label="Stäng förklaringen"
+                          onClick={() => {
+                            setActiveFinding(null);
+                            findingButtonsRef.current.get(finding.id)?.focus();
+                          }}
+                        >
+                          ×
+                        </button>
                       </div>
-                      {findings.length > 0 ? (
-                        <div className="feedback-list">
-                          <p className="feedback-heading">{findings.length} sak{findings.length === 1 ? "" : "er"} att undersöka</p>
-                          {findings.map((finding) => (
-                            <button
-                              className={`feedback-card ${activeFinding === finding.id ? "is-selected" : ""}`}
-                              key={finding.id}
-                              onClick={() => setActiveFinding(finding.id)}
-                            >
-                              <span className="feedback-quote">”{finding.quote}”</span>
-                              <strong>{finding.title}</strong>
-                              <span>{finding.message}</span>
-                            </button>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="empty-review">
-                          <span aria-hidden="true">✓</span>
-                          <p>AI:n hittade inga tydliga utvecklingsområden i den här granskningen. Läs ändå igenom texten själv; AI kan missa saker.</p>
-                        </div>
-                      )}
-                    </>
-                  )}
-                  {!reviewLoading && !reviewError && findings && (
-                    <button className="text-button recheck-button" onClick={runReview}>Granska igen</button>
-                  )}
-                </>
-              ) : (
-                <div className="empty-review"><p>Skriv lite text innan du granskar den.</p></div>
-              )}
-            </div>
-          )}
+                      <p>{finding.message}</p>
+                    </aside>
+                  );
+                })()}
+              </div>
+            )}
+          </div>
         </section>
       </section>
       <footer className="page-footer">
@@ -319,30 +378,6 @@ function App() {
       </footer>
     </main>
   );
-}
-
-function renderHighlightedText(
-  text: string,
-  findings: Finding[],
-  onSelect: (id: string) => void,
-  activeId: string | null,
-) {
-  const pieces = [];
-  let cursor = 0;
-  for (const finding of findings) {
-    if (finding.start > cursor) pieces.push(text.slice(cursor, finding.start));
-    pieces.push(
-      <mark
-        className={`text-highlight ${activeId === finding.id ? "is-active" : ""}`}
-        key={finding.id}
-        onClick={() => onSelect(finding.id)}
-        title={finding.title}
-      >{text.slice(finding.start, finding.end)}</mark>,
-    );
-    cursor = finding.end;
-  }
-  if (cursor < text.length) pieces.push(text.slice(cursor));
-  return pieces;
 }
 
 export default App;
