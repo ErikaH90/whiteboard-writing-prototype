@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import LessonCheckIn from "./components/LessonCheckIn";
 import { lessons, phases } from "./data/lessons";
-import { reviewDraft, type Finding } from "./lib/coachApi";
+import { reviewDraft, type Finding, type ReviewFeedback } from "./lib/coachApi";
 
 const storageKey = "skrivcoach-argumenterande-draft";
 
@@ -25,8 +25,9 @@ function App() {
   const [showHint, setShowHint] = useState(false);
   const [reviewLoading, setReviewLoading] = useState(false);
   const [reviewError, setReviewError] = useState<string | null>(null);
-  const [findings, setFindings] = useState<Finding[] | null>(null);
+  const [reviewFeedback, setReviewFeedback] = useState<ReviewFeedback | null>(null);
   const [activeFinding, setActiveFinding] = useState<string | null>(null);
+  const [isRevising, setIsRevising] = useState(false);
   const [editorScrollTop, setEditorScrollTop] = useState(0);
   const [popoverPosition, setPopoverPosition] = useState({ left: 8, top: 8 });
   const [checkedItems, setCheckedItems] = useState<string[]>([]);
@@ -34,6 +35,8 @@ function App() {
 
   const lesson = lessons[lessonIndex];
   const phase = phases[phaseIndex];
+  const findings = reviewFeedback?.findings ?? null;
+  const activeCycleStep = reviewLoading || reviewError ? 2 : reviewFeedback ? 3 : 1;
   const wordCount = useMemo(() => draft.trim().split(/\s+/).filter(Boolean).length, [draft]);
 
   useEffect(() => {
@@ -48,8 +51,9 @@ function App() {
   function updateDraft(value: string) {
     reviewRequestId.current += 1;
     setDraft(value);
-    setFindings(null);
+    setReviewFeedback(null);
     setActiveFinding(null);
+    setIsRevising(false);
     setReviewError(null);
     setReviewLoading(false);
   }
@@ -60,7 +64,9 @@ function App() {
     setPhaseIndex(0);
     setShowHint(false);
     setCheckedItems([]);
-    setFindings(null);
+    setReviewFeedback(null);
+    setActiveFinding(null);
+    setIsRevising(false);
     setReviewError(null);
     setReviewLoading(false);
   }
@@ -70,7 +76,9 @@ function App() {
     setPhaseIndex(index);
     setShowHint(false);
     setCheckedItems([]);
-    setFindings(null);
+    setReviewFeedback(null);
+    setActiveFinding(null);
+    setIsRevising(false);
     setReviewError(null);
     setReviewLoading(false);
   }
@@ -82,8 +90,9 @@ function App() {
     const reviewedPhase = phase;
     setReviewLoading(true);
     setReviewError(null);
-    setFindings(null);
+    setReviewFeedback(null);
     setActiveFinding(null);
+    setIsRevising(false);
 
     try {
       const result = await reviewDraft({
@@ -94,7 +103,7 @@ function App() {
         criteria: reviewedLesson.criteria,
       });
       if (reviewRequestId.current !== requestId) return;
-      setFindings(result);
+      setReviewFeedback(result);
     } catch (error) {
       if (reviewRequestId.current !== requestId) return;
       setReviewError(error instanceof Error ? error.message : "AI-granskningen misslyckades. Försök igen.");
@@ -126,6 +135,15 @@ function App() {
     }
 
     setActiveFinding(finding.id);
+  }
+
+  function continueWriting(finding: Finding) {
+    const editor = editorRef.current;
+    if (!editor) return;
+    setActiveFinding(null);
+    setIsRevising(true);
+    editor.focus();
+    editor.setSelectionRange(finding.start, finding.end);
   }
 
   return (
@@ -271,29 +289,61 @@ function App() {
             <p>Ta ställning: Borde skoldagen börja senare för elever i högstadiet?</p>
           </div>
 
+          <ol className="formative-cycle" aria-label="Formativ arbetsgång">
+            {["Producera", "Få återkoppling", "Revidera"].map((step, index) => {
+              const stepNumber = index + 1;
+              return (
+                <li
+                  className={`formative-cycle-step ${stepNumber < activeCycleStep ? "is-complete" : ""} ${stepNumber === activeCycleStep ? "is-current" : ""}`}
+                  key={step}
+                  aria-current={stepNumber === activeCycleStep ? "step" : undefined}
+                >
+                  <span>{stepNumber}</span>
+                  {step}
+                </li>
+              );
+            })}
+          </ol>
+
           <div className="editor-toolbar">
             <div className="editor-status">
               <span className="word-count">{wordCount} ord</span>
               {saveError && <span className="save-status has-error" role="status">Kunde inte spara lokalt</span>}
             </div>
             <button className="primary-button coach-review-button" onClick={runReview} disabled={!draft.trim() || reviewLoading} type="button">
-              {reviewLoading ? "Tutorn läser …" : findings ? "Få nya tips" : "Få tips på min text"}
+              {reviewLoading ? "Tutorn läser …" : reviewFeedback ? "Få ny återkoppling" : "Få återkoppling"}
             </button>
           </div>
-          <p className="ai-privacy-note">När du väljer tips skickas utkastet och lektionsfokuset till OpenAI. Tutorn föreslår frågor – du gör själv alla ändringar.</p>
+          <p className="ai-privacy-note">När du väljer Få återkoppling skickas utkastet och lektionsfokuset till OpenAI. Du gör själv alla ändringar.</p>
 
           {reviewLoading && <p className="review-state" role="status">Tutorn läser texten med fokus på {lesson.shortTitle.toLocaleLowerCase("sv")} …</p>}
           {reviewError && <p className="review-error" role="alert">{reviewError}</p>}
-          {findings && findings.length > 0 && <p className="annotation-hint">Klicka på en röd markering för att läsa tutorns kommentar.</p>}
-          {findings?.length === 0 && <p className="empty-review" role="status">Tutorn hittade inget tydligt att undersöka just nu. Läs ändå texten själv – AI kan missa saker.</p>}
+          {reviewFeedback && (
+            <section className="formative-feedback" aria-label="Återkoppling på ditt utkast">
+              <p><strong>Målet</strong>{lesson.goal}</p>
+              <p>
+                <strong>Din framgång</strong>
+                {reviewFeedback.success.message} <q>{reviewFeedback.success.quote}</q>
+              </p>
+              <p>
+                <strong>Vad kan bli bättre?</strong>
+                {findings && findings.length > 0
+                  ? "Klicka på de röda markeringarna i texten för att läsa vad du kan undersöka."
+                  : "Ingen tydlig förbättringspunkt markerades den här gången."}
+              </p>
+              <p><strong>Nästa steg</strong>{reviewFeedback.nextStep}</p>
+            </section>
+          )}
+          {findings?.length === 0 && <p className="empty-review" role="status">Läs ändå texten själv – AI kan missa saker.</p>}
 
           <div className="editor-wrap" ref={editorWrapRef}>
             <textarea
               ref={editorRef}
-              className={`text-editor ${findings?.length ? "has-inline-findings" : ""}`}
+              className={`text-editor ${findings?.length ? "has-inline-findings" : ""} ${isRevising ? "is-revising" : ""}`}
               value={draft}
               onChange={(event) => updateDraft(event.target.value)}
               onFocus={() => setActiveFinding(null)}
+              onBlur={() => setIsRevising(false)}
               onScroll={(event) => {
                 setEditorScrollTop(event.currentTarget.scrollTop);
                 setActiveFinding(null);
@@ -302,7 +352,7 @@ function App() {
               aria-label="Din argumenterande text"
               spellCheck
             />
-            {findings && findings.length > 0 && (
+            {findings && findings.length > 0 && !isRevising && (
               <div className="text-highlight-layer">
                 <div className="text-highlight-content" style={{ transform: `translateY(-${editorScrollTop}px)` }}>
                   {findings.map((finding, index) => {
@@ -350,7 +400,10 @@ function App() {
                       }}
                     >
                       <div className="finding-popover-heading">
-                        <strong>{finding.title}</strong>
+                        <div>
+                          <span>Att utveckla</span>
+                          <strong>{finding.title}</strong>
+                        </div>
                         <button
                           className="finding-popover-close"
                           type="button"
@@ -364,6 +417,11 @@ function App() {
                         </button>
                       </div>
                       <p>{finding.message}</p>
+                      <div className="finding-popover-actions">
+                        <button className="primary-button finding-popover-continue" onClick={() => continueWriting(finding)} type="button">
+                          Fortsätt skriva
+                        </button>
+                      </div>
                     </aside>
                   );
                 })()}

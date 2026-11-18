@@ -15,7 +15,8 @@ Skrivcoach hjälper elever i årskurs 9 att lära sig skriva och bearbeta argume
 - Sex sammanhängande skrivmoment med gemensam femstegsmodell.
 - Kort avstämningsfråga i varje lektionssteg, med valbara alternativ eller eget textsvar.
 - Tvåkolumnsvy med undervisningswhiteboard till vänster och elevens skrivyta till höger.
-- Ett pågående elevutkast som kan få frivilliga, lektionsanpassade AI-tips utan att stänga skrivytan.
+- Ett pågående elevutkast med en frivillig, lektionsanpassad formativ loop: producera, få återkoppling och revidera själv.
+- En femdelad, kapitelanpassad exit ticket som låter eleven återkalla, tillämpa, självförklara, självbedöma och föra kunskapen vidare.
 - Lokal autosparning för prototypen.
 - Serverbaserad OpenAI-återkoppling vid textgranskning och avstämningar, med elevens uttryckliga handling.
 - Formativ återkoppling som pekar på textställen och bjuder in eleven att tänka vidare.

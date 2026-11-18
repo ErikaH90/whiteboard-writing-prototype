@@ -1,6 +1,7 @@
 import { useId, useState, type FormEvent } from "react";
 import type { Lesson } from "../data/lessons";
 import { submitCheckIn, type CheckInFeedback } from "../lib/coachApi";
+import ChapterExitTicket from "./ChapterExitTicket";
 
 type Props = {
   lesson: Lesson;
@@ -8,6 +9,12 @@ type Props = {
 };
 
 export default function LessonCheckIn({ lesson, phaseIndex }: Props) {
+  return phaseIndex === 4
+    ? <ChapterExitTicket lesson={lesson} />
+    : <LessonCheckInForm lesson={lesson} phaseIndex={phaseIndex} />;
+}
+
+function LessonCheckInForm({ lesson, phaseIndex }: Props) {
   const checkIn = lesson.checkIns[phaseIndex];
   const answerId = useId();
   const [selectedOption, setSelectedOption] = useState<number | null>(null);

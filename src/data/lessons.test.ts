@@ -23,13 +23,20 @@ describe("lesson progression", () => {
       expect(lesson.recall.trim()).not.toBe("");
       expect(lesson.checklist.length).toBeGreaterThan(0);
       expect(lesson.criteria.length).toBeGreaterThan(0);
-      expect(lesson.checkIns).toHaveLength(phases.length);
+      expect(lesson.checkIns).toHaveLength(phases.length - 1);
       expect(lesson.checkIns.map((checkIn) => checkIn.mode)).toEqual([
         "choice",
         "choice",
         "text",
         "choice",
-        "choice",
+      ]);
+      expect(lesson.exitTicket).toHaveLength(5);
+      expect(lesson.exitTicket.map((step) => step.learningProcess)).toEqual([
+        "Återkallning · Retrieval practice",
+        "Tillämpning · Interleaving",
+        "Självförklaring · Self-explanation",
+        "Metakognition och självbedömning",
+        expect.stringMatching(/^Framåtkoppling · /),
       ]);
 
       for (const checkIn of lesson.checkIns) {
@@ -40,6 +47,13 @@ describe("lesson progression", () => {
         } else {
           expect(checkIn).not.toHaveProperty("options");
         }
+      }
+
+      for (const step of lesson.exitTicket) {
+        expect(step.title.trim()).not.toBe("");
+        expect(step.question.trim()).not.toBe("");
+        expect(step.placeholder.trim()).not.toBe("");
+        expect(step.focus.trim()).not.toBe("");
       }
     }
   });

@@ -28,6 +28,18 @@ function failingClient(error: Error) {
   };
 }
 
+function reviewModelResult(successQuote: string, findings: unknown[] = []) {
+  return {
+    success: {
+      quote: successQuote,
+      occurrence: 0,
+      message: "Du uttrycker din ståndpunkt tydligt.",
+    },
+    nextStep: "Vilket exempel kan hjälpa dig att utveckla resonemanget?",
+    findings,
+  };
+}
+
 async function post(app: ReturnType<typeof createApiApp>, path: string, body: unknown) {
   const server = createServer(app);
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -50,16 +62,14 @@ async function post(app: ReturnType<typeof createApiApp>, path: string, body: un
 
 describe("server AI API", () => {
   it("only returns review highlights that exactly match the student's text", async () => {
-    const client = mockClient({
-      findings: [{
+    const client = mockClient(reviewModelResult("tes", [{
         quote: "tes",
         occurrence: 1,
         title: "Undersök upprepningen",
         comment: "Behöver den här formuleringen upprepas?",
         category: "structure",
         rewrite: "En ny formulering som inte får visas.",
-      }],
-    });
+      }]));
     const draft = "tes och tes";
     const result = await post(createApiApp({ client }), "/api/review", {
       draft,
@@ -76,6 +86,13 @@ describe("server AI API", () => {
       ]),
     }));
     expect(result.body).toEqual({
+      success: {
+        start: 0,
+        end: 3,
+        quote: "tes",
+        message: "Du uttrycker din ståndpunkt tydligt.",
+      },
+      nextStep: "Vilket exempel kan hjälpa dig att utveckla resonemanget?",
       findings: [{
         id: "ai-0-8",
         start: 8,
@@ -88,14 +105,34 @@ describe("server AI API", () => {
     expect(draft.slice(result.body.findings[0].start, result.body.findings[0].end)).toBe("tes");
   });
 
+  it("accepts a short improvement hint that is not phrased as a question", async () => {
+    const client = mockClient(reviewModelResult("Tesen", [{
+      quote: "Tesen",
+      occurrence: 0,
+      title: "Utveckla argumentet",
+      comment: "Lägg till ett exempel som visar hur skälet stödjer tesen.",
+      category: "reasoning",
+    }]));
+    const result = await post(createApiApp({ client }), "/api/review", {
+      draft: "Tesen är att skoldagen borde börja senare.",
+      lessonTitle: "Resonemang",
+      phase: "Träna själv",
+      goal: "Utveckla argumenten.",
+      criteria: ["Argumentens underbyggnad"],
+    });
+
+    expect(result.status).toBe(200);
+    expect(result.body.findings[0].message).toBe("Lägg till ett exempel som visar hur skälet stödjer tesen.");
+  });
+
   it("rejects a model highlight that is not present in the draft", async () => {
-    const client = mockClient({ findings: [{
+    const client = mockClient(reviewModelResult("En", [{
       quote: "saknas",
       occurrence: 0,
       title: "Granska",
       comment: "Vad vill du undersöka här?",
       category: "language",
-    }] });
+    }]));
     const result = await post(createApiApp({ client }), "/api/review", {
       draft: "En text.",
       lessonTitle: "Struktur",
@@ -109,14 +146,28 @@ describe("server AI API", () => {
     expect(result.body.error).not.toContain("saknas");
   });
 
+  it("rejects success feedback that cannot be anchored to the draft", async () => {
+    const client = mockClient(reviewModelResult("saknas"));
+    const result = await post(createApiApp({ client }), "/api/review", {
+      draft: "En text.",
+      lessonTitle: "Struktur",
+      phase: "Träna själv",
+      goal: "Visa en tydlig tes.",
+      criteria: ["Textens struktur"],
+    });
+
+    expect(result.status).toBe(502);
+    expect(result.body.error).toContain("framgångsåterkopplingen");
+  });
+
   it("binds capitalization and punctuation variants to the exact source span", async () => {
-    const client = mockClient({ findings: [{
+    const client = mockClient(reviewModelResult("Tesen", [{
       quote: "TESEN är tydlig",
       occurrence: 0,
       title: "Undersök tesen",
       comment: "Vilken ståndpunkt uttrycker den här meningen?",
       category: "structure",
-    }] });
+    }]));
     const result = await post(createApiApp({ client }), "/api/review", {
       draft: "Tesen, är tydlig.",
       lessonTitle: "Struktur",
@@ -134,13 +185,13 @@ describe("server AI API", () => {
   });
 
   it("uses a unique exact quote when the model gives an incorrect occurrence number", async () => {
-    const client = mockClient({ findings: [{
+    const client = mockClient(reviewModelResult("Skoldagen", [{
       quote: "Skoldagen",
       occurrence: 4,
       title: "Undersök tesen",
       comment: "Vilken ståndpunkt uttrycker den här meningen?",
       category: "structure",
-    }] });
+    }]));
     const result = await post(createApiApp({ client }), "/api/review", {
       draft: "Skoldagen borde börja senare.",
       lessonTitle: "Struktur",

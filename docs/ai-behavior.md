@@ -8,7 +8,8 @@ AI:n undervisar och vägleder. Eleven skriver, väljer och genomför ändringar.
 
 - Peka ut ett kort, exakt textspann och förklara vad eleven kan undersöka.
 - Ställa en fråga eller ge en ledtråd kopplad till det aktuella lektionsmålet.
-- Synliggöra styrkor med belägg i texten.
+- Synliggöra en specifik framgång med ett verifierbart citat ur texten.
+- Föreslå ett hanterbart nästa steg som hjälper eleven att revidera själv.
 - Prioritera högst tre hanterbara kommentarer och uttrycka osäkerhet.
 - Hjälpa eleven vidare med öppna frågor, inte färdigskrivna idéer eller meningar.
 
@@ -29,9 +30,10 @@ När texten ändras ska tidigare markeringar rensas eller räknas om. Ett modell
 
 - Textgranskning och lektionsavstämningar använder OpenAI via serverns `/api`-endpoints.
 - API-nyckeln läses endast av servern från `OPENAI_API_KEY`. Den får aldrig ha `VITE_`-prefix eller skickas till klienten.
-- Elevens utkast ligger kvar redigerbart medan tips visas. Eleven väljer aktivt **Få tips på min text**; endast då skickas utkastet tillsammans med aktuellt moment och lektionssteg. UI:t informerar före anropet.
-- Varje återkoppling markeras direkt vid det exakta textspannet. Eleven kan klicka eller fokusera markeringen för att öppna en kort förklaring; inga separata tipskort visas och eleven gör själv alla ändringar.
-- Avstämningssvar skickas endast när eleven väljer **Svara**.
+- Elevens utkast ligger kvar redigerbart genom loopen **Producera → Få återkoppling → Revidera**. Eleven väljer aktivt **Få återkoppling**; endast då skickas utkastet tillsammans med aktuellt moment och lektionssteg. UI:t informerar före anropet.
+- Varje återkoppling markeras direkt vid det exakta textspannet. Eleven kan klicka eller fokusera markeringen för att öppna en kort förklaring. **Fortsätt skriva** fokuserar skrivytan och markerar textspannet för elevens egen bearbetning; AI:n ändrar aldrig texten.
+- Sammanfattningen visar lektionsmålet, en textförankrad framgång, möjliga förbättringsområden via markeringar och ett konkret nästa steg.
+- Avstämnings- och exit-ticket-svar skickas endast när eleven väljer **Svara**.
 - Fel från servern eller AI-tjänsten visas tydligt. Appen faller inte tyst tillbaka till lokala regler.
 - Servern loggar inte elevtext. Utkastet sparas fortsatt separat i webbläsarens `localStorage`.
 - Eleven bör inte skriva personuppgifter. OpenAI:s hantering och eventuell lagring styrs även av leverantörens villkor; den här integrationen garanterar inte att leverantören raderar innehållet.

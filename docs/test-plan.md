@@ -28,6 +28,8 @@ Testerna ska skydda elevens självständiga skrivande, lektionsprogressionen, se
 - **WRITE-02:** förbättringsområden markeras i texten; val av markering öppnar en kommentar utan att ändra elevens text eller visa en lista med kort.
 - **WRITE-03:** AI-anropet innehåller aktuellt lektionsmoment och steg så återkopplingen kan fokusera på det eleven just tränar.
 - **WRITE-04:** ändring av text eller lektionssteg medan en begäran pågår hindrar svaret från att visas på fel textversion eller fokus.
+- **WRITE-05:** återkopplingen visar målet, en citerad framgång, förbättringsområden och ett nästa steg; när eleven reviderar återställs loopen till Producera och gamla markeringar tas bort.
+- **WRITE-06:** **Fortsätt skriva** flyttar fokus till skrivytan och väljer exakt det markerade spannet; texten ändras först när eleven själv skriver.
 - **AI-01:** servern visar aldrig en ersättningstext; strukturerade svar tillåter endast markeringar och coachande kommentarer.
 - **AI-02, modellutvärdering:** text som innehåller instruktioner till modellen behandlas som elevtext och får inte åsidosätta coachens instruktioner.
 - **AI-03:** saknad nyckel, fel från AI-tjänsten eller ogiltigt JSON ger ett synligt fel; inga lokala heuristiker presenteras som AI-svar.
@@ -38,8 +40,9 @@ Testerna ska skydda elevens självständiga skrivande, lektionsprogressionen, se
 - **PED-02:** varje lektionssteg har ett eget innehåll och progressionen visar modellering, träning, återkallning, självkontroll och slutbedömning i rätt ordning.
 - **PED-03:** stöd/ledtrådar kan visas i träning och minskar vid återkallning och slutdiagnos.
 - **PED-04, manuell:** lärare bedömer om exempel går att jämföra och om träning och återkallning faktiskt kräver elevens egen formulering.
+- **PED-05:** varje kapitel har fem exit-ticket-steg i ordningen återkallning, tillämpning, självförklaring, självbedömning och framåtkoppling; eleven svarar en fråga i taget och kan slutföra alla fem.
 - **CHECK-01:** avstämningsfrågor har ett enda svarssätt: två alternativ med exakt ett avsett svar, eller ett fritextfält.
-- **CHECK-02:** svarsalternativ visas i modellering, träning, självkontroll och slutbedömning; ett fritextfält visas vid återkallning.
+- **CHECK-02:** svarsalternativ visas i modellering, träning och självkontroll; ett fritextfält visas vid återkallning och varje exit-ticket-steg.
 - **CHECK-03:** gränssnittet visar inte svarsalternativ och fritextfält samtidigt.
 - **CHECK-04:** ledtrådar finns i modellerings- och träningsstegen men inte i återkallning utan stöd eller slutbedömning.
 - **CHECK-05:** ändrat svar kan skickas igen; tidigare återkoppling får inte ligga kvar som svar på det nya svaret.
@@ -51,6 +54,7 @@ Testerna ska skydda elevens självständiga skrivande, lektionsprogressionen, se
 - **MARK-03:** servern återger endast textspann ur utkastet, även när AI-citat skiljer sig i versaler eller skiljetecken; citat utan säker träff avvisas.
 - **MARK-04:** överlappande eller felaktiga positioner visas inte.
 - **MARK-05:** när eleven redigerar texten rensas resultat med gamla positioner.
+- **MARK-06:** framgångscitatet som visas i återkopplingen måste också bindas till ett exakt spann i den aktuella texten.
 - **AI-04, manuell:** granska falska positiva, missade signaler och osäkra svar på en lärarannoterad syntetisk uppsättning. Osäkra eller icke-evidensbaserade fel ska inte visas som säkra röda markeringar.
 
 ## Kvalitetsgränser för framtida AI

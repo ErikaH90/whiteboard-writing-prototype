@@ -7,6 +7,19 @@ export type Finding = {
   message: string;
 };
 
+export type TextEvidence = {
+  start: number;
+  end: number;
+  quote: string;
+  message: string;
+};
+
+export type ReviewFeedback = {
+  success: TextEvidence;
+  nextStep: string;
+  findings: Finding[];
+};
+
 type ReviewRequest = {
   draft: string;
   lessonTitle: string;
@@ -74,10 +87,37 @@ async function postJson(path: string, body: unknown): Promise<unknown> {
   return result;
 }
 
-export async function reviewDraft(request: ReviewRequest): Promise<Finding[]> {
+export async function reviewDraft(request: ReviewRequest): Promise<ReviewFeedback> {
   const result = await postJson("/api/review", request);
-  if (!isRecord(result) || !Array.isArray(result.findings) || result.findings.length > 3) {
+  if (
+    !isRecord(result) ||
+    !Array.isArray(result.findings) ||
+    result.findings.length > 3 ||
+    typeof result.nextStep !== "string" ||
+    result.nextStep.trim().length === 0 ||
+    result.nextStep.length > 240 ||
+    !isRecord(result.success)
+  ) {
     throw new Error("AI-granskningen gav ett ogiltigt resultat.");
+  }
+
+  const success = result.success;
+  if (
+    typeof success.start !== "number" ||
+    !Number.isSafeInteger(success.start) ||
+    typeof success.end !== "number" ||
+    !Number.isSafeInteger(success.end) ||
+    typeof success.quote !== "string" ||
+    success.quote.length > 160 ||
+    typeof success.message !== "string" ||
+    success.message.trim().length === 0 ||
+    success.message.length > 240 ||
+    success.start < 0 ||
+    success.end <= success.start ||
+    success.end > request.draft.length ||
+    request.draft.slice(success.start, success.end) !== success.quote
+  ) {
+    throw new Error("AI-granskningen gav en framgångsåterkoppling som inte stämmer med texten.");
   }
 
   const findings = result.findings.filter(isFinding);
@@ -90,12 +130,16 @@ export async function reviewDraft(request: ReviewRequest): Promise<Finding[]> {
     if (
       typeof finding.id !== "string" ||
       typeof finding.title !== "string" ||
+      finding.title.trim().length === 0 ||
       typeof finding.message !== "string" ||
+      finding.message.trim().length === 0 ||
       typeof finding.quote !== "string" ||
+      finding.quote.length > 160 ||
       !Number.isSafeInteger(finding.start) ||
       !Number.isSafeInteger(finding.end) ||
       finding.start < previousEnd ||
       finding.end <= finding.start ||
+      finding.end > request.draft.length ||
       request.draft.slice(finding.start, finding.end) !== finding.quote
     ) {
       throw new Error("AI-granskningen innehöll en markering som inte stämmer med texten.");
@@ -104,7 +148,16 @@ export async function reviewDraft(request: ReviewRequest): Promise<Finding[]> {
     previousEnd = finding.end;
   }
 
-  return findings;
+  return {
+    success: {
+      start: success.start,
+      end: success.end,
+      quote: success.quote,
+      message: success.message,
+    },
+    nextStep: result.nextStep,
+    findings,
+  };
 }
 
 export async function submitCheckIn(request: CheckInRequest): Promise<CheckInFeedback> {

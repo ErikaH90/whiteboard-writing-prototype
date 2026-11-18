@@ -10,9 +10,31 @@
 
 Stödet ska minska över tid. Återkallning och slutdiagnos ska inte visa färdiga svar som eleven kan kopiera.
 
-Varje lektionssteg innehåller en kort avstämningsfråga. I modellering, träning och självkontroll väljer eleven mellan alternativ. Vid återkallning skriver eleven ett svar med egna ord utan svarsalternativ; slutbedömningen av texten görs i skrivytan. Visa aldrig alternativ och fritextfält samtidigt. Återkopplingen ska visa vad eleven verkar förstå och ge ett nästa tänkesteg, inte framställa en enkel kontroll som ett säkert kunskapstest.
+De första fyra lektionsstegen innehåller en kort avstämningsfråga. I modellering, träning och självkontroll väljer eleven mellan alternativ. Vid återkallning skriver eleven ett svar med egna ord utan svarsalternativ. I det femte steget gör eleven en kapitelanpassad exit ticket med fem skrivna svar; den avslutar inte eller ersätter elevens eget arbete med texten. Visa aldrig svarsalternativ och fritextfält samtidigt. Återkopplingen ska visa vad eleven verkar förstå och ge ett nästa tänkesteg, inte framställa en enkel kontroll som ett säkert kunskapstest.
 
 Elevens utkast är en pågående text från första momentet. Whiteboardens modellering och frågor ska hjälpa eleven att fortsätta skriva och bearbeta samma utkast. Eleven kan själv be tutorn om råd; råden knyts till aktuellt moment och steg. Eleven avgör vad hen ändrar, och AI:n gör inga rättelser direkt i texten.
+
+## Exit ticket och kunskapsbefästning
+
+Varje kapitel avslutas med fem uppgifter i följande ordning:
+
+1. **Återkallning (Retrieval practice):** eleven hämtar kunskap ur minnet utan svarsalternativ.
+2. **Tillämpning (Interleaving):** eleven kopplar kapitlets kunskap till den egna texten och relevanta tidigare kunskaper.
+3. **Självförklaring (Self-explanation):** eleven förklarar varför strategin hjälper argumentationen eller läsaren.
+4. **Metakognition och självbedömning:** eleven bedömer sin egen utveckling och vad som varit svårt.
+5. **Framåtkoppling:** eleven förbereder hur kunskapen kan användas i nästa kapitel. I slutdiagnosen riktas överföringen mot framtida skrivuppgifter.
+
+Eleven besvarar en uppgift i taget och får kort, vägledande återkoppling efter ett aktivt svar. Exit ticket är inte ett betyg. Frågor och svar ska vara specifika för kapitlet, men lärandegången återkommer för att befästa strategierna.
+
+## Formativ skrivloop
+
+Skrivytan stödjer en återkommande loop:
+
+1. **Producera:** eleven formulerar och äger sitt utkast.
+2. **Få återkoppling:** efter en aktiv begäran synliggörs det aktuella målet, en konkret framgång med belägg i texten, möjliga förbättringsområden och ett hanterbart nästa steg.
+3. **Revidera:** eleven använder återkopplingen för att själv bearbeta texten. När texten ändras blir tidigare markeringar inaktuella och loopen börjar om.
+
+Framgången ska vara specifik och belagd i ett citerat textspann. Förbättringsområden visas som röda markeringar i texten med korta frågor i en popup. Nästa steg ska hjälpa eleven att agera utan att ge färdiga formuleringar. Återkopplingen är vägledande och inte ett betyg.
 
 ## Momentens progression
 

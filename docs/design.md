@@ -16,7 +16,7 @@ Whiteboarden använder det lokalt bundlade handskriftsfontet Patrick Hand för a
 
 ## Layout
 
-- På breda skärmar fördelas tvåkolumnslayouten med ungefär 40 procent till whiteboarden och 60 procent till skrivytan.
+- På breda skärmar fördelas tvåkolumnslayouten med ungefär 45 procent till whiteboarden och 55 procent till skrivytan.
 - När skärmbredden är högst 900 px staplas panelerna så skrivytan förblir användbar; progressionen får kunna rullas horisontellt.
 - Whiteboarden visar ett undervisningssteg åt gången.
 - Avstämningen visar antingen svarsalternativ eller ett fritextfält beroende på uppgiften, aldrig båda samtidigt.
@@ -26,7 +26,9 @@ Whiteboarden använder det lokalt bundlade handskriftsfontet Patrick Hand för a
 
 - Rött reserveras för konkreta möjliga problem och kompletteras alltid med text.
 - Förbättringsområden markeras direkt i skrivtexten; kommentaren visas i en liten kontextuell ruta när eleven väljer markeringen.
+- Popupen har en **Fortsätt skriva**-knapp som fokuserar det markerade textspannet utan att ändra innehållet.
 - Återkoppling visas inte som en lista med kort under skrivytan.
+- Formativ återkoppling visar målet, belagd framgång, förbättringsområden och nästa steg i en kompakt sammanfattning före skrivytan.
 - Positiv återkoppling och utvecklingsförslag skiljs visuellt från röda markeringar.
 - Färg är aldrig den enda informationsbäraren.
 - Kontroller ska kunna användas med tangentbord och ha begripliga namn.

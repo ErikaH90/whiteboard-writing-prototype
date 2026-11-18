@@ -4,6 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 
 function reviewResponse(draft: string) {
+  const successQuote = draft.match(/[\p{L}\p{N}]+/u)?.[0] ?? "";
+  const successStart = draft.indexOf(successQuote);
   const quote = "Jag tycker";
   const start = draft.indexOf(quote, quote.length);
   const findings = start < 0 ? [] : [{
@@ -15,7 +17,16 @@ function reviewResponse(draft: string) {
     message: "Behöver varje mening börja så?",
   }];
 
-  return new Response(JSON.stringify({ findings }), {
+  return new Response(JSON.stringify({
+    success: {
+      start: successStart,
+      end: successStart + successQuote.length,
+      quote: successQuote,
+      message: "Du uttrycker en tydlig tanke.",
+    },
+    nextStep: "Vilket exempel kan hjälpa dig att utveckla din tanke?",
+    findings,
+  }), {
     status: 200,
     headers: { "Content-Type": "application/json" },
   });
@@ -36,27 +47,50 @@ afterEach(() => {
 });
 
 describe("writing coach", () => {
-  it("shows feedback on inline marks without changing the editable draft", async () => {
+  it("lets the student continue writing at a cited span without an automatic edit", async () => {
     const user = userEvent.setup();
     const draft = "Jag tycker skoldagen ska börja senare. Jag tycker elever behöver mer vila.";
 
     render(<App />);
     const editor = screen.getByRole("textbox", { name: "Din argumenterande text" }) as HTMLTextAreaElement;
     await user.type(editor, draft);
-    await user.click(screen.getByRole("button", { name: "Få tips på min text" }));
+    await user.click(screen.getByRole("button", { name: "Få återkoppling" }));
 
-    expect(await screen.findByText("Klicka på en röd markering för att läsa tutorns kommentar.")).toBeInTheDocument();
+    const feedback = screen.getByRole("region", { name: "Återkoppling på ditt utkast" });
+    expect(feedback).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "Din argumenterande text" })).toHaveValue(draft);
     expect(screen.getByText(/skickas utkastet och lektionsfokuset till OpenAI/)).toBeInTheDocument();
+    expect([...feedback.querySelectorAll("strong")].map((label) => label.textContent)).toEqual([
+      "Målet",
+      "Din framgång",
+      "Vad kan bli bättre?",
+      "Nästa steg",
+    ]);
+    expect(screen.getByText("Du uttrycker en tydlig tanke.")).toBeInTheDocument();
+    expect(screen.getByText("Vilket exempel kan hjälpa dig att utveckla din tanke?")).toBeInTheDocument();
+    expect(screen.getByRole("list", { name: "Formativ arbetsgång" }).querySelector(".is-current")).toHaveTextContent("Revidera");
 
     const mark = screen.getByRole("button", { name: /Visa förklaring.*Upprepad meningsstart/ });
     expect(mark).toHaveTextContent("Jag tycker");
     await user.click(mark);
     expect(screen.getByRole("dialog", { name: "Förklaring: Upprepad meningsstart" })).toHaveTextContent("Behöver varje mening börja så?");
-    expect(screen.getByRole("textbox", { name: "Din argumenterande text" })).toHaveValue(draft);
+    expect(editor).toHaveValue(draft);
     expect(screen.queryByText("Tips på ditt utkast")).not.toBeInTheDocument();
     expect(document.querySelector(".feedback-card")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Skriv om|Ersätt text/ })).not.toBeInTheDocument();
+
+    const quoteStart = draft.indexOf("Jag tycker", "Jag tycker".length);
+    const quoteEnd = quoteStart + "Jag tycker".length;
+    await user.click(screen.getByRole("button", { name: "Fortsätt skriva" }));
+
+    expect(editor).toHaveFocus();
+    expect(editor.selectionStart).toBe(quoteStart);
+    expect(editor.selectionEnd).toBe(quoteEnd);
+    expect(editor).toHaveValue(draft);
+
+    await user.keyboard("Jag anser");
+    expect(editor).toHaveValue(`${draft.slice(0, quoteStart)}Jag anser${draft.slice(quoteEnd)}`);
+    expect(screen.queryByRole("button", { name: /Visa förklaring.*Upprepad meningsstart/ })).not.toBeInTheDocument();
   });
 
   it("clears annotations after the student edits the text", async () => {
@@ -65,13 +99,15 @@ describe("writing coach", () => {
 
     const editor = screen.getByRole("textbox", { name: "Din argumenterande text" });
     await user.type(editor, "Jag tycker det. Jag tycker också det.");
-    await user.click(screen.getByRole("button", { name: "Få tips på min text" }));
+    await user.click(screen.getByRole("button", { name: "Få återkoppling" }));
     expect(await screen.findByRole("button", { name: /Visa förklaring.*Upprepad meningsstart/ })).toBeInTheDocument();
 
     await user.clear(screen.getByRole("textbox", { name: "Din argumenterande text" }));
     await user.type(screen.getByRole("textbox", { name: "Din argumenterande text" }), "Ny text utan gamla markeringar.");
 
     expect(screen.queryByRole("button", { name: /Visa förklaring.*Upprepad meningsstart/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Återkoppling på ditt utkast" })).not.toBeInTheDocument();
+    expect(screen.getByRole("list", { name: "Formativ arbetsgång" }).querySelector(".is-current")).toHaveTextContent("Producera");
   });
 
   it("shows a clear error when the AI service fails instead of using a local fallback", async () => {
@@ -83,7 +119,7 @@ describe("writing coach", () => {
     render(<App />);
 
     await user.type(screen.getByRole("textbox", { name: "Din argumenterande text" }), "Text att granska.");
-    await user.click(screen.getByRole("button", { name: "Få tips på min text" }));
+    await user.click(screen.getByRole("button", { name: "Få återkoppling" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("OpenAI avvisade serverns API-nyckel");
     expect(screen.queryByText("Upprepad meningsstart")).not.toBeInTheDocument();
@@ -98,7 +134,7 @@ describe("writing coach", () => {
     render(<App />);
 
     await user.type(screen.getByRole("textbox", { name: "Din argumenterande text" }), "Text att granska.");
-    await user.click(screen.getByRole("button", { name: "Få tips på min text" }));
+    await user.click(screen.getByRole("button", { name: "Få återkoppling" }));
     await user.click(screen.getByRole("button", { name: "Träna själv" }));
     await act(async () => {
       resolveReview(reviewResponse("Text att granska."));
