@@ -96,6 +96,29 @@ describe("writing coach", () => {
     await user.click(screen.getByRole("button", { name: "Skapa exempel med valt ämne" }));
 
     expect(await screen.findByText("Musik kan samla människor eftersom de delar en upplevelse.")).toBeInTheDocument();
+    expect(screen.getByText("Vad förklarar sambandet i det andra exemplet?")).toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "Välj ett svar" })).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Ditt svar")).toBeInTheDocument();
+    expect(screen.getByText("Ditt svar och exemplen skickas till OpenAI när du skickar in det.")).toBeInTheDocument();
+
+    await user.type(screen.getByLabelText("Ditt svar"), "Det andra exemplet förklarar varför musik kan samla människor.");
+    await user.click(screen.getByRole("button", { name: "Svara" }));
+    const adaptedCheckIn = fetchMock.mock.calls
+      .map(([input, init]) => ({
+        path: String(input),
+        body: JSON.parse(String(init?.body)) as Record<string, unknown>,
+      }))
+      .find(({ path, body }) => path.includes("/api/check-in") && body.exampleContext);
+    expect(adaptedCheckIn?.body).toMatchObject({
+      mode: "text",
+      question: "Vad förklarar sambandet i det andra exemplet?",
+      answer: "Det andra exemplet förklarar varför musik kan samla människor.",
+      exampleContext: {
+        needsWork: "Musik är bra.",
+        developed: "Musik kan samla människor eftersom de delar en upplevelse.",
+      },
+    });
+
     const exampleRequest = fetchMock.mock.calls
       .map(([, init]) => JSON.parse(String(init?.body)) as Record<string, unknown>)
       .find((body) => body.interest === "music");
@@ -112,7 +135,7 @@ describe("writing coach", () => {
     expect(savedProfile).toMatchObject({
       interest: "music",
       difficulty: { structure: "too_hard" },
-      evidence: { structure: { latest: "independent", observations: 1 } },
+      evidence: { structure: { latest: "independent", observations: 2, independent: 2 } },
     });
 
     view.unmount();
@@ -133,7 +156,7 @@ describe("writing coach", () => {
     const feedback = screen.getByRole("region", { name: "Återkoppling på ditt utkast" });
     expect(feedback).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "Din argumenterande text" })).toHaveValue(draft);
-    expect(screen.getByText("Utkast skickas till OpenAI")).toBeInTheDocument();
+    expect(screen.getByText("Text skickas till OpenAI vid AI-återkoppling.")).toBeInTheDocument();
     expect([...feedback.querySelectorAll("strong")].map((label) => label.textContent)).toEqual([
       "Målet",
       "Din framgång",
@@ -295,7 +318,8 @@ describe("writing coach", () => {
 
     expect(fetch).toHaveBeenCalledTimes(requestsBeforeComplete);
     expect(screen.getByRole("status")).toHaveTextContent("AI-återkoppling är valfri.");
-    expect(screen.getByText("Utkast skickas till OpenAI")).toBeInTheDocument();
+    expect(screen.getByText("Text skickas till OpenAI vid AI-återkoppling.")).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Slutdiagnosens självkontroll" })).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Få återkoppling" }));
     expect(await screen.findByRole("region", { name: "Återkoppling på ditt utkast" })).toBeInTheDocument();
@@ -306,10 +330,31 @@ describe("writing coach", () => {
     expect(fetch).toHaveBeenCalledTimes(requestsBeforeHandoff);
     expect(screen.getByText("Inlämnad i den lokala lärarvyn.")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Lärarvy (demoläge)" }));
-    expect(screen.getByRole("region", { name: "Lärarvy i demoläge" })).toHaveTextContent(diagnosisText);
-    expect(screen.getByRole("region", { name: "Lärarvy i demoläge" })).toHaveTextContent("Du uttrycker en tydlig tanke.");
-    await user.click(screen.getByRole("button", { name: "Öva vidare på Meningsbyggnad" }));
-    expect(screen.getByRole("textbox", { name: "Din argumenterande text" })).toHaveValue(trainingDraft);
+    const inbox = screen.getByRole("region", { name: "Lärarvy i demoläge" });
+    expect(inbox).toHaveTextContent(diagnosisText);
+    expect(inbox).toHaveTextContent("Du uttrycker en tydlig tanke.");
+
+    await user.click(screen.getByRole("button", { name: "Stäng" }));
+    const checklist = screen.getByRole("region", { name: "Slutdiagnosens självkontroll" });
+    expect(checklist).toBeInTheDocument();
+    await user.click(screen.getByText("1. Struktur & Innehåll"));
+    await user.click(screen.getByLabelText("Jag har en tydlig rubrik som passar ämnet."));
+    expect(checklist).toHaveTextContent("1 av 28 markerade");
+    const lockedEditor = screen.getByRole("textbox", { name: "Din argumenterande text" }) as HTMLTextAreaElement;
+    expect(lockedEditor).toHaveAttribute("readonly");
+
+    await user.click(screen.getByRole("button", { name: "Börja en separat bearbetad version" }));
+    const revision = screen.getByRole("textbox", { name: "Din separata bearbetade text" }) as HTMLTextAreaElement;
+    expect(revision).toHaveValue(diagnosisText);
+    expect(revision).not.toHaveAttribute("readonly");
+    expect(checklist).toHaveTextContent("1 av 28 markerade");
+    expect(screen.queryByRole("button", { name: "Börja en separat bearbetad version" })).not.toBeInTheDocument();
+    await user.clear(revision);
+    await user.type(revision, "Bearbetad kopia.");
+    await user.click(screen.getByRole("button", { name: "Lärarvy (demoläge)" }));
+    const originalSubmission = screen.getByRole("region", { name: "Lärarvy i demoläge" });
+    expect(originalSubmission).toHaveTextContent(diagnosisText);
+    expect(originalSubmission).not.toHaveTextContent("Bearbetad kopia.");
   });
 
   it("omits the extra workspace labels and duplicate review button", () => {

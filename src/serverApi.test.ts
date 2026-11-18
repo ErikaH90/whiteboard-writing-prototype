@@ -137,6 +137,7 @@ describe("server AI API", () => {
     expect(client.chat.completions.create).toHaveBeenCalledWith(expect.objectContaining({
       messages: expect.arrayContaining([
         expect.objectContaining({ role: "system", content: expect.stringContaining("ingen elevtext har skickats") }),
+        expect.objectContaining({ role: "system", content: expect.stringContaining("question ska jämföra just dessa två exempel") }),
         expect.objectContaining({ role: "user", content: expect.not.stringContaining('"draft"') }),
       ]),
     }));
@@ -330,6 +331,48 @@ describe("server AI API", () => {
         }),
       ]),
     }));
+  });
+
+  it("evaluates an adapted check-in using its personalized example pair", async () => {
+    const client = mockClient({ kind: "on_track", feedback: "Du jämför exemplen. Vad gör förklaringen tydlig?" });
+    const exampleContext = {
+      needsWork: "Musik är bra.",
+      developed: "Musik kan samla människor eftersom de delar en upplevelse.",
+    };
+    const result = await post(createApiApp({ client }), "/api/check-in", {
+      mode: "text",
+      question: "Vad förklarar sambandet i det andra exemplet?",
+      answer: "Det förklarar varför musik kan samla människor.",
+      focus: "jämföra hur resonemang utvecklas",
+      exampleContext,
+    });
+
+    expect(result.status).toBe(200);
+    expect(client.chat.completions.create).toHaveBeenCalledWith(expect.objectContaining({
+      messages: expect.arrayContaining([
+        expect.objectContaining({
+          role: "user",
+          content: expect.stringContaining(JSON.stringify(exampleContext)),
+        }),
+      ]),
+    }));
+  });
+
+  it("rejects malformed personalized example context before calling the model", async () => {
+    const client = mockClient({ kind: "on_track", feedback: "Kan du ge ett exempel?" });
+    const result = await post(createApiApp({ client }), "/api/check-in", {
+      mode: "text",
+      question: "Vad förklarar sambandet i exemplet?",
+      answer: "En förklaring.",
+      focus: "resonemang",
+      exampleContext: {
+        needsWork: "x".repeat(241),
+        developed: "En utvecklad förklaring.",
+      },
+    });
+
+    expect(result.status).toBe(400);
+    expect(client.chat.completions.create).not.toHaveBeenCalled();
   });
 
   it("rejects malformed or unknown learning evidence", async () => {

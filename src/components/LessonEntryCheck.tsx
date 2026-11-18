@@ -158,7 +158,7 @@ export default function LessonEntryCheck({
           </button>
         )}
         <div className="check-in-actions">
-          {!feedback && <span className="request-disclosure">Ditt svar och tidigare stödsignaler skickas till OpenAI</span>}
+          <p className="ai-action-note">Ditt svar skickas till OpenAI när du skickar in det.</p>
           {feedback?.kind === "on_track" ? (
             <button className="primary-button" onClick={onComplete} type="button">Börja momentet</button>
           ) : feedback?.kind === "retry" ? (

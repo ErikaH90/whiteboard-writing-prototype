@@ -124,7 +124,7 @@ export default function ChapterExitTicket({ lesson, exitTicket, priorEvidence, o
         </div>
       )}
       <div className="check-in-actions exit-ticket-actions">
-        {!feedback && <span className="request-disclosure">Ditt svar och tidigare stödsignaler skickas till OpenAI</span>}
+        <p className="ai-action-note">Ditt svar skickas till OpenAI när du skickar in det.</p>
         {stepIndex > 0 && (
           <button className="quiet-button" onClick={() => moveToStep(stepIndex - 1)} type="button">
             Föregående

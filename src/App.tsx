@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import FinalRecall from "./components/FinalRecall";
 import DemoTeacherInbox from "./components/DemoTeacherInbox";
+import FinalDiagnosisChecklist from "./components/FinalDiagnosisChecklist";
 import LessonEntryCheck from "./components/LessonEntryCheck";
 import LessonCheckIn from "./components/LessonCheckIn";
 import { finalRecallQuestions, lessons, phases, type LearningEvidence, type SkillId } from "./data/lessons";
@@ -56,6 +57,8 @@ function App() {
   });
   const [draft, setDraft] = useState(savedDraft.draft);
   const [diagnosisDraft, setDiagnosisDraft] = useState("");
+  const [revisionDraft, setRevisionDraft] = useState("");
+  const [isSeparateRevision, setIsSeparateRevision] = useState(false);
   const [isDiagnosisSubmitted, setIsDiagnosisSubmitted] = useState(false);
   const [teacherSubmissionId, setTeacherSubmissionId] = useState<string | null>(null);
   const [demoSubmissions, setDemoSubmissions] = useState<DemoSubmission[]>([]);
@@ -97,7 +100,9 @@ function App() {
   const isFinalDiagnosis = lessonIndex === lessons.length - 1 && phaseIndex === phases.length - 1 && !showFinalRecall;
   const isFinalRecall = showFinalRecall;
   const hasCompletedEntry = completedEntryLessons.includes(lessonIndex);
-  const activeDraft = isFinalDiagnosis ? diagnosisDraft : draft;
+  const activeDraft = isFinalDiagnosis
+    ? isSeparateRevision ? revisionDraft : diagnosisDraft
+    : draft;
   const findings = reviewFeedback?.findings ?? null;
   const wordCount = useMemo(() => activeDraft.trim().split(/\s+/).filter(Boolean).length, [activeDraft]);
   const recommendedLessonIndex = reviewFeedback?.findings.length
@@ -124,16 +129,24 @@ function App() {
 
   function updateDraft(value: string) {
     reviewRequestId.current += 1;
-    if (isFinalDiagnosis) setDiagnosisDraft(value);
-    else setDraft(value);
+    const editingSeparateRevision = isFinalDiagnosis && isSeparateRevision && teacherSubmissionId !== null;
+    if (editingSeparateRevision) {
+      setRevisionDraft(value);
+    } else if (isFinalDiagnosis) {
+      setDiagnosisDraft(value);
+    } else {
+      setDraft(value);
+    }
     setReviewFeedback(null);
     setActiveFinding(null);
     setIsRevising(false);
     setReviewError(null);
     setReviewLoading(false);
-    setIsDiagnosisSubmitted(false);
-    setTeacherSubmissionId(null);
-    setSubmissionError(null);
+    if (!editingSeparateRevision) {
+      setIsDiagnosisSubmitted(false);
+      setTeacherSubmissionId(null);
+      setSubmissionError(null);
+    }
   }
 
   function selectLesson(index: number) {
@@ -151,6 +164,8 @@ function App() {
     setTeacherSubmissionId(null);
     setSubmissionError(null);
     setShowFinalRecall(false);
+    setIsSeparateRevision(false);
+    setRevisionDraft("");
     setPersonalizedExample(null);
     setExampleError(null);
   }
@@ -180,6 +195,8 @@ function App() {
     setIsDiagnosisSubmitted(false);
     setTeacherSubmissionId(null);
     setSubmissionError(null);
+    setIsSeparateRevision(false);
+    setRevisionDraft("");
     setShowFinalRecall(false);
   }
 
@@ -235,6 +252,8 @@ function App() {
   function startFinalDiagnosis() {
     reviewRequestId.current += 1;
     setDiagnosisDraft("");
+    setRevisionDraft("");
+    setIsSeparateRevision(false);
     setShowFinalRecall(false);
     setPhaseIndex(phases.length - 1);
     setReviewFeedback(null);
@@ -250,7 +269,17 @@ function App() {
     setReviewFeedback(null);
     setReviewError(null);
     setActiveFinding(null);
+    setIsSeparateRevision(false);
     setIsDiagnosisSubmitted(true);
+  }
+
+  function startSeparateRevision() {
+    setRevisionDraft(diagnosisDraft);
+    setIsSeparateRevision(true);
+    setReviewFeedback(null);
+    setReviewError(null);
+    setActiveFinding(null);
+    setIsRevising(false);
   }
 
   function submitDiagnosisToTeacher() {
@@ -340,7 +369,7 @@ function App() {
       });
       if (reviewRequestId.current !== requestId) return;
       setReviewFeedback(result);
-      if (isFinalDiagnosis) setTeacherSubmissionId(null);
+      if (isFinalDiagnosis && !isSeparateRevision) setTeacherSubmissionId(null);
     } catch (error) {
       if (reviewRequestId.current !== requestId) return;
       setReviewError(error instanceof Error ? error.message : "AI-granskningen misslyckades. Försök igen.");
@@ -488,9 +517,6 @@ function App() {
                     <button className="text-button" disabled={exampleLoading} onClick={createPersonalizedExample} type="button">
                       {exampleLoading ? "Skapar exempel …" : personalizedExample ? "Skapa ett nytt anpassat exempel" : "Skapa exempel med valt ämne"}
                     </button>
-                    <p className="board-small-note">
-                      Skickar lektionsmål, valt ämne och sammanfattade lärsignaler till OpenAI – inte din text.
-                    </p>
                     {exampleError && <p className="check-in-error" role="alert">{exampleError}</p>}
                     {personalizedExample && (
                       <div className="example-pair personalized-example-pair">
@@ -502,7 +528,6 @@ function App() {
                           <span className="example-label">MER UTVECKLAT</span>
                           <p>{personalizedExample.developed}</p>
                         </article>
-                        <p className="board-question">{personalizedExample.question}</p>
                       </div>
                     )}
                   </div>
@@ -553,11 +578,12 @@ function App() {
                 </div>
               )}
               <LessonCheckIn
-                key={`${lessonIndex}-${phaseIndex}`}
+                key={`${lessonIndex}-${phaseIndex}-${personalizedExample ? JSON.stringify(personalizedExample) : "standard"}`}
                 lesson={lesson}
                 phaseIndex={phaseIndex}
                 priorEvidence={priorEvidence}
                 onEvidence={recordEvidence}
+                personalizedExample={personalizedExample}
               />
               <div className="board-footer">
                 <div className="phase-controls">
@@ -578,12 +604,14 @@ function App() {
         {!isFinalRecall && <section className={`writing-card ${isFinalDiagnosis ? "final-diagnosis-card" : ""}`} aria-label={isFinalDiagnosis ? "Slutdiagnosens skrivyta" : "Elevens skrivyta"}>
           <div className="writing-prompt">
             {isFinalDiagnosis
-              ? <h1 className="prompt-label">SLUTDIAGNOS</h1>
+              ? <h1 className="prompt-label">{isSeparateRevision ? "SEPARAT BEARBETNING" : "SLUTDIAGNOS"}</h1>
               : <span className="prompt-label">SKRIVUPPGIFT</span>}
             <p>{isFinalDiagnosis ? diagnosisPrompt : "Ta ställning: Borde skoldagen börja senare för elever i högstadiet?"}</p>
             {isFinalDiagnosis && (
               <p className="demo-teacher-warning">
-                Lokal prototyp: använd endast syntetisk text. Inlämning visas i demolärarvyn på samma webbläsare.
+                {isSeparateRevision
+                  ? "Detta är en separat bearbetad kopia. Originaldiagnosen är låst och redan inlämnad."
+                  : "Lokal prototyp: använd endast syntetisk text. Inlämning visas i demolärarvyn på samma webbläsare."}
               </p>
             )}
           </div>
@@ -592,10 +620,12 @@ function App() {
             <div className="editor-status">
               <span className="word-count">{wordCount} ord</span>
               {saveError && !isFinalDiagnosis && <span className="save-status has-error" role="status">Kunde inte spara lokalt</span>}
-              {(!isFinalDiagnosis || isDiagnosisSubmitted) && <span className="request-disclosure">Utkast skickas till OpenAI</span>}
+              {(!isFinalDiagnosis || isDiagnosisSubmitted) && (
+                <span className="ai-action-note">Text skickas till OpenAI vid AI-återkoppling.</span>
+              )}
             </div>
             <div className="editor-actions">
-              {isFinalDiagnosis && isDiagnosisSubmitted && (
+              {isFinalDiagnosis && isDiagnosisSubmitted && !isSeparateRevision && (
                 <button
                   className="quiet-button"
                   onClick={() => selectLesson(recommendedLessonIndex >= 0 ? recommendedLessonIndex : lessonIndex - 1)}
@@ -609,23 +639,27 @@ function App() {
                   Lärarvy (demoläge)
                 </button>
               )}
-              <button
-                className="primary-button coach-review-button"
-                onClick={isFinalDiagnosis && !isDiagnosisSubmitted ? markDiagnosisComplete : runReview}
-                disabled={!activeDraft.trim() || reviewLoading}
-                type="button"
-              >
-                {isFinalDiagnosis && !isDiagnosisSubmitted
-                  ? "Markera slutdiagnosen som klar"
-                  : reviewLoading
-                    ? "Tutorn läser …"
-                    : reviewFeedback
-                      ? "Få ny återkoppling"
-                      : "Få återkoppling"}
-              </button>
+              {isFinalDiagnosis && teacherSubmissionId !== null && !isSeparateRevision ? (
+                <span className="diagnosis-locked-note">Originaldiagnosen är låst</span>
+              ) : (
+                <button
+                  className="primary-button coach-review-button"
+                  onClick={isFinalDiagnosis && !isDiagnosisSubmitted ? markDiagnosisComplete : runReview}
+                  disabled={!activeDraft.trim() || reviewLoading}
+                  type="button"
+                >
+                  {isFinalDiagnosis && !isDiagnosisSubmitted
+                    ? "Markera slutdiagnosen som klar"
+                    : reviewLoading
+                      ? "Tutorn läser …"
+                      : reviewFeedback
+                        ? "Få ny återkoppling"
+                        : "Få återkoppling"}
+                </button>
+              )}
             </div>
           </div>
-          {isFinalDiagnosis && isDiagnosisSubmitted && (
+          {isFinalDiagnosis && isDiagnosisSubmitted && !isSeparateRevision && (
             <div className="diagnosis-handoff">
               <p className="diagnosis-status" role="status">
                 Slutdiagnosen är markerad som klar. AI-återkoppling är valfri.
@@ -648,6 +682,12 @@ function App() {
             <p className="check-in-error" role="alert">
               Den tidigare demoprofilen kunde inte läsas. Anpassning från tidigare besök är pausad.
             </p>
+          )}
+          {isFinalDiagnosis && teacherSubmissionId && (
+            <FinalDiagnosisChecklist
+              isRevision={isSeparateRevision}
+              onStartRevision={startSeparateRevision}
+            />
           )}
 
           {reviewLoading && <p className="review-state" role="status">Tutorn läser texten med fokus på {lesson.shortTitle.toLocaleLowerCase("sv")} …</p>}
@@ -689,8 +729,9 @@ function App() {
                 setEditorScrollTop(event.currentTarget.scrollTop);
                 setActiveFinding(null);
               }}
+              readOnly={isFinalDiagnosis && teacherSubmissionId !== null && !isSeparateRevision}
               placeholder={isFinalDiagnosis ? "" : "Skriv din rubrik här …\n\nBörja sedan med att presentera din ståndpunkt. Du kan alltid ändra texten senare."}
-              aria-label="Din argumenterande text"
+              aria-label={isSeparateRevision ? "Din separata bearbetade text" : "Din argumenterande text"}
               spellCheck
             />
             {findings && findings.length > 0 && !isRevising && (

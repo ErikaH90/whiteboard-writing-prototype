@@ -29,7 +29,7 @@ export default function FinalRecall({ index, answers, onAnswer, onPrevious, onNe
         rows={3}
         value={answer}
       />
-      <p className="request-disclosure">Svaren stannar i den här sessionen och skickas inte till AI.</p>
+      <p className="session-privacy-note">Svaren stannar i den här sessionen och skickas inte till AI.</p>
       <div className="final-recall-actions">
         {index > 0 && (
           <button className="quiet-button" onClick={onPrevious} type="button">Föregående</button>

@@ -33,7 +33,7 @@ describe("chapter exit ticket", () => {
 
     expect(screen.getByRole("heading", { name: "Textens övergripande delar" })).toBeInTheDocument();
     expect(fetch).not.toHaveBeenCalled();
-    expect(screen.getByText("Ditt svar och tidigare stödsignaler skickas till OpenAI")).toBeInTheDocument();
+    expect(screen.getByText("Ditt svar skickas till OpenAI när du skickar in det.")).toBeInTheDocument();
 
     await user.type(screen.getByRole("textbox", { name: "Ditt svar" }), "Tes, argument och avslutning hjälper läsaren.");
     await user.click(screen.getByRole("button", { name: "Svara" }));

@@ -52,6 +52,9 @@ Testerna ska skydda elevens självständiga skrivande, lektionsprogressionen, se
 - **PED-06:** i sista steget i slutdiagnosen visas endast skrivuppgiften och skrivytan; ingen whiteboard, navigation, ledtråd eller kriterielista visas. Att markera diagnosen som klar utlöser inget AI-anrop; frivillig AI-återkoppling skickar texten först efter ett separat aktivt val.
 - **PED-11:** slutdiagnosen har en ny sakfråga, ett separat tomt utkast och ingen kopiering från träningsutkastet. Diagnosutkastet sparas inte lokalt.
 - **PED-12:** efter diagnos kan ett textförankrat fynd rekommendera ett befintligt moment för fortsatt övning; inget officiellt betyg eller omskriven text visas.
+- **PED-14:** den avslutande checklistan visas först efter uttrycklig inlämning och omfattar de fyra specificerade områdena. Den är inte synlig eller tillgänglig under den stödfria diagnosen.
+- **PED-15:** efter inlämning är diagnosens originaltext låst. Checklistans separata bearbetningskopia börjar med samma text; ändringar i kopian ändrar inte den text eller återkoppling som lärarvyn redan tagit emot.
+- **PED-16:** när ett intresseanpassat exempel har skapats ersätter dess fråga den generiska avstämningen med en fritextfråga; det generiska svarsalternativsparet döljs och samma exempelpar skickas som kontext först när eleven skickar svaret.
 - **UX-01, manuell:** eleven kan snabbt identifiera aktuellt mål och nästa handling; endast relevant aktivitet visas och samma progressionsinformation upprepas inte i flera ytor.
 - **UX-02, manuell:** granska på dator och surfplatta att färger, animationer och statusmeddelanden inte konkurrerar med elevens text och aktuella uppgift.
 - **UX-03, manuell:** under modellering fångar elevexemplen blicken före kursplansmålet och hjälptexter; eleven kan enkelt jämföra exempeltexterna.
@@ -61,7 +64,7 @@ Testerna ska skydda elevens självständiga skrivande, lektionsprogressionen, se
 - **CHECK-03:** gränssnittet visar inte svarsalternativ och fritextfält samtidigt.
 - **CHECK-04:** ledtrådar finns i modellerings- och träningsstegen men inte i återkallning utan stöd eller slutbedömning.
 - **CHECK-05:** ändrat svar kan skickas igen; tidigare återkoppling får inte ligga kvar som svar på det nya svaret.
-- **CHECK-06:** entry check, avstämningar och exit tickets gör inget AI-anrop förrän eleven aktivt skickar svaret; före anropet syns vilka svar och stödsignaler som skickas.
+- **CHECK-06:** entry check, avstämningar och exit tickets gör inget AI-anrop förrän eleven aktivt skickar svaret; före anropet visas med normal läsbar text att svaret eller utkastet skickas till OpenAI. Vid intresseanpassade avstämningar framgår även att exemplen skickas med.
 - **CHECK-07:** final recall använder inga OpenAI-anrop och återkallningssvaren skickas inte till servern.
 - **API-05:** servern avvisar okända färdigheter, lärsignaler, stödnivåer och orimliga försökstal innan modellen anropas.
 - **API-06:** review-resultatets kategori valideras och används endast för att länka till en befintlig lektionsplan.

@@ -29,7 +29,7 @@ describe("lesson check-in", () => {
     const lesson = lessons[0];
     render(<LessonCheckIn lesson={lesson} phaseIndex={0} priorEvidence={[]} onEvidence={vi.fn()} />);
 
-    expect(screen.getByText("Ditt svar och tidigare stödsignaler skickas till OpenAI")).toBeInTheDocument();
+    expect(screen.getByText("Ditt svar skickas till OpenAI när du skickar in det.")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Skoldagen borde börja senare." }));
     expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Svara" }));

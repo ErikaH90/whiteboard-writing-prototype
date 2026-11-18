@@ -1,6 +1,11 @@
 import { useId, useState, type FormEvent } from "react";
 import type { LearningEvidence, Lesson, SkillId } from "../data/lessons";
-import { submitCheckIn, type CheckInFeedback, type LearningContext } from "../lib/coachApi";
+import {
+  submitCheckIn,
+  type CheckInFeedback,
+  type LearningContext,
+  type PersonalizedExample,
+} from "../lib/coachApi";
 import ChapterExitTicket from "./ChapterExitTicket";
 
 type Props = {
@@ -8,19 +13,31 @@ type Props = {
   phaseIndex: number;
   priorEvidence: LearningContext["priorEvidence"];
   onEvidence: (skillIds: SkillId[], evidence: LearningEvidence) => void;
+  personalizedExample?: PersonalizedExample | null;
 };
 const maxAttempts = 10;
 
-export default function LessonCheckIn({ lesson, phaseIndex, priorEvidence, onEvidence }: Props) {
+export default function LessonCheckIn({ lesson, phaseIndex, priorEvidence, onEvidence, personalizedExample }: Props) {
   return phaseIndex === 4
     ? lesson.exitTicket
       ? <ChapterExitTicket lesson={lesson} exitTicket={lesson.exitTicket} priorEvidence={priorEvidence} onEvidence={onEvidence} />
       : null
-    : <LessonCheckInForm lesson={lesson} phaseIndex={phaseIndex} priorEvidence={priorEvidence} onEvidence={onEvidence} />;
+    : (
+      <LessonCheckInForm
+        lesson={lesson}
+        phaseIndex={phaseIndex}
+        priorEvidence={priorEvidence}
+        onEvidence={onEvidence}
+        personalizedExample={personalizedExample}
+      />
+    );
 }
 
-function LessonCheckInForm({ lesson, phaseIndex, priorEvidence, onEvidence }: Props) {
+function LessonCheckInForm({ lesson, phaseIndex, priorEvidence, onEvidence, personalizedExample }: Props) {
   const checkIn = lesson.checkIns[phaseIndex];
+  const adaptedExample = phaseIndex === 0 ? personalizedExample ?? null : null;
+  const mode = adaptedExample ? "text" : checkIn.mode;
+  const question = adaptedExample?.question ?? checkIn.question;
   const answerId = useId();
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [writtenAnswer, setWrittenAnswer] = useState("");
@@ -30,7 +47,7 @@ function LessonCheckInForm({ lesson, phaseIndex, priorEvidence, onEvidence }: Pr
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const [showExample, setShowExample] = useState(false);
-  const canAnswer = checkIn.mode === "choice"
+  const canAnswer = mode === "choice"
     ? selectedOption !== null
     : writtenAnswer.trim().length > 0;
   const hintAllowed = phaseIndex < 2;
@@ -45,7 +62,7 @@ function LessonCheckInForm({ lesson, phaseIndex, priorEvidence, onEvidence }: Pr
       const nextAttempt = attempt + 1;
       const supportLevel = showExample ? 2 : showHint ? 1 : 0;
       let result: CheckInFeedback;
-      if (checkIn.mode === "choice") {
+      if (mode === "choice" && checkIn.mode === "choice") {
         const selected = selectedOption === null ? undefined : checkIn.options[selectedOption];
         if (!selected) throw new Error("Välj ett svar innan du skickar.");
 
@@ -64,9 +81,15 @@ function LessonCheckInForm({ lesson, phaseIndex, priorEvidence, onEvidence }: Pr
       } else {
         result = await submitCheckIn({
           mode: "text",
-          question: checkIn.question,
+          question,
           answer: writtenAnswer,
           focus: lesson.checkInFocus,
+          ...(adaptedExample && {
+            exampleContext: {
+              needsWork: adaptedExample.needsWork,
+              developed: adaptedExample.developed,
+            },
+          }),
           learningContext: {
             attempt: nextAttempt,
             supportLevel,
@@ -88,8 +111,8 @@ function LessonCheckInForm({ lesson, phaseIndex, priorEvidence, onEvidence }: Pr
 
   return (
     <form className="check-in" onSubmit={submitAnswer}>
-      <p className="check-in-question">{checkIn.question}</p>
-      {checkIn.mode === "choice" ? (
+      <p className="check-in-question">{question}</p>
+      {mode === "choice" && checkIn.mode === "choice" ? (
         <div className="check-in-options" role="group" aria-label="Välj ett svar">
           {checkIn.options.map((option, index) => (
             <button
@@ -143,13 +166,17 @@ function LessonCheckInForm({ lesson, phaseIndex, priorEvidence, onEvidence }: Pr
         </div>
       )}
       <div className="check-in-actions">
-        {!feedback && <span className="request-disclosure">Ditt svar och tidigare stödsignaler skickas till OpenAI</span>}
+        <p className="ai-action-note">
+          {adaptedExample
+            ? "Ditt svar och exemplen skickas till OpenAI när du skickar in det."
+            : "Ditt svar skickas till OpenAI när du skickar in det."}
+        </p>
         {hintAllowed && (
           <button className="hint-button" onClick={() => setShowHint((visible) => !visible)} type="button">
             {showHint ? "Dölj ledtråd" : "Jag behöver en ledtråd"}
           </button>
         )}
-        {hintAllowed && feedback?.kind === "retry" && attempt > 1 && !showExample && (
+        {hintAllowed && feedback?.kind === "retry" && attempt > 1 && !showExample && !adaptedExample && (
           <button className="hint-button" onClick={() => setShowExample(true)} type="button">
             Se ett exempel
           </button>

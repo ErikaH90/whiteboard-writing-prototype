@@ -23,6 +23,7 @@ Whiteboarden använder det lokalt bundlade handskriftsfontet Patrick Hand för a
 - Avstämningen visar antingen svarsalternativ eller ett fritextfält beroende på uppgiften, aldrig båda samtidigt.
 - Varje nytt kapitel börjar med en kort återkallningsfråga; visa vid behov ett kort författat stöd först efter elevens försök.
 - Intresseval och svårighetsskattning ska vara frivilliga, kompakta kontroller; visa inte anpassade exempel förrän eleven ber om dem.
+- När ett anpassat exempel visas ska avstämningsfrågan utgå från samma exempelpar; ersätt då generiska svarsalternativ med ett fritextsvar och visa att svaret och exemplen skickas till OpenAI när eleven skickar in.
 - Före slutdiagnosen visas en fråga i taget i en separat återkallningsrunda utan elevutkast, exempel eller AI-feedback.
 - Skrivytan ska förbli den tydligaste platsen för elevens eget skrivande.
 
@@ -36,6 +37,7 @@ Whiteboarden använder det lokalt bundlade handskriftsfontet Patrick Hand för a
 - I slutdiagnosens sista steg visas bara skrivuppgiften och skrivytan. Dölj whiteboard, kursnavigering, mål, kriterier och skrivstöd; erbjud AI-återkoppling först efter att eleven markerat diagnosen som klar.
 - Slutdiagnosens ämne ska vara nytt, skrivytan tom och skild från det tränade utkastet. Diagnosutkastet autosparas inte; i demoläget sparas det först efter elevens tydliga inlämning och med synlig varning om att lärarvyn inte är en säker verklig kanal.
 - Återkoppling visas efter elevens uttryckliga handling och placeras nära texten eller svaret den gäller.
+- Visa slutchecklistan först efter att slutdiagnosen har lämnats in. Håll checklistan hopfällbar och tydligt skild från diagnosläget; separat bearbetning får aldrig skriva över den låsta originaltexten.
 
 ## Återkoppling och tillgänglighet
 
@@ -45,6 +47,7 @@ Whiteboarden använder det lokalt bundlade handskriftsfontet Patrick Hand för a
 - Återkoppling visas inte som en lista med kort under skrivytan.
 - Formativ återkoppling visar målet, belagd framgång, förbättringsområden och nästa steg i en kompakt sammanfattning före skrivytan.
 - Positiv återkoppling och utvecklingsförslag skiljs visuellt från röda markeringar.
+- Upplysningar om vad som skickas till OpenAI visas kort och med normal läsbar text intill den handling som skickar det, inte som små fotnoter.
 - Färg är aldrig den enda informationsbäraren.
 - Kontroller ska kunna användas med tangentbord och ha begripliga namn.
 - Rörelse ska respektera användarens inställning för minskad rörelse.

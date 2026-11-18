@@ -37,6 +37,10 @@ type CheckInRequest = {
   question: string;
   answer: string;
   focus: string;
+  exampleContext?: {
+    needsWork: string;
+    developed: string;
+  };
   isCorrect?: boolean;
   learningContext?: LearningContext;
 };

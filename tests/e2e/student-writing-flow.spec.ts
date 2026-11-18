@@ -61,7 +61,7 @@ test("student can ask for contextual tips while keeping their draft editable", a
   await page.getByRole("button", { name: /Visa förklaring.*Upprepad meningsstart/ }).click();
   await expect(page.getByRole("dialog", { name: "Förklaring: Upprepad meningsstart" })).toContainText("Behöver varje mening börja så?");
   await expect(editor).toHaveValue(draft);
-  await expect(page.getByText("Utkast skickas till OpenAI")).toBeVisible();
+  await expect(page.getByText("Text skickas till OpenAI vid AI-återkoppling.")).toBeVisible();
   await expect(page.getByRole("list", { name: "Formativ arbetsgång" })).toHaveCount(0);
   await expect(page.locator(".feedback-card")).toHaveCount(0);
 
