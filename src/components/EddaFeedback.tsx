@@ -10,18 +10,24 @@ export function EddaStar({ className = "" }: { className?: string }) {
 }
 
 /**
- * Edda's response to an answer. An answer on the right track earns a star whose size follows
- * how developed the answer was, so that a big star has to be worked for.
+ * Edda's response to an answer, shown as Edda speaking: her face and a speech bubble.
+ * An answer on the right track earns a star whose size follows how developed the answer was,
+ * so that a big star has to be worked for.
  */
 export default function EddaFeedback({ feedback }: { feedback: CheckInFeedback }) {
   const onTrack = feedback.kind === "on_track";
   const level = feedback.level ?? 1;
 
   return (
-    <div className={`check-in-feedback is-${onTrack ? "on-track" : "retry"}`} role="status">
-      {onTrack && <EddaStar className={`is-earned is-level-${level}`} />}
-      <strong>Edda</strong>
-      <span>{feedback.feedback}</span>
+    <div className={`edda-says is-${onTrack ? "on-track" : "retry"}`} role="status">
+      <span aria-hidden="true" className="edda-face" />
+      <div className="edda-bubble-wrap">
+        <strong className="edda-name">Edda</strong>
+        <div className="edda-bubble">
+          {onTrack && <EddaStar className={`is-earned is-level-${level}`} />}
+          <span>{feedback.feedback}</span>
+        </div>
+      </div>
     </div>
   );
 }

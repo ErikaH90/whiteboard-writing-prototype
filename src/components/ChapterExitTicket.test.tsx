@@ -54,7 +54,7 @@ describe("chapter exit ticket", () => {
     });
 
     await user.click(screen.getByRole("button", { name: "Nästa fråga" }));
-    expect(screen.getByRole("heading", { name: "Kännetecken och struktur" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Inledning och tes" })).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "Ditt svar" })).toHaveValue("");
   });
 

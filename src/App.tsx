@@ -5,7 +5,8 @@ import FinalDiagnosisChecklist from "./components/FinalDiagnosisChecklist";
 import LessonEntryCheck from "./components/LessonEntryCheck";
 import LessonCheckIn from "./components/LessonCheckIn";
 import ExamplePick from "./components/ExamplePick";
-import EddaFeedback from "./components/EddaFeedback";
+import ErrorHunt from "./components/ErrorHunt";
+import EddaFeedback, { EddaStar } from "./components/EddaFeedback";
 import ExemplarPanel, { type ExemplarMode } from "./components/ExemplarPanel";
 import { exemplarFocus } from "./data/exemplars";
 import { useFitToHeight } from "./lib/useFitToHeight";
@@ -73,6 +74,10 @@ function App() {
   // The check in the modelling step is answered by clicking a part of the exemplar text.
   const [textPick, setTextPick] = useState<{
     lesson: number;
+    /** Which of the chapter's checks the state belongs to. */
+    check: number;
+    /** Right parts found so far, for checks with several right parts. */
+    found: number[];
     selected: number | null;
     solved: boolean;
     attempt: number;
@@ -90,7 +95,13 @@ function App() {
   const [achievements, setAchievements] = useState<Record<number, number[]>>({});
   const [entryAnswers, setEntryAnswers] = useState<Record<number, string>>({});
   const [boardPage, setBoardPage] = useState<{ board: string; page: number } | null>(null);
-  const [surfaceChoice, setSurfaceChoice] = useState<{ board: string; view: "exemplar" | "draft" } | null>(null);
+  // The lesson is guided: the student moves forward one step at a time. Adding ?fri to the address
+  // unlocks free navigation between chapters and steps, for demonstration and review.
+  const [freeNavigation] = useState(() => new URLSearchParams(window.location.search).has("fri"));
+  // Boards where the student has answered the check or finished the task of that step.
+  const [attemptedBoards, setAttemptedBoards] = useState<string[]>([]);
+  // Boards where the student has chosen between Edda's two examples before the writing task.
+  const [pickedExamples, setPickedExamples] = useState<string[]>([]);
   const [showFinalRecall, setShowFinalRecall] = useState(false);
   const [finalRecallIndex, setFinalRecallIndex] = useState(0);
   const [finalRecallAnswers, setFinalRecallAnswers] = useState<string[]>([]);
@@ -228,7 +239,12 @@ function App() {
 
   function recordCheck(skillIds: SkillId[], evidence: LearningEvidence) {
     recordEvidence(skillIds, evidence);
-    if (evidence === "needs_support" || phaseIndex > 3) return;
+    if (evidence !== "needs_support") earnAchievement();
+  }
+
+  /** Adds the current step to what the student has shown they can do in this chapter. */
+  function earnAchievement() {
+    if (phaseIndex > 3) return;
     setAchievements((current) => {
       const earned = current[lessonIndex] ?? [];
       return earned.includes(phaseIndex) ? current : { ...current, [lessonIndex]: [...earned, phaseIndex].sort() };
@@ -406,11 +422,14 @@ function App() {
   const boardKey = `${lessonIndex}-${phaseIndex}`;
   // The exemplar text supports the lesson, but is hidden when the student should recall or be assessed without a model.
   // Before the exemplar is presented, the student first retrieves what they already know.
+  // Edda decides what the writing surface shows. The exemplar text belongs to the opening and the
+  // modelling of chapters 1–5; in every other step the student works in their own text.
+  // Before the exemplar is presented, the student first retrieves what they already know.
   const exemplarAvailable = !isFinalDiagnosis
     && !isFinalRecall
     && (hasMetExemplar || hasCompletedEntry)
     && lessonIndex < lessons.length - 1
-    && phaseIndex !== 2;
+    && phaseIndex === 0;
   // The student meets the exemplar by listening to it once, right after the first entry question.
   const isListeningIntro = exemplarAvailable && !hasMetExemplar;
   // At the very start the writing surface is blank: neither the exemplar nor a saved draft is shown yet.
@@ -419,64 +438,115 @@ function App() {
     && !hasMetExemplar
     && !hasCompletedEntry
     && lessonIndex < lessons.length - 1;
-  const surfaceKey = `${boardKey}-${hasCompletedEntry ? "lesson" : "entry"}`;
-  const surfaceView = !exemplarAvailable
-    ? "draft"
-    : isListeningIntro
-      ? "exemplar"
-      : surfaceChoice?.board === surfaceKey
-        ? surfaceChoice.view
-        : !hasCompletedEntry || phaseIndex === 0 ? "exemplar" : "draft";
+  const surfaceView = exemplarAvailable ? "exemplar" : "draft";
+  const hasBoardCheck = phaseIndex < 4 || lesson.exitTicket !== null;
+  // In guided mode the next step opens when the whole board has been shown and the student has
+  // answered its check or finished its task.
+  const canAdvance = freeNavigation
+    || (seenBoards.includes(boardKey) && (!hasBoardCheck || attemptedBoards.includes(boardKey)));
+
+  function markAttempted() {
+    setAttemptedBoards((current) => current.includes(boardKey) ? current : [...current, boardKey]);
+  }
+
   // In the modelling step the whiteboard walks through the exemplar one part at a time:
   // page 0 is the goal, then one page per highlighted part, and last the comparison of two examples.
   const walkthrough = exemplarAvailable && phaseIndex === 0
     ? exemplarFocus[lesson.skillIds[0]].highlights.strong
     : [];
   const currentBoardPage = boardPage?.board === boardKey ? boardPage.page : 0;
-  const focusIndex = hasCompletedEntry && currentBoardPage >= 1 && currentBoardPage <= walkthrough.length
-    ? currentBoardPage - 1
+  // Some chapters first compare a simple and a developed example: one page to read both,
+  // then one page per pair of matching parts.
+  const comparisons = walkthrough.length > 0 ? exemplarFocus[lesson.skillIds[0]].comparisons ?? [] : [];
+  // One board page per comparison to read both examples, then one per pair of matching parts.
+  const compareSteps = comparisons.flatMap((item, comparisonIndex) => [
+    { comparisonIndex, pairIndex: null as number | null },
+    ...item.pairs.map((_, index) => ({ comparisonIndex, pairIndex: index as number | null })),
+  ]);
+  const comparePages = compareSteps.length;
+  const compareStep = hasCompletedEntry && currentBoardPage >= 1 && currentBoardPage <= comparePages
+    ? compareSteps[currentBoardPage - 1]
     : null;
-  const textCheck = walkthrough.length > 0 ? exemplarFocus[lesson.skillIds[0]].check : null;
-  const isTextCheckPage = textCheck !== null && hasCompletedEntry && currentBoardPage === walkthrough.length + 1;
-  const pick = textPick?.lesson === lessonIndex
+  const isComparePage = compareStep !== null;
+  const comparison = compareStep ? comparisons[compareStep.comparisonIndex] : null;
+  const pairIndex = compareStep?.pairIndex ?? null;
+  const walkthroughStart = comparePages + 1;
+  const focusIndex = hasCompletedEntry
+    && currentBoardPage >= walkthroughStart
+    && currentBoardPage < walkthroughStart + walkthrough.length
+    ? currentBoardPage - walkthroughStart
+    : null;
+  const textChecks = walkthrough.length > 0 ? exemplarFocus[lesson.skillIds[0]].checks : [];
+  // Some chapters end the modelling with an error hunt on the whiteboard instead.
+  const errorHunt = walkthrough.length > 0 ? exemplarFocus[lesson.skillIds[0]].hunt ?? null : null;
+  // The checks follow the walk-through, one board page each.
+  const checksStart = walkthroughStart + walkthrough.length;
+  const checkIndex = hasCompletedEntry
+    && currentBoardPage >= checksStart
+    && currentBoardPage < checksStart + textChecks.length
+    ? currentBoardPage - checksStart
+    : null;
+  const textCheck = checkIndex !== null ? textChecks[checkIndex] : null;
+  const isTextCheckPage = textCheck !== null;
+  const emptyPick = { lesson: lessonIndex, check: checkIndex ?? 0, found: [], selected: null, solved: false, attempt: 0, submitting: false, feedback: null, error: null };
+  const pick = textPick?.lesson === lessonIndex && textPick.check === (checkIndex ?? textChecks.length - 1)
     ? textPick
-    : { lesson: lessonIndex, selected: null, solved: false, attempt: 0, submitting: false, feedback: null, error: null };
+    : emptyPick;
+  // A check is done when it is solved, tried twice, or the service failed.
+  const isPickResolved = pick.solved || pick.attempt >= 2 || pick.error !== null;
   const exemplarMode: ExemplarMode = isListeningIntro
     ? "listen"
     : !hasCompletedEntry
       ? "plain"
-      : phaseIndex !== 0
-        ? "recap"
-        : focusIndex !== null ? "focus" : isTextCheckPage ? "pick" : "plain";
+      : isComparePage ? "compare" : focusIndex !== null ? "focus" : isTextCheckPage ? "pick" : "plain";
 
   async function pickInText(index: number) {
-    if (!textCheck || pick.submitting || pick.solved || pick.attempt >= 10) return;
-    const isCorrect = index === textCheck.target;
+    if (!textCheck || checkIndex === null || pick.submitting || pick.solved || pick.attempt >= 10) return;
+    const isCorrect = textCheck.targets.includes(index);
+    const found = isCorrect ? [...pick.found, index] : pick.found;
+    const isLastCheck = checkIndex === textChecks.length - 1;
+
+    // With several right parts, the first finds are confirmed in the text; Edda answers when all are found.
+    if (isCorrect && found.length < textCheck.targets.length) {
+      setTextPick({ ...pick, found, selected: null, feedback: null, error: null });
+      return;
+    }
+
     const attempt = pick.attempt + 1;
-    const pickedLesson = lessonIndex;
-    setTextPick({ ...pick, selected: index, submitting: true, feedback: null, error: null });
+    const base = { ...pick, found };
+    setTextPick({ ...base, selected: isCorrect ? null : index, submitting: true, feedback: null, error: null });
 
     try {
       const feedback = await submitCheckIn({
         mode: "choice",
         question: textCheck.prompt,
-        answer: walkthrough[index].quote,
+        answer: isCorrect ? found.map((part) => walkthrough[part].quote).join(" / ") : walkthrough[index].quote,
         focus: lesson.checkInFocus,
         isCorrect,
         learningContext: { attempt, supportLevel: 0, priorEvidence },
       });
-      setTextPick({ lesson: pickedLesson, selected: index, solved: isCorrect, attempt, submitting: false, feedback, error: null });
+      setTextPick({ ...base, selected: isCorrect ? null : index, solved: isCorrect, attempt, submitting: false, feedback, error: null });
+      if (isLastCheck && (isCorrect || attempt >= 2)) markAttempted();
       recordCheck(lesson.skillIds, !isCorrect ? "needs_support" : attempt === 1 ? "independent" : "supported");
     } catch (error) {
       setTextPick({
-        ...pick,
+        ...base,
         selected: null,
         submitting: false,
         feedback: null,
         error: error instanceof Error ? error.message : "Återkopplingen misslyckades. Försök igen.",
       });
+      // A failing service must not lock the student in the step.
+      if (isLastCheck) markAttempted();
     }
   }
+
+  // Where in the chapter the student is, shown in the top bar.
+  const stepLabel = !hasCompletedEntry
+    ? "Start"
+    : isListeningIntro
+      ? "Lyssna"
+      : ["Genomgång", "Din uppgift", "Utan stöd", "Egenkontroll", "Avslut"][phaseIndex];
   const boardHeader = (
     <>
       <p className="board-kicker"><Written>{`DEL ${lessonIndex + 1}: ${lesson.shortTitle.toUpperCase()}`}</Written></p>
@@ -489,24 +559,26 @@ function App() {
     <main className={`app-shell ${isFinalDiagnosis || isFinalRecall ? "" : "is-fitted"}`}>
       {!isFinalDiagnosis && !isFinalRecall && (
         <header className="topbar">
-          <div className="topbar-main">
+          <div className="topbar-title">
             <h1 className="page-title">Argumenterande text</h1>
+            <span className="topbar-subtitle">Kapitel {lessonIndex + 1} av {lessons.length} · {lesson.shortTitle}</span>
           </div>
-
           <nav className="lesson-progress" aria-label="Lektionens moment">
             {lessons.map((item, index) => (
               <button
-                className={`lesson-chip ${index === lessonIndex ? "is-current" : ""} ${index < lessonIndex ? "is-complete" : ""}`}
+                aria-current={index === lessonIndex ? "step" : undefined}
+                aria-label={`Kapitel ${index + 1}: ${item.shortTitle}`}
+                className={`lesson-segment ${index === lessonIndex ? "is-current" : ""} ${index < lessonIndex ? "is-complete" : ""}`}
+                disabled={!freeNavigation && index !== lessonIndex}
                 key={item.shortTitle}
                 onClick={() => selectLesson(index)}
-                aria-current={index === lessonIndex ? "step" : undefined}
                 title={item.title}
-              >
-                <span className="chip-number">{index < lessonIndex ? "✓" : index + 1}</span>
-                <span>{item.shortTitle}</span>
-              </button>
+                type="button"
+              />
             ))}
           </nav>
+          <span className="topbar-count">{lessonIndex + 1}/{lessons.length}</span>
+          <span className="topbar-pill">{stepLabel}</span>
         </header>
       )}
 
@@ -607,6 +679,34 @@ function App() {
                     )}
                   </BoardStep>
                 )}
+                {compareSteps.map((step, stepIndex) => {
+                  const item = comparisons[step.comparisonIndex];
+                  if (step.pairIndex === null) {
+                    return (
+                      <BoardStep key={`compare-${stepIndex}`} pause>
+                        <div className="board-activity focus-walk">
+                          {comparisons.length > 1 && (
+                            <p className="board-kicker">{`${step.comparisonIndex + 1} AV ${comparisons.length}`}</p>
+                          )}
+                          <p className="board-prompt"><Written>{item.title}</Written></p>
+                          <p className="activity-instruction"><Written>{item.intro}</Written></p>
+                        </div>
+                      </BoardStep>
+                    );
+                  }
+                  const pair = item.pairs[step.pairIndex];
+                  return (
+                    <BoardStep key={`compare-${stepIndex}`} pause>
+                      <div className="board-activity focus-walk">
+                        <p className="board-kicker">{`JÄMFÖR · ${step.pairIndex + 1} AV ${item.pairs.length}`}</p>
+                        <p className="board-prompt"><Written>{pair.label}</Written></p>
+                        <p className="compare-quote"><span className="compare-label">{item.simpleTag}</span><Written>{`”${pair.simple}”`}</Written></p>
+                        <p className="compare-quote is-developed"><span className="compare-label">{item.developedTag}</span><Written>{`”${pair.developed}”`}</Written></p>
+                        <p className="activity-instruction"><Written>{pair.explain}</Written></p>
+                      </div>
+                    </BoardStep>
+                  );
+                })}
                 {walkthrough.map((part, index) => (
                   <BoardStep key={`part-${index}`} pause>
                     <div className="board-activity focus-walk">
@@ -614,21 +714,50 @@ function App() {
                       <p className="board-prompt"><Written>{part.label}</Written></p>
                       <p className="focus-quote"><Written>{`”${part.quote}”`}</Written></p>
                       <p className="activity-instruction"><Written>{part.explain ?? ""}</Written></p>
+                      {part.related && (
+                        <p className="related-words">
+                          <span className="compare-label">{part.related.label}</span>
+                          <Written>{part.related.words.join(" · ")}</Written>
+                        </p>
+                      )}
                     </div>
                   </BoardStep>
                 ))}
-                {textCheck && (
+                {textChecks.map((check, index) => {
+                  const isCurrent = index === checkIndex;
+                  return (
+                    <BoardStep
+                      key={`check-${index}`}
+                      pause={index < textChecks.length - 1}
+                      locked={!freeNavigation && !(isCurrent && isPickResolved)}
+                    >
+                      <div className="board-activity text-pick">
+                        <p className="board-kicker">{textChecks.length > 1 ? `DIN TUR · ${index + 1} AV ${textChecks.length}` : "DIN TUR"}</p>
+                        <p className="board-prompt"><Written>{check.prompt}</Written></p>
+                        <p className="board-small-note"><Written>Svara genom att klicka i texten till höger.</Written></p>
+                        {isCurrent && check.targets.length > 1 && pick.found.length > 0 && !pick.solved && (
+                          <p className="example-pick-status" role="status">{pick.found.length} av {check.targets.length} hittade.</p>
+                        )}
+                        {isCurrent && pick.submitting && <p className="example-pick-status" role="status">Edda läser ditt val …</p>}
+                        {isCurrent && pick.error && <p className="check-in-error" role="alert">{pick.error}</p>}
+                        {isCurrent && pick.feedback && <EddaFeedback feedback={pick.feedback} />}
+                      </div>
+                    </BoardStep>
+                  );
+                })}
+                {errorHunt && (
                   <BoardStep>
-                    <div className="board-activity text-pick">
-                      <p className="board-prompt"><Written>Din tur</Written></p>
-                      <p className="activity-instruction"><Written>{textCheck.prompt}</Written></p>
-                      {pick.submitting && <p className="example-pick-status" role="status">Edda läser ditt val …</p>}
-                      {pick.error && <p className="check-in-error" role="alert">{pick.error}</p>}
-                      {pick.feedback && <EddaFeedback feedback={pick.feedback} />}
-                    </div>
+                    <ErrorHunt
+                      key={lessonIndex}
+                      lesson={lesson}
+                      hunt={errorHunt}
+                      priorEvidence={priorEvidence}
+                      onEvidence={recordCheck}
+                      onDone={markAttempted}
+                    />
                   </BoardStep>
                 )}
-                {phaseIndex === 0 && !textCheck && (
+                {phaseIndex === 0 && walkthrough.length === 0 && (
                   <BoardStep>
                     <ExamplePick
                       key={lessonIndex}
@@ -637,19 +766,53 @@ function App() {
                       strongFirst={lessonIndex % 2 === 1}
                       priorEvidence={priorEvidence}
                       onEvidence={recordCheck}
+                      onAttempt={markAttempted}
+                    />
+                  </BoardStep>
+                )}
+                {phaseIndex === 1 && lessonIndex < lessons.length - 1 && (
+                  <BoardStep pause locked={!freeNavigation && !pickedExamples.includes(boardKey)}>
+                    {/* Before the student writes, Edda shows a better and a weaker example of the same part. */}
+                    <ExamplePick
+                      key={lessonIndex}
+                      lesson={lesson}
+                      examples={lesson.model}
+                      strongFirst={lessonIndex % 2 === 1}
+                      priorEvidence={priorEvidence}
+                      onEvidence={recordEvidence}
+                      onAttempt={() => setPickedExamples((current) => current.includes(boardKey) ? current : [...current, boardKey])}
                     />
                   </BoardStep>
                 )}
                 {phaseIndex === 1 && (
-                  <BoardStep pause>
-                    <div className="board-activity">
-                      <p className="board-prompt"><Written>Din övning</Written></p>
+                  <BoardStep>
+                    <div className="board-activity writing-task">
+                      <p className="board-prompt"><Written>Din uppgift</Written></p>
                       <p className="activity-instruction"><Written>{lesson.practice}</Written></p>
+                      <p className="board-small-note"><Written>Skriv i din text till höger.</Written></p>
                       {showHint && <p className="hint-card"><span aria-hidden="true">✦</span> <Written>{lesson.hint}</Written></p>}
                       <AfterWriting>
-                        <button className="text-button" onClick={() => setShowHint((visible) => !visible)}>
-                          {showHint ? "Dölj ledtråd" : "Visa en ledtråd"}
-                        </button>
+                        <div className="task-actions">
+                          {attemptedBoards.includes(boardKey) ? (
+                            <p className="task-done" role="status"><EddaStar /> Uppgiften är klar. Gå vidare med Nästa steg.</p>
+                          ) : (
+                            <button
+                              className="primary-button"
+                              disabled={!draft.trim()}
+                              onClick={() => {
+                                // Finishing the task is the student's own report, not a learning signal.
+                                markAttempted();
+                                earnAchievement();
+                              }}
+                              type="button"
+                            >
+                              Jag är klar med uppgiften
+                            </button>
+                          )}
+                          <button className="text-button" onClick={() => setShowHint((visible) => !visible)} type="button">
+                            {showHint ? "Dölj ledtråd" : "Visa en ledtråd"}
+                          </button>
+                        </div>
                       </AfterWriting>
                     </div>
                   </BoardStep>
@@ -697,7 +860,7 @@ function App() {
                     </div>
                   </BoardStep>
                 )}
-                {phaseIndex > 0 && (phaseIndex < 4 || lesson.exitTicket) && (
+                {phaseIndex > 1 && (phaseIndex < 4 || lesson.exitTicket) && (
                   <BoardStep>
                     <LessonCheckIn
                       key={`${lessonIndex}-${phaseIndex}`}
@@ -705,6 +868,7 @@ function App() {
                       phaseIndex={phaseIndex}
                       priorEvidence={priorEvidence}
                       onEvidence={recordCheck}
+                      onAttempt={markAttempted}
                       achievements={(achievements[lessonIndex] ?? []).map((index) => lesson.canDo[index])}
                       firstAnswer={lesson.entryCheck.skillIds.every((skillId) => lesson.skillIds.includes(skillId))
                         ? entryAnswers[lessonIndex] ?? null
@@ -715,12 +879,14 @@ function App() {
               </BoardSequence>
               <div className="board-footer">
                 <div className="phase-controls">
-                  <button className="quiet-button" onClick={() => movePhase(Math.max(0, phaseIndex - 1))} disabled={phaseIndex === 0}>Tillbaka</button>
+                  {freeNavigation && (
+                    <button className="quiet-button" onClick={() => movePhase(Math.max(0, phaseIndex - 1))} disabled={phaseIndex === 0}>Tillbaka</button>
+                  )}
                   {phaseIndex < phases.length - 1 ? (
-                    <button className="primary-button" onClick={() => movePhase(phaseIndex + 1)}>Nästa steg <span aria-hidden="true">→</span></button>
+                    <button className="primary-button" disabled={!canAdvance} onClick={() => movePhase(phaseIndex + 1)}>Nästa steg <span aria-hidden="true">→</span></button>
                   ) : lessonIndex < lessons.length - 1 ? (
-                    <button className="primary-button" onClick={() => selectLesson(lessonIndex + 1)}>Nästa moment <span aria-hidden="true">→</span></button>
-                  ) : <span className="finish-label">Sista momentet</span>}
+                    <button className="primary-button" disabled={!canAdvance} onClick={() => selectLesson(lessonIndex + 1)}>Nästa kapitel <span aria-hidden="true">→</span></button>
+                  ) : <span className="finish-label">Sista kapitlet</span>}
                 </div>
               </div>
                 </>
@@ -730,27 +896,14 @@ function App() {
         </section>}
 
         {!isFinalRecall && <section className={`writing-card ${isFinalDiagnosis ? "final-diagnosis-card" : ""}`} aria-label={isFinalDiagnosis ? "Slutdiagnosens skrivyta" : surfaceView === "exemplar" ? "Exempeltext" : "Elevens skrivyta"}>
-          {exemplarAvailable && !isListeningIntro && (
-            <div className="surface-switch" role="group" aria-label="Välj vad skrivytan visar">
-              {([["exemplar", "Exempeltext"], ["draft", "Din text"]] as const).map(([view, label]) => (
-                <button
-                  aria-pressed={surfaceView === view}
-                  className="surface-switch-option"
-                  key={view}
-                  onClick={() => setSurfaceChoice({ board: surfaceKey, view })}
-                  type="button"
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          )}
           {surfaceView === "exemplar" && (
             <ExemplarPanel
               skillId={lesson.skillIds[0]}
               mode={exemplarMode}
               focusIndex={focusIndex}
-              pick={{ selected: pick.selected, solved: pick.solved, disabled: pick.submitting || pick.solved }}
+              comparison={comparison}
+              pairIndex={pairIndex}
+              pick={{ selected: pick.selected, found: pick.found, disabled: pick.submitting || pick.solved }}
               onPick={pickInText}
             />
           )}

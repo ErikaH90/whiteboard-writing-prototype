@@ -19,6 +19,7 @@ import {
  *
  * - <BoardSequence> shows its <BoardStep> children one at a time, like pages: the board is
  *   wiped for each new part so the whole whiteboard stays visible without scrolling.
+ *   The sequence only moves forward.
  * - <Written> text inside a step is written in document order.
  * - <BoardPause /> and <BoardStep pause> wait until the student chooses to continue.
  * - <AfterWriting> shows controls once the step's text has been written.
@@ -32,10 +33,15 @@ type SequenceItem = {
   index: number;
   hidden: boolean;
   instant: boolean;
-  skipToken: number;
-  continueToken: number;
+  /** The step hands the sequence its controls, so that the buttons act on it directly. */
+  register: (controls: StepControls | null) => void;
   onSettled: () => void;
   onWaiting: (waiting: boolean) => void;
+};
+
+type StepControls = {
+  /** Continue past the pause the step is waiting at. */
+  resume: () => void;
 };
 
 type StepContextValue = {
@@ -78,14 +84,10 @@ type SequenceProps = {
 export function BoardSequence({ children, instant = false, onComplete, onPageChange }: SequenceProps) {
   const steps = Children.toArray(children).filter(isValidElement<StepProps>);
   const [startInstant] = useState(instant);
-  const [animate] = useState(canAnimateWriting);
   const [revealed, setRevealed] = useState(startInstant ? Number.POSITIVE_INFINITY : 1);
   const [settledCount, setSettledCount] = useState(startInstant ? Number.POSITIVE_INFINITY : 0);
   const [waitingInStep, setWaitingInStep] = useState(false);
-  const [skipToken, setSkipToken] = useState(0);
-  const [continueToken, setContinueToken] = useState(0);
-  // null follows the newest part; a number means the student is looking back at an earlier part.
-  const [page, setPage] = useState<number | null>(null);
+  const stepControls = useRef(new Map<number, StepControls>());
   const containerRef = useRef<HTMLDivElement>(null);
   const refocusRef = useRef(false);
   const completedRef = useRef(startInstant);
@@ -94,14 +96,12 @@ export function BoardSequence({ children, instant = false, onComplete, onPageCha
 
   const visibleCount = Math.min(revealed, steps.length);
   const currentSettled = settledCount >= visibleCount;
-  const newestPage = Math.max(0, visibleCount - 1);
-  const shownPage = Math.min(page ?? newestPage, newestPage);
-  const isLookingBack = shownPage < newestPage;
-  const control: "skip" | "continue" | null = isLookingBack
-    ? "continue"
-    : !currentSettled
-      ? waitingInStep ? "continue" : animate ? "skip" : null
-      : visibleCount < steps.length ? "continue" : null;
+  // The board shows its newest part only. It writes at its own pace and moves forward only:
+  // there is no way to skip ahead or to look back, only to continue at a stop.
+  const shownPage = Math.max(0, visibleCount - 1);
+  const canContinue = !currentSettled
+    ? waitingInStep
+    : visibleCount < steps.length && !steps[shownPage]?.props.locked;
   const isComplete = steps.length > 0 && settledCount >= steps.length;
   const onPageChangeRef = useRef(onPageChange);
   onPageChangeRef.current = onPageChange;
@@ -118,11 +118,11 @@ export function BoardSequence({ children, instant = false, onComplete, onPageCha
 
   // Keep keyboard focus on the board when the continue button has done its job.
   useEffect(() => {
-    if (control !== null || !refocusRef.current) return;
+    if (canContinue || !refocusRef.current) return;
     refocusRef.current = false;
     const stepElements = containerRef.current?.querySelectorAll<HTMLElement>(":scope > [data-board-step]");
     Array.from(stepElements ?? []).find((element) => !element.hidden)?.focus({ preventScroll: true });
-  }, [control]);
+  }, [canContinue]);
 
   function handleSettled(index: number, pause: boolean) {
     setSettledCount((current) => Math.max(current, index + 1));
@@ -130,18 +130,9 @@ export function BoardSequence({ children, instant = false, onComplete, onPageCha
   }
 
   function handleControl() {
-    if (control === "skip") {
-      setSkipToken((token) => token + 1);
-      return;
-    }
     refocusRef.current = true;
-    if (isLookingBack) {
-      setPage(shownPage + 1 === newestPage ? null : shownPage + 1);
-      return;
-    }
-    setPage(null);
     if (!currentSettled) {
-      setContinueToken((token) => token + 1);
+      stepControls.current.get(shownPage)?.resume();
     } else {
       setRevealed((current) => current + 1);
     }
@@ -156,8 +147,10 @@ export function BoardSequence({ children, instant = false, onComplete, onPageCha
             index,
             hidden: index !== shownPage,
             instant: startInstant,
-            skipToken,
-            continueToken,
+            register: (controls) => {
+              if (controls) stepControls.current.set(index, controls);
+              else stepControls.current.delete(index);
+            },
             onSettled: () => handleSettled(index, Boolean(step.props.pause)),
             onWaiting: setWaitingInStep,
           }}
@@ -165,23 +158,16 @@ export function BoardSequence({ children, instant = false, onComplete, onPageCha
           {step}
         </SequenceItemContext.Provider>
       ))}
-      {(control || shownPage > 0) && (
+      {canContinue && (
         <div className="board-continue-row">
-          {shownPage > 0 && (
-            <button className="quiet-button board-back" onClick={() => setPage(shownPage - 1)} type="button">
-              Visa föregående del
-            </button>
-          )}
-          {control && (
           <button
-            className="quiet-button board-continue"
+            className="primary-button board-continue"
             onBlur={() => { refocusRef.current = false; }}
             onClick={handleControl}
             type="button"
           >
-            {control === "skip" ? "Visa hela texten" : "Fortsätt"}
+            Fortsätt
           </button>
-          )}
         </div>
       )}
     </div>
@@ -193,6 +179,8 @@ type StepProps = {
   className?: string;
   /** Wait for the student before the next step is shown. */
   pause?: boolean;
+  /** Keep the student on this step: "Fortsätt" is not offered until the step is unlocked. */
+  locked?: boolean;
 };
 
 export function BoardStep({ children, className }: StepProps) {
@@ -205,8 +193,6 @@ export function BoardStep({ children, className }: StepProps) {
   const [order, setOrder] = useState<InkEntry[] | null>(null);
   const [done, setDone] = useState<ReadonlySet<string>>(() => new Set());
   const [settled, setSettled] = useState(instant);
-  const skipSeen = useRef(item?.skipToken ?? 0);
-  const continueSeen = useRef(item?.continueToken ?? 0);
 
   const register = useCallback(() => setVersion((current) => current + 1), []);
   const finish = useCallback((id: string) => {
@@ -243,28 +229,20 @@ export function BoardStep({ children, className }: StepProps) {
     itemRef.current?.onWaiting(isWaiting);
   }, [instant, isWaiting]);
 
-  const skipToken = item?.skipToken ?? 0;
-  useEffect(() => {
-    if (skipToken === skipSeen.current) return;
-    skipSeen.current = skipToken;
-    if (!order) return;
-    setDone((current) => {
-      const next = new Set(current);
-      for (const entry of order) {
-        if (next.has(entry.id)) continue;
-        if (entry.pause) break;
-        next.add(entry.id);
-      }
-      return next;
-    });
-  }, [skipToken, order]);
+  // The sequence's buttons call these directly; they always see the step's latest state.
+  const controlsRef = useRef<StepControls>({ resume: () => undefined });
+  controlsRef.current = {
+    resume: () => {
+      if (active?.pause) finish(active.id);
+    },
+  };
 
-  const continueToken = item?.continueToken ?? 0;
   useEffect(() => {
-    if (continueToken === continueSeen.current) return;
-    continueSeen.current = continueToken;
-    if (active?.pause) finish(active.id);
-  }, [continueToken, active, finish]);
+    const current = itemRef.current;
+    if (!current) return;
+    current.register({ resume: () => controlsRef.current.resume() });
+    return () => current.register(null);
+  }, []);
 
   const value = useMemo<StepContextValue>(() => ({
     statusOf: (id) => instant || done.has(id) ? "done" : id === activeId ? "writing" : "pending",

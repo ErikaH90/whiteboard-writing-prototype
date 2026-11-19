@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { exemplarTexts } from "./exemplars";
 import { finalRecallQuestions, lessons, phases } from "./lessons";
 
 describe("lesson progression", () => {
@@ -81,5 +82,36 @@ describe("lesson progression", () => {
       "language",
     ]);
     expect(finalRecallQuestions.every((question) => question.question.trim() && question.placeholder.trim())).toBe(true);
+  });
+
+  it("keeps the first chapter's self-check to what the student has written so far: the introduction", () => {
+    const checklist = lessons[0].checklist.join(" ");
+    expect(checklist).toMatch(/inledning/);
+    expect(checklist).toMatch(/tes/);
+    // The conclusion and the paragraphs come in later chapters.
+    expect(checklist).not.toMatch(/avslut|stycken/);
+  });
+
+  it("asks about each chapter's own writing task in its self-check", () => {
+    expect(lessons[1].checklist.join(" ")).toMatch(/argument/);
+    expect(lessons[2].checklist.join(" ")).toMatch(/motargument/);
+    expect(lessons[2].checklist.join(" ")).toMatch(/sambandsord/);
+    expect(lessons[3].checklist.join(" ")).toMatch(/avslutning/);
+    expect(lessons[4].checklist.join(" ")).toMatch(/stavning/);
+  });
+
+  it("takes Edda's two examples before the writing task word for word from the two exemplar texts", () => {
+    const strongText = [exemplarTexts.strong.title, ...exemplarTexts.strong.paragraphs].join(" ");
+    const basicText = [exemplarTexts.basic.title, ...exemplarTexts.basic.paragraphs].join(" ");
+    // Chapters 1–4: the better example comes from the utmärkt text, the weaker from the okej text.
+    for (const lesson of lessons.slice(0, 4)) {
+      for (const sentence of lesson.model.strong.match(/[^.!?]+[.!?]/g) ?? []) {
+        expect(strongText, lesson.shortTitle).toContain(sentence.trim());
+      }
+      for (const sentence of lesson.model.needsWork.match(/[^.!?]+[.!?]/g) ?? []) {
+        expect(basicText, lesson.shortTitle).toContain(sentence.trim());
+      }
+      expect(lesson.model.question).toMatch(/Klicka på/);
+    }
   });
 });

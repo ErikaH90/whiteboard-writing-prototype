@@ -17,29 +17,18 @@ describe("exemplar panel", () => {
   });
 
   it("lights up one part at a time in step with the whiteboard and blurs the rest", () => {
-    const view = render(<ExemplarPanel skillId="cohesion" mode="focus" focusIndex={2} />);
+    const view = render(<ExemplarPanel skillId="cohesion" mode="focus" focusIndex={3} />);
 
     let marks = [...document.querySelectorAll("mark")];
     expect(marks).toHaveLength(1);
     expect(marks[0].firstChild?.textContent).toBe("vilket i sin tur");
     expect(marks[0]).toHaveClass("is-focus");
     expect(screen.getByRole("article")).toHaveClass("is-focusing");
-    // The lesson is silent and has no list of all marks.
-    expect(screen.queryByRole("button", { name: /Lyssna/ })).not.toBeInTheDocument();
-    expect(screen.queryByText("Det gulmarkerade visar")).not.toBeInTheDocument();
+    // The text follows the whiteboard: there is nothing here for the student to switch or start.
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
 
-    view.rerender(<ExemplarPanel skillId="cohesion" mode="focus" focusIndex={5} />);
+    view.rerender(<ExemplarPanel skillId="cohesion" mode="focus" focusIndex={6} />);
     marks = [...document.querySelectorAll("mark")];
     expect(marks.map((mark) => mark.firstChild?.textContent)).toEqual(["Sammanfattningsvis"]);
-  });
-
-  it("shows all marks with numbered explanations in the recap", () => {
-    render(<ExemplarPanel skillId="cohesion" mode="recap" />);
-
-    const marks = [...document.querySelectorAll("mark")];
-    expect(marks.map((mark) => mark.firstChild?.textContent)).toContain("Sammanfattningsvis");
-    expect(screen.getByText("Det gulmarkerade visar")).toBeInTheDocument();
-    expect(screen.getAllByRole("listitem")).toHaveLength(marks.length);
-    expect(screen.getByRole("button", { name: "Okej text" })).toBeInTheDocument();
   });
 });

@@ -2,7 +2,7 @@ import { useState } from "react";
 import EddaFeedback from "./EddaFeedback";
 import type { LearningEvidence, Lesson, SkillId } from "../data/lessons";
 import { submitCheckIn, type CheckInFeedback, type LearningContext } from "../lib/coachApi";
-import { BoardPause, Written, useBoardSettled } from "./BoardWriting";
+import { Written, useBoardSettled } from "./BoardWriting";
 
 type Props = {
   lesson: Lesson;
@@ -12,6 +12,8 @@ type Props = {
   strongFirst: boolean;
   priorEvidence: LearningContext["priorEvidence"];
   onEvidence: (skillIds: SkillId[], evidence: LearningEvidence) => void;
+  /** Called when the check is done: right answer, two tries, or the service failed. */
+  onAttempt?: () => void;
 };
 
 const maxAttempts = 10;
@@ -20,7 +22,7 @@ const maxAttempts = 10;
  * Modelling check: the student answers by clicking the better example directly,
  * while both examples are still in front of them.
  */
-export default function ExamplePick({ lesson, examples, strongFirst, priorEvidence, onEvidence }: Props) {
+export default function ExamplePick({ lesson, examples, strongFirst, priorEvidence, onEvidence, onAttempt }: Props) {
   const settled = useBoardSettled();
   const [selected, setSelected] = useState<"strong" | "needsWork" | null>(null);
   const [feedback, setFeedback] = useState<CheckInFeedback | null>(null);
@@ -56,11 +58,13 @@ export default function ExamplePick({ lesson, examples, strongFirst, priorEviden
       setAttempt(nextAttempt);
       setFeedback(result);
       setSolved(isCorrect);
+      if (isCorrect || nextAttempt >= 2) onAttempt?.();
       onEvidence(lesson.skillIds, !isCorrect
         ? "needs_support"
         : nextAttempt === 1 ? "independent" : "supported");
     } catch (error) {
       setSelected(null);
+      onAttempt?.();
       setRequestError(error instanceof Error ? error.message : "Återkopplingen misslyckades. Försök igen.");
     } finally {
       setIsSubmitting(false);
@@ -74,7 +78,6 @@ export default function ExamplePick({ lesson, examples, strongFirst, priorEviden
         {order.map((choice, index) => (
           <ExampleOption
             key={choice}
-            isFirst={index === 0}
             label={solved
               ? choice === "strong" ? "MER UTVECKLAT" : "MINDRE UTVECKLAT"
               : `EXEMPEL ${index === 0 ? "A" : "B"}`}
@@ -95,8 +98,7 @@ export default function ExamplePick({ lesson, examples, strongFirst, priorEviden
   );
 }
 
-function ExampleOption({ isFirst, label, text, tone, isSelected, disabled, onChoose }: {
-  isFirst: boolean;
+function ExampleOption({ label, text, tone, isSelected, disabled, onChoose }: {
   label: string;
   text: string;
   tone: "strong" | "needsWork" | null;
@@ -105,8 +107,6 @@ function ExampleOption({ isFirst, label, text, tone, isSelected, disabled, onCho
   onChoose: () => void;
 }) {
   return (
-    <>
-      {!isFirst && <BoardPause />}
       <button
         aria-pressed={isSelected}
         className={`example-card example-option board-hold ${tone === "strong" ? "example-strong" : tone === "needsWork" ? "example-needs-work" : ""} ${isSelected ? "is-selected" : ""}`}
@@ -117,6 +117,5 @@ function ExampleOption({ isFirst, label, text, tone, isSelected, disabled, onCho
         <span className="example-label"><Written>{label}</Written></span>
         <span className="example-text"><Written>{text}</Written></span>
       </button>
-    </>
   );
 }

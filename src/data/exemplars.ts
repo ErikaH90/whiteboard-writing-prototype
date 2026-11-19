@@ -14,16 +14,54 @@ export type ExemplarHighlight = {
   label: string;
   /** The teacher's think-aloud on the whiteboard when this part is in focus (utmärkt text). */
   explain?: string;
+  /** Other words of the same kind, shown under the explanation (for example more linking words). */
+  related?: { label: string; words: string[] };
+};
+
+/** Two short examples about the same thing, compared part by part before the walk-through. */
+export type ExemplarComparison = {
+  /** Heading and text on the whiteboard when both examples are first shown. */
+  title: string;
+  intro: string;
+  simple: string;
+  developed: string;
+  /** Headings above the two examples on the writing surface, and short tags for the whiteboard. */
+  simpleLabel: string;
+  developedLabel: string;
+  simpleTag: string;
+  developedTag: string;
+  /** Matching parts of the two examples, with what makes the developed one developed. */
+  pairs: { simple: string; developed: string; label: string; explain: string }[];
+};
+
+/**
+ * A short invented text with language errors, shown on the whiteboard. The student finds the
+ * errors by clicking them, one question at a time, and then sees a corrected version.
+ */
+export type ErrorHunt = {
+  intro: string;
+  /** The text in clickable parts, in order; joined with spaces they form the whole text. */
+  segments: { text: string; label: string; explain: string }[];
+  /** Each question asks for one kind of error; `targets` are indexes into `segments`. */
+  questions: { prompt: string; targets: number[] }[];
+  corrected: string;
+  /** The kinds of errors and how they are fixed, shown with the corrected version. */
+  areas: { name: string; fix: string }[];
 };
 
 export type ExemplarFocus = {
   /** How the whiteboard introduces the walk-through of the exemplar. */
   boardNote: string;
   /**
-   * The check after the walk-through: the student answers by clicking one of the lesson's
-   * highlighted parts in the utmärkt text. `target` is the index of the right part.
+   * The checks after the walk-through: the student answers each one by clicking the right part or
+   * parts among the lesson's highlighted parts in the utmärkt text. `targets` are indexes into
+   * the lesson's highlights; with several targets the student has to find them all.
    */
-  check: { prompt: string; target: number };
+  checks: { prompt: string; targets: number[] }[];
+  /** Comparisons shown before the walk-through, in order. */
+  comparisons?: ExemplarComparison[];
+  /** An error hunt on the whiteboard, after the walk-through. */
+  hunt?: ErrorHunt;
   highlights: Record<ExemplarId, ExemplarHighlight[]>;
 };
 
@@ -37,7 +75,12 @@ export const exemplarLabels: Record<ExemplarId, string> = {
 export const exemplarFocus: Record<SkillId, ExemplarFocus> = {
   structure: {
     boardNote: "Vi går igenom hur exempeltexten är uppbyggd, en del i taget. Följ det som lyser gult till höger.",
-    check: { prompt: "Klicka på tesen i texten till höger.", target: 1 },
+    checks: [
+      { prompt: "Klicka på tesen.", targets: [1] },
+      { prompt: "Klicka på argumenten. Det finns två.", targets: [2, 3] },
+      { prompt: "Klicka på motargumentet.", targets: [4] },
+      { prompt: "Klicka på avslutningen.", targets: [5] },
+    ],
     highlights: {
       strong: [
         { quote: "Tallrikens tysta offer – dags att duka av köttet", label: "Rubrik som visar ämnet och ståndpunkten", explain: "Rubriken säger både vad texten handlar om och vad skribenten tycker: köttet ska bort från tallriken." },
@@ -58,14 +101,53 @@ export const exemplarFocus: Record<SkillId, ExemplarFocus> = {
     },
   },
   reasoning: {
-    boardNote: "Vi går igenom hur skribenten förklarar sina argument, en del i taget. Följ det som lyser gult till höger.",
-    check: { prompt: "Klicka på meningen där skribenten visar vad vårt val leder till.", target: 1 },
+    boardNote: "Vi tittar på vad som gör ett argument utvecklat. Först jämför vi två inledningar, sedan går vi igenom begreppen i texten. Följ det som lyser gult till höger.",
+    comparisons: [
+      {
+        title: "Enkelt eller utvecklat?",
+        intro: "Här är två inledningar om samma sak. Läs båda. Vad är det som gör den andra mer utvecklad?",
+        simpleLabel: "Enkelt exempel",
+        developedLabel: "Utvecklat exempel",
+        simpleTag: "Enkelt",
+        developedTag: "Utvecklat",
+        simple: texts.basic.paragraphs[0],
+        developed: texts.strong.paragraphs[0],
+        pairs: [
+          {
+            simple: "Ändå äter många människor kött istället.",
+            developed: "Ändå kryllar hyllorna i matbutikerna av köttprodukter medan det vegetariska alternativet alltför ofta reduceras till ett sidospår.",
+            label: "Konkret i stället för allmänt",
+            explain: "Det enkla exemplet säger bara att många äter kött. Det utvecklade visar det med en bild: hyllorna i butiken.",
+          },
+          {
+            simple: "Jag tycker att det är helt fel.",
+            developed: "Att blunda för köttets baksidor är inte bara kortsiktigt; det är ohållbart.",
+            label: "Precisa ord i stället för ”jag tycker”",
+            explain: "”Helt fel” säger vad skribenten tycker. ”Kortsiktigt” och ”ohållbart” säger också varför det är ett problem.",
+          },
+          {
+            simple: "Det finns många anledningar till att jag tycker det.",
+            developed: "Det är hög tid att vi ifrågasätter vår köttnorm, för konsekvenserna av vår kosthållning drabbar både planeten och dess invånare.",
+            label: "Tes med ett skäl",
+            explain: "Det enkla exemplet lovar anledningar men ger ingen. Det utvecklade ger ett skäl direkt, efter ordet ”för”.",
+          },
+        ],
+      },
+    ],
+    checks: [
+      { prompt: "Klicka på sakargumentet.", targets: [1] },
+      { prompt: "Klicka på motargumentet.", targets: [4] },
+      { prompt: "Klicka på bemötandet, alltså svaret på motargumentet.", targets: [5] },
+    ],
     highlights: {
       strong: [
-        { quote: "Att föda upp djur för slakt kräver enorma mängder mark, vatten och foder, vilket i sin tur genererar orimligt höga koldioxidutsläpp.", label: "Förklaring: varför kött belastar miljön", explain: "Skribenten nöjer sig inte med att säga att kött är dåligt för miljön. Här förklaras varför." },
-        { quote: "När vi väljer biffen bidrar vi direkt till en accelererad klimatförsämring.", label: "Följd: vad valet leder till", explain: "Nu visas följden av vårt val. Läsaren får se vad som händer om vi väljer biffen." },
-        { quote: "Argumentet att människan alltid har ätit kött håller inte i ett samhälle med fullgod tillgång till näring från växtriket.", label: "Skribenten prövar en invändning och förklarar varför den inte håller", explain: "Skribenten tar upp ett vanligt försvar för kött och förklarar varför det inte håller i dag." },
-        { quote: "en väl sammansatt vegetarisk kost både täcker näringsbehovet och minskar risken för välfärdssjukdomar", label: "Motargumentet bemöts med ett skäl", explain: "Motargumentet får ett svar med ett skäl: vegetarisk kost räcker, och den är dessutom bra för hälsan." },
+        { quote: "För det första står köttindustrin för en massiv belastning på miljön.", label: "Argument", explain: "Ett argument är ett skäl som stödjer tesen. Här är skälet miljön." },
+        { quote: "Att föda upp djur för slakt kräver enorma mängder mark, vatten och foder, vilket i sin tur genererar orimligt höga koldioxidutsläpp.", label: "Sakargument", explain: "Ett sakargument bygger på fakta som går att kontrollera, inte bara på vad skribenten tycker. Det gör argumentet utvecklat." },
+        { quote: "När vi väljer biffen bidrar vi direkt till en accelererad klimatförsämring.", label: "Följd: vad det leder till", explain: "Skribenten visar vad valet leder till. Läsaren får se varför argumentet spelar roll." },
+        { quote: "Att betrakta levande, kännande varelser som blotta råvaror på ett löpande band är inhumant.", label: "Pathos: argument som väcker känslor", explain: "Här vill skribenten att läsaren ska känna något. Det kallas pathos. Sakargumentet nyss talade till förnuftet; det kallas logos." },
+        { quote: "Visst hävdas det ofta att kött är en oumbärlig källa till protein och järn", label: "Motargument", explain: "Skribenten tar upp vad andra brukar säga. Det visar att hen har tänkt igenom frågan." },
+        { quote: "en väl sammansatt vegetarisk kost både täcker näringsbehovet och minskar risken för välfärdssjukdomar", label: "Bemötande: svar på motargumentet", explain: "Motargumentet får ett svar med ett skäl. Då står skribentens tes kvar, starkare än förut." },
+        { quote: "klimatet, djuren och vår egen hälsa", label: "Triad: tre saker i rad", explain: "Tre saker i rad ger rytm och gör att läsaren minns dem. Det kallas en triad." },
       ],
       basic: [
         { quote: "Det kostar många onödiga koldioxidutsläpp att föda upp ett djur till slakt.", label: "Kort förklaring – jämför med den utmärkta texten" },
@@ -75,16 +157,53 @@ export const exemplarFocus: Record<SkillId, ExemplarFocus> = {
     },
   },
   cohesion: {
-    boardNote: "Vi går igenom orden som binder ihop texten, ett i taget. Följ det som lyser gult till höger.",
-    check: { prompt: "Klicka på orden som binder ihop orsak och följd.", target: 2 },
+    boardNote: "Vi tittar på hur sambandsord binder ihop en text. Först ser vi hur tre lösa meningar blir en sammanhängande text, sedan går vi igenom sambandsorden i exempeltexten. Följ det som lyser gult till höger.",
+    comparisons: [
+      {
+        title: "Före och efter",
+        intro: "Här är samma tre meningar två gånger. Läs båda. Vad är det som gör att den andra hänger ihop bättre?",
+        simple: "Det är inte bra för miljön att äta kött.\nDet är synd om djuren som dödas.\nGrönsaker innehåller många viktiga vitaminer som kött saknar.",
+        developed: "För det första är det inte bra för miljön att äta kött.\nFör det andra är det synd om djuren som dödas.\nDessutom innehåller grönsaker många viktiga vitaminer som kött saknar.",
+        simpleLabel: "Utan sambandsord",
+        developedLabel: "Med sambandsord",
+        simpleTag: "Före",
+        developedTag: "Efter",
+        pairs: [
+          {
+            simple: "Det är inte bra för miljön att äta kött.",
+            developed: "För det första",
+            label: "För det första: ordning",
+            explain: "Tre lösa meningar blir tre argument i tur och ordning. ”För det första” säger till läsaren att fler skäl kommer.",
+          },
+          {
+            simple: "Det är synd om djuren som dödas.",
+            developed: "För det andra",
+            label: "För det andra: nästa argument",
+            explain: "Nu vet läsaren att det här är ett nytt argument, inte en fortsättning på det förra.",
+          },
+          {
+            simple: "Grönsaker innehåller många viktiga vitaminer som kött saknar.",
+            developed: "Dessutom",
+            label: "Dessutom: tillägg",
+            explain: "”Dessutom” lägger till ännu ett skäl. Lägg märke till att ordföljden ändras: ”innehåller grönsaker”.",
+          },
+        ],
+      },
+    ],
+    checks: [
+      { prompt: "Klicka på de två ställen som visar kontrast, alltså en motsats.", targets: [0, 5] },
+      { prompt: "Klicka på orden som visar en konsekvens.", targets: [3] },
+      { prompt: "Klicka på ordet som visar att texten avslutas.", targets: [6] },
+    ],
     highlights: {
       strong: [
-        { quote: "ändå", label: "Motsats", explain: "”Ändå” visar en motsats: vi vet att grönt är bra, men butikerna är fulla av kött." },
-        { quote: "För det första", label: "Ordning: första argumentet", explain: "Orden visar ordningen. Läsaren förstår att fler argument kommer." },
-        { quote: "vilket i sin tur", label: "Orsak och följd", explain: "Orden binder ihop orsak och följd: uppfödningen kräver resurser, och det leder till utsläpp." },
-        { quote: "Utöver miljöaspekten", label: "Tillägg: knyter an till förra stycket", explain: "Orden pekar tillbaka på förra stycket och lägger till något nytt. Så hänger styckena ihop." },
-        { quote: "men detta bemöts", label: "Motsats: svaret på motargumentet", explain: "”Men” vänder från motargumentet till skribentens svar." },
-        { quote: "Sammanfattningsvis", label: "Sammanfattning", explain: "Ordet säger till läsaren att nu knyts allt ihop." },
+        { quote: "Ändå", label: "Kontrast", explain: "”Ändå” ställer två saker mot varandra: vi vet att grönt är bra, men butikerna är fulla av kött.", related: { label: "Fler ord för kontrast", words: ["däremot", "dock", "trots att", "å andra sidan", "medan"] } },
+        { quote: "för konsekvenserna av vår kosthållning", label: "Orsak", explain: "Det lilla ordet ”för” visar varför vi ska ifrågasätta köttnormen. Efter ordet kommer skälet.", related: { label: "Fler ord för orsak", words: ["eftersom", "därför att", "på grund av"] } },
+        { quote: "För det första", label: "Struktur: ordning", explain: "Orden visar ordningen. Läsaren förstår att fler argument kommer.", related: { label: "Fler ord för struktur och exempel", words: ["för det andra", "exempelvis", "framför allt", "sammanfattningsvis"] } },
+        { quote: "vilket i sin tur", label: "Konsekvens", explain: "Orden visar vad något leder till: uppfödningen kräver resurser, och följden blir utsläpp.", related: { label: "Fler ord för konsekvens", words: ["därför", "följaktligen", "vilket innebär att"] } },
+        { quote: "Utöver miljöaspekten", label: "Tillägg", explain: "Orden pekar tillbaka på förra stycket och lägger till något nytt. Så hänger styckena ihop.", related: { label: "Fler ord för tillägg", words: ["dessutom", "även", "också", "ytterligare"] } },
+        { quote: "men detta bemöts", label: "Kontrast: svaret på motargumentet", explain: "”Men” vänder från motargumentet till skribentens svar." },
+        { quote: "Sammanfattningsvis", label: "Struktur: avslutning", explain: "Ordet säger till läsaren att nu knyts allt ihop." },
       ],
       basic: [
         { quote: "Ändå", label: "Motsats" },
@@ -97,8 +216,96 @@ export const exemplarFocus: Record<SkillId, ExemplarFocus> = {
     },
   },
   sentence: {
-    boardNote: "Vi går igenom hur meningarna varierar, en del i taget. Följ det som lyser gult till höger.",
-    check: { prompt: "Klicka på stället där en mening börjar med en bisats.", target: 1 },
+    boardNote: "Vi tittar på tre sätt att variera språket: ordval, meningsstarter och meningslängd. För varje sätt ser vi en text före och efter bearbetning. Sedan går vi igenom hur exempeltexten gör.",
+    comparisons: [
+      {
+        title: "Variera ordvalet",
+        intro: "Här är samma tanke två gånger. Läs båda. Vilka ord har bytts ut?",
+        simple: "Jag tycker att det är viktigt att människor slutar äta kött. Jag tycker att det är dåligt för miljön och jag tycker också att det är dåligt för djuren.",
+        developed: "Jag anser att det är betydelsefullt att människor minskar sin köttkonsumtion. Det är skadligt för miljön och dessutom negativt för djurens välmående.",
+        simpleLabel: "Samma ord flera gånger",
+        developedLabel: "Varierat ordval",
+        simpleTag: "Före",
+        developedTag: "Efter",
+        pairs: [
+          {
+            simple: "viktigt",
+            developed: "betydelsefullt",
+            label: "Ett mer precist ord",
+            explain: "”Viktigt” har blivit ”betydelsefullt”. Betydelsen är densamma, men ordet passar bättre i en argumenterande text.",
+          },
+          {
+            simple: "slutar äta kött",
+            developed: "minskar sin köttkonsumtion",
+            label: "Ett exaktare uttryck",
+            explain: "Skribenten säger samma sak med ett mer exakt uttryck. Det låter mer genomtänkt.",
+          },
+          {
+            simple: "dåligt för djuren",
+            developed: "negativt för djurens välmående",
+            label: "Inte samma ord två gånger",
+            explain: "Före står ”dåligt” två gånger. Efter har skribenten valt två olika ord: ”skadligt” och ”negativt”.",
+          },
+        ],
+      },
+      {
+        title: "Variera meningsstarterna",
+        intro: "Här är fyra meningar två gånger. Läs båda och titta på hur varje mening börjar.",
+        simple: "Jag tycker att det är viktigt att människor slutar äta kött.\nJag tycker att köttindustrin påverkar miljön negativt.\nJag tycker också att djuren behandlas orättvist.\nJag tycker därför att alla borde äta mer vegetariskt.",
+        developed: "Det är viktigt att människor slutar äta så mycket kött.\nEnligt min uppfattning påverkar köttindustrin miljön negativt.\nDessutom behandlas många djur på ett orättvist sätt.\nDärför anser jag att fler borde välja vegetariska alternativ.",
+        simpleLabel: "Samma meningsstart",
+        developedLabel: "Varierade meningsstarter",
+        simpleTag: "Före",
+        developedTag: "Efter",
+        pairs: [
+          {
+            simple: "Jag tycker att köttindustrin påverkar miljön negativt.",
+            developed: "Enligt min uppfattning",
+            label: "Samma åsikt, ny början",
+            explain: "Det är fortfarande skribentens åsikt, men meningen börjar inte med ”jag tycker”.",
+          },
+          {
+            simple: "Jag tycker också att djuren behandlas orättvist.",
+            developed: "Dessutom",
+            label: "Börja med ett sambandsord",
+            explain: "Ett sambandsord först ger variation och visar samtidigt att det här är ett tillägg.",
+          },
+          {
+            simple: "Jag tycker därför att alla borde äta mer vegetariskt.",
+            developed: "Därför anser jag",
+            label: "Flytta fram det viktiga",
+            explain: "”Därför” har flyttats först i meningen. Då ser läsaren direkt att det här är slutsatsen.",
+          },
+        ],
+      },
+      {
+        title: "Blanda korta och långa meningar",
+        intro: "Här är samma innehåll två gånger. Läs båda högt för dig själv. Hur låter rytmen?",
+        simple: "Jag gillar inte kött. Det är dåligt. Det skadar miljön. Djuren lider. Det är inte rätt. Vi borde sluta äta kött. Det skulle hjälpa mycket.",
+        developed: "Jag anser att vi borde äta mindre kött eftersom köttproduktionen påverkar både miljön och djurens välmående negativt. Många djur lever under svåra förhållanden. Det måste förändras. Genom att välja mer vegetarisk mat kan vi bidra till en bättre framtid för både djuren och planeten.",
+        simpleLabel: "Bara korta meningar",
+        developedLabel: "Korta och långa meningar",
+        simpleTag: "Före",
+        developedTag: "Efter",
+        pairs: [
+          {
+            simple: "Jag gillar inte kött. Det är dåligt. Det skadar miljön.",
+            developed: "Jag anser att vi borde äta mindre kött eftersom köttproduktionen påverkar både miljön och djurens välmående negativt.",
+            label: "Flera korta blir en lång",
+            explain: "Tre korta meningar har bundits ihop till en lång med ”eftersom”. Då syns hur tankarna hänger ihop.",
+          },
+          {
+            simple: "Djuren lider. Det är inte rätt.",
+            developed: "Många djur lever under svåra förhållanden. Det måste förändras.",
+            label: "Korta meningar efter en lång",
+            explain: "Efter den långa meningen kommer två korta. De får läsaren att stanna upp, och det viktiga får tyngd.",
+          },
+        ],
+      },
+    ],
+    checks: [
+      { prompt: "Klicka på stället där en mening börjar med en bisats.", targets: [1] },
+    ],
     highlights: {
       strong: [
         { quote: "Att blunda för köttets baksidor är inte bara kortsiktigt; det är ohållbart.", label: "Kort mening efter en lång", explain: "En lång mening följs av en kort och bestämd. Växlingen ger texten rytm." },
@@ -114,8 +321,35 @@ export const exemplarFocus: Record<SkillId, ExemplarFocus> = {
     },
   },
   language: {
-    boardNote: "Vi går igenom skiljetecken och ordval, en del i taget. Följ det som lyser gult till höger.",
-    check: { prompt: "Klicka på stället där ett semikolon binder ihop två påståenden.", target: 0 },
+    boardNote: "Först tittar vi på hur exempeltexten till höger använder skiljetecken och ordval. Sedan får du leta språkfel i en annan text, här på tavlan.",
+    checks: [],
+    hunt: {
+      intro: "Här är en påhittad elevtext med flera språkfel. Kan du hitta dem?",
+      segments: [
+        { text: "vi", label: "Stor bokstav", explain: "En mening börjar med stor bokstav: ”Vi”." },
+        { text: "måste äta mera grönt", label: "Inget fel", explain: "Här finns inget fel, även om ”mera” gärna kan bli ”mer”." },
+        { text: "för dom", label: "Talspråk", explain: "”Dom” är talspråk. I skrift heter det ”de” eller ”dem”." },
+        { text: "sa att kött industri", label: "Särskrivning", explain: "”Köttindustri” är ett sammansatt ord och skrivs ihop." },
+        { text: "förstör våran", label: "Talspråk", explain: "”Våran” är talspråk. I skrift heter det ”vår”." },
+        { text: "miljöö.", label: "Stavfel", explain: "”Miljö” stavas med ett ö." },
+        { text: "eftersom köttet skadar klimatet.", label: "Ofullständig mening", explain: "En bisats som börjar med ”eftersom” kan inte stå ensam. Den behöver sitta ihop med en huvudsats." },
+        { text: "och dessutom så", label: "Flera bindeord i rad", explain: "Tre bindeord efter varandra. Det räcker med ”Dessutom”." },
+        { text: "blir man piggare.", label: "Inget fel", explain: "Här finns inget fel." },
+      ],
+      questions: [
+        { prompt: "Klicka på ordet som ska börja med stor bokstav allra först i texten.", targets: [0] },
+        { prompt: "Klicka på de två ställen där eleven skriver som man pratar.", targets: [2, 4] },
+        { prompt: "Klicka på stället där ett sammansatt ord har skrivits isär.", targets: [3] },
+        { prompt: "Klicka på stavfelet.", targets: [5] },
+        { prompt: "Klicka på meningen som inte är fullständig.", targets: [6] },
+      ],
+      corrected: "Vi måste äta mer grönt, eftersom köttet skadar klimatet. Dessutom visar forskning att en växtbaserad kost gör att vi blir piggare och att vi minskar utsläppen från köttindustrin avsevärt för vår gemensamma miljö.",
+      areas: [
+        { name: "Skrivregler och normer", fix: "Använd stor bokstav vid ny mening och kontrollera skiljetecknen." },
+        { name: "Grammatik och struktur", fix: "Knyt ihop bisatser med huvudsatser och skriv sammansatta ord i ett ord." },
+        { name: "Språklig variation och stavning", fix: "Skilj på talspråk och skriftspråk och kontrollera stavningen." },
+      ],
+    },
     highlights: {
       strong: [
         { quote: "kortsiktigt; det är ohållbart", label: "Semikolon binder ihop två påståenden som hör ihop", explain: "Semikolon binder ihop två påståenden som hör nära ihop, utan att en ny mening börjar." },

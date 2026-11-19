@@ -16,13 +16,15 @@ type Props = {
   onEvidence: (skillIds: SkillId[], evidence: LearningEvidence) => void;
   achievements?: string[];
   firstAnswer?: string | null;
+  /** Called when the step's check is done: answered on track, tried twice, or the service failed. */
+  onAttempt?: () => void;
 };
 const maxAttempts = 10;
 
-export default function LessonCheckIn({ lesson, phaseIndex, priorEvidence, onEvidence, achievements, firstAnswer }: Props) {
+export default function LessonCheckIn({ lesson, phaseIndex, priorEvidence, onEvidence, achievements, firstAnswer, onAttempt }: Props) {
   return phaseIndex === 4
     ? lesson.exitTicket
-      ? <ChapterExitTicket lesson={lesson} exitTicket={lesson.exitTicket} priorEvidence={priorEvidence} onEvidence={onEvidence} achievements={achievements} firstAnswer={firstAnswer} />
+      ? <ChapterExitTicket lesson={lesson} exitTicket={lesson.exitTicket} priorEvidence={priorEvidence} onEvidence={onEvidence} achievements={achievements} firstAnswer={firstAnswer} onDone={onAttempt} />
       : null
     : (
       <LessonCheckInForm
@@ -30,11 +32,12 @@ export default function LessonCheckIn({ lesson, phaseIndex, priorEvidence, onEvi
         phaseIndex={phaseIndex}
         priorEvidence={priorEvidence}
         onEvidence={onEvidence}
+        onAttempt={onAttempt}
       />
     );
 }
 
-function LessonCheckInForm({ lesson, phaseIndex, priorEvidence, onEvidence }: Props) {
+function LessonCheckInForm({ lesson, phaseIndex, priorEvidence, onEvidence, onAttempt }: Props) {
   const checkIn = lesson.checkIns[phaseIndex];
   const mode = checkIn.mode;
   const question = checkIn.question;
@@ -94,11 +97,14 @@ function LessonCheckInForm({ lesson, phaseIndex, priorEvidence, onEvidence }: Pr
       }
       setAttempt(nextAttempt);
       setFeedback(result);
+      if (result.kind === "on_track" || nextAttempt >= 2) onAttempt?.();
       onEvidence(lesson.skillIds, result.kind === "retry"
         ? "needs_support"
         : supportLevel === 0 ? "independent" : "supported");
     } catch (error) {
       setRequestError(error instanceof Error ? error.message : "AI-återkopplingen misslyckades. Försök igen.");
+      // A failing service must not lock the student in the step.
+      onAttempt?.();
     } finally {
       setIsSubmitting(false);
     }

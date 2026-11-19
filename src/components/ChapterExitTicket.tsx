@@ -13,10 +13,12 @@ type Props = {
   achievements?: string[];
   /** The student's answer when the lesson began, shown beside their answer now. */
   firstAnswer?: string | null;
+  /** Called when the student has finished the exit ticket, or cannot because the service failed. */
+  onDone?: () => void;
 };
 const maxAttempts = 10;
 
-export default function ChapterExitTicket({ lesson, exitTicket, priorEvidence, onEvidence, achievements = [], firstAnswer = null }: Props) {
+export default function ChapterExitTicket({ lesson, exitTicket, priorEvidence, onEvidence, achievements = [], firstAnswer = null, onDone }: Props) {
   const [stepIndex, setStepIndex] = useState(0);
   const [answers, setAnswers] = useState<string[]>([]);
   const [attempts, setAttempts] = useState<number[]>([]);
@@ -69,9 +71,15 @@ export default function ChapterExitTicket({ lesson, exitTicket, priorEvidence, o
         : attempt === 1 ? "independent" : "supported");
     } catch (error) {
       setRequestError(error instanceof Error ? error.message : "AI-återkopplingen misslyckades. Försök igen.");
+      onDone?.();
     } finally {
       setIsSubmitting(false);
     }
+  }
+
+  function finish() {
+    setIsComplete(true);
+    onDone?.();
   }
 
   function moveToStep(index: number) {
@@ -144,7 +152,7 @@ export default function ChapterExitTicket({ lesson, exitTicket, priorEvidence, o
         {feedback?.kind === "on_track" ? (
           <button
             className="primary-button check-in-submit"
-            onClick={() => isLastStep ? setIsComplete(true) : moveToStep(stepIndex + 1)}
+            onClick={() => isLastStep ? finish() : moveToStep(stepIndex + 1)}
             type="button"
           >
             {isLastStep ? "Avsluta exit ticket" : "Nästa fråga"}
@@ -157,7 +165,7 @@ export default function ChapterExitTicket({ lesson, exitTicket, priorEvidence, o
             {attempts[stepIndex] >= 2 && (
               <button
                 className="primary-button check-in-submit"
-                onClick={() => isLastStep ? setIsComplete(true) : moveToStep(stepIndex + 1)}
+                onClick={() => isLastStep ? finish() : moveToStep(stepIndex + 1)}
                 type="button"
               >
                 Gå vidare ändå
@@ -169,7 +177,7 @@ export default function ChapterExitTicket({ lesson, exitTicket, priorEvidence, o
             {attempts[stepIndex] >= maxAttempts && (
               <button
                 className="quiet-button"
-                onClick={() => isLastStep ? setIsComplete(true) : moveToStep(stepIndex + 1)}
+                onClick={() => isLastStep ? finish() : moveToStep(stepIndex + 1)}
                 type="button"
               >
                 Gå vidare ändå

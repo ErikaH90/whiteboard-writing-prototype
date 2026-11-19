@@ -54,25 +54,22 @@ describe("board writing", () => {
     expect(screen.getByText("Första raden")).toHaveClass("board-ink");
     expect(screen.getByText("Andra raden")).not.toHaveClass("is-pending");
     expect(screen.getByRole("button", { name: "Svara" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Visa hela texten" })).not.toBeInTheDocument();
     expect(onComplete).toHaveBeenCalledTimes(1);
   });
 
-  it("lets the student show the whole text at once", async () => {
+  it("offers no way to skip the writing: the board decides when the text is shown", () => {
     allowMotion();
-    const user = userEvent.setup();
     render(
       <BoardSequence>
-        <BoardStep>
+        <BoardStep pause>
           <p><Written>En lång mening som tar tid att skriva för hand på tavlan.</Written></p>
         </BoardStep>
+        <BoardStep><p><Written>Nästa del.</Written></p></BoardStep>
       </BoardSequence>,
     );
 
-    await user.click(screen.getByRole("button", { name: "Visa hela texten" }));
-
-    expect(screen.getByText("En lång mening som tar tid att skriva för hand på tavlan.")).toHaveClass("board-ink");
-    expect(document.querySelector(".is-writing")).not.toBeInTheDocument();
+    expect(document.querySelector(".is-writing")).toBeInTheDocument();
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 
   it("waits for the student at pauses and between steps, also without motion", async () => {
@@ -93,7 +90,6 @@ describe("board writing", () => {
     expect(screen.getByText("Exempel ett")).not.toHaveClass("is-pending");
     expect(screen.getByText("Exempel två")).toHaveClass("is-pending");
     expect(screen.queryByText("Frågan")).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Visa hela texten" })).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Fortsätt" }));
     expect(screen.getByText("Exempel två")).not.toHaveClass("is-pending");
@@ -116,32 +112,23 @@ describe("board writing", () => {
     expect(screen.getByText("Del ett")).not.toHaveClass("is-pending");
     expect(screen.getByText("Del två")).not.toHaveClass("is-pending");
     expect(screen.queryByRole("button", { name: "Fortsätt" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Visa hela texten" })).not.toBeInTheDocument();
   });
 
-  it("shows one part at a time and lets the student look back without losing their place", async () => {
+  it("shows one part at a time and only moves forward", async () => {
     const user = userEvent.setup();
     render(
       <BoardSequence>
         <BoardStep pause><p><Written>Del ett</Written></p></BoardStep>
-        <BoardStep><p><Written>Del två</Written></p><input aria-label="Svar" /></BoardStep>
+        <BoardStep><p><Written>Del två</Written></p></BoardStep>
       </BoardSequence>,
     );
 
     expect(screen.getByText("Del ett")).toBeVisible();
-    expect(screen.queryByRole("button", { name: "Visa föregående del" })).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Fortsätt" }));
     expect(screen.getByText("Del ett")).not.toBeVisible();
     expect(screen.getByText("Del två")).toBeVisible();
-    await user.type(screen.getByRole("textbox", { name: "Svar" }), "Mitt svar");
-
-    await user.click(screen.getByRole("button", { name: "Visa föregående del" }));
-    expect(screen.getByText("Del ett")).toBeVisible();
-    expect(screen.getByText("Del två")).not.toBeVisible();
-
-    await user.click(screen.getByRole("button", { name: "Fortsätt" }));
-    expect(screen.getByRole("textbox", { name: "Svar" })).toHaveValue("Mitt svar");
-    expect(screen.queryByRole("button", { name: "Fortsätt" })).not.toBeInTheDocument();
+    // The board has no button for going back to an earlier part.
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 });

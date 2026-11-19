@@ -708,33 +708,6 @@ input:focus-visible {
   text-align: left;
 }
 
-.check-in-feedback {
-  display: grid;
-  gap: 3px;
-  padding: 9px 11px;
-  border-radius: 10px;
-  font-size: 14px;
-  line-height: 1.4;
-}
-
-.check-in-feedback strong {
-  font-size: 12px;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.check-in-feedback.is-on-track {
-  border: 1px solid #d5e7db;
-  background: #f5faf6;
-  color: #456b52;
-}
-
-.check-in-feedback.is-retry {
-  border: 1px solid #e8e9ec;
-  background: #f8f9fa;
-  color: #646a75;
-}
-
 .check-in-actions {
   display: flex;
   align-items: center;
@@ -1729,10 +1702,6 @@ input:focus-visible {
   background: #f8f9fa;
 }
 
-.surface-switch {
-  margin: 16px 30px 0;
-}
-
 .surface-switch-option,
 .exemplar-choice-option {
   min-height: 30px;
@@ -1996,7 +1965,7 @@ input:focus-visible {
   line-height: 1.48;
 }
 
-.example-pick .check-in-feedback,
+.example-pick .edda-says,
 .example-pick .check-in-error {
   margin-top: 12px;
   text-align: left;
@@ -2112,34 +2081,7 @@ input:focus-visible {
   stroke-width: 1.6;
 }
 
-.check-in-feedback.is-on-track {
-  grid-template-columns: auto minmax(0, 1fr);
-  column-gap: 10px;
-}
-
-.check-in-feedback.is-on-track > .edda-star {
-  align-self: center;
-  grid-row: 1 / span 2;
-}
-
 /* The star grows with how developed the answer was. */
-.check-in-feedback.is-on-track > .edda-star.is-level-1 {
-  width: 20px;
-  height: 20px;
-  fill: #fbe39a;
-  stroke: #e0b84a;
-}
-
-.check-in-feedback.is-on-track > .edda-star.is-level-2 {
-  width: 34px;
-  height: 34px;
-}
-
-.check-in-feedback.is-on-track > .edda-star.is-level-3 {
-  width: 54px;
-  height: 54px;
-  filter: drop-shadow(0 0 7px rgba(248, 201, 58, 0.75));
-}
 
 .edda-star.is-earned {
   animation: edda-star-pop 650ms cubic-bezier(0.2, 1.4, 0.4, 1) both;
@@ -2249,8 +2191,501 @@ input:focus-visible {
   box-shadow: 0 0 0 3px rgba(255, 233, 122, 0.55);
 }
 
-.text-pick .check-in-feedback,
+.text-pick .edda-says,
 .text-pick .check-in-error {
   margin-top: 14px;
   text-align: left;
+}
+
+/* Guided progression */
+
+.lesson-chip:disabled {
+  cursor: default;
+}
+
+.lesson-chip:disabled:not(.is-current):not(.is-complete) {
+  opacity: 0.55;
+}
+
+.primary-button:disabled {
+  cursor: default;
+  opacity: 0.4;
+}
+
+.task-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  margin-top: 18px;
+}
+
+.task-done {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: #48505c;
+  font-size: 17px;
+}
+
+/* ==========================================================================
+   Shared look with the mathematics view: light surfaces, purple headings on the
+   whiteboard, Edda as a character with a speech bubble, blue primary buttons.
+   The whiteboard and the writing surface stay plain, without a grid.
+   ========================================================================== */
+
+:root {
+  --purple: #6a4fd0;
+  --action: #2563eb;
+  --action-dark: #1d4fc4;
+  --surface-line: #dfe2ea;
+  --paper: #fffdf8;
+  --board-ink: #23262f;
+  background: #f4f5f8;
+}
+
+/* Top bar: title, chapter progress and where in the chapter the student is */
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  margin: 0 0 14px;
+  padding: 10px 18px;
+  border: 1px solid var(--surface-line);
+  border-radius: 14px;
+  background: #fff;
+}
+
+.topbar-title {
+  display: grid;
+  gap: 1px;
+  white-space: nowrap;
+}
+
+.topbar .page-title {
+  color: var(--board-ink);
+  font-size: 16px;
+  letter-spacing: 0;
+}
+
+.topbar-subtitle,
+.topbar-count {
+  color: #7b8090;
+  font-size: 13px;
+}
+
+.lesson-progress {
+  flex: 1;
+  gap: 7px;
+  overflow: visible;
+  padding: 0;
+}
+
+.lesson-segment {
+  height: 6px;
+  flex: 1;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  background: #d5d9e4;
+  cursor: pointer;
+}
+
+.lesson-segment.is-complete {
+  background: #9db8f5;
+}
+
+.lesson-segment.is-current {
+  background: var(--action);
+}
+
+.lesson-segment:disabled {
+  cursor: default;
+}
+
+.lesson-segment:focus-visible {
+  outline: 2px solid var(--action);
+  outline-offset: 3px;
+}
+
+.topbar-pill {
+  padding: 6px 13px;
+  border-radius: 999px;
+  background: #f1f2f6;
+  color: #444a59;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+/* Surfaces */
+
+/* The whiteboard keeps its dark frame with marked corners and a white surface, so that it still
+   reads as a whiteboard. Only the writing surface gets the light card look. */
+
+.writing-card {
+  border: 1px solid var(--surface-line);
+  border-radius: 16px;
+  box-shadow: none;
+}
+
+/* Whiteboard text: left-aligned, purple headings, dark handwriting */
+
+.board-content,
+.app-shell.is-fitted .board-content {
+  align-items: stretch;
+  justify-content: flex-start;
+  text-align: left;
+}
+
+.board-sequence,
+.board-step {
+  align-items: stretch;
+}
+
+.board-kicker,
+.final-self-check-heading .board-kicker {
+  color: var(--purple);
+}
+
+.board-prompt,
+.board-question,
+.exit-ticket-title {
+  color: var(--purple);
+}
+
+.board-hook,
+.activity-instruction,
+.entry-check-question,
+.check-in-question,
+.board-exemplar-note,
+.focus-quote {
+  color: var(--board-ink);
+}
+
+.board-content .board-hook,
+.board-content .board-goal,
+.board-content .activity-instruction,
+.board-content .entry-check-question,
+.board-content .board-exemplar-note,
+.board-content .focus-quote,
+.board-content .hint-card,
+.board-content .checklist,
+.board-content .criteria-list,
+.board-content .entry-check-form,
+.board-content .curriculum-reference,
+.board-content .final-recall {
+  max-width: none;
+  margin-right: 0;
+  margin-left: 0;
+}
+
+.board-content .exit-ticket-complete .board-prompt {
+  text-align: left;
+}
+
+.board-continue-row {
+  justify-content: flex-start;
+}
+
+.listen-actions,
+.task-actions {
+  align-items: flex-start;
+}
+
+.board-footer,
+.app-shell.is-fitted .board-footer {
+  justify-content: flex-end;
+  padding-top: 12px;
+  border-top: 1px solid var(--surface-line);
+}
+
+/* Buttons: rounded rectangles, blue for the main action, amber for help */
+
+.primary-button,
+.quiet-button {
+  min-height: 40px;
+  padding: 9px 18px;
+  border-radius: 12px;
+  font-size: 14px;
+}
+
+.primary-button {
+  border-color: var(--action);
+  background: var(--action);
+}
+
+.primary-button:hover:not(:disabled) {
+  background: var(--action-dark);
+}
+
+.primary-button:disabled {
+  border-color: var(--surface-line);
+  background: #fff;
+  color: #b2b6c2;
+  opacity: 1;
+}
+
+.quiet-button {
+  border-color: var(--surface-line);
+  color: #2d3140;
+}
+
+.board-surface .primary-button,
+.board-surface .quiet-button,
+.board-surface .finish-label {
+  font-family: "DM Sans", "Segoe UI", sans-serif;
+  font-size: 14px;
+}
+
+.hint-button {
+  padding: 9px 16px;
+  border: 1px solid #f0d9b5;
+  border-radius: 12px;
+  background: #fdf3e3;
+  color: #9a5b13;
+  font-family: "DM Sans", "Segoe UI", sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* Edda speaks: her face and a speech bubble */
+
+.edda-says {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  margin: 16px 0 14px;
+  text-align: left;
+}
+
+.edda-face {
+  position: relative;
+  width: 52px;
+  height: 52px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #8a70e6, #5a3fc0);
+  box-shadow: 0 5px 12px rgba(90, 63, 192, 0.3);
+}
+
+.edda-face::before,
+.edda-face::after {
+  position: absolute;
+  top: 20px;
+  width: 7px;
+  height: 11px;
+  border-radius: 4px;
+  background: #fff;
+  content: "";
+}
+
+.edda-face::before {
+  left: 16px;
+}
+
+.edda-face::after {
+  right: 16px;
+}
+
+.edda-bubble-wrap {
+  min-width: 0;
+  flex: 1;
+}
+
+.edda-name {
+  display: block;
+  margin: 0 0 3px 16px;
+  color: var(--purple);
+  font-family: "DM Sans", "Segoe UI", sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.edda-bubble {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border: 2px solid #8f79e0;
+  border-radius: 20px;
+  background: #fff;
+  color: var(--board-ink);
+  font-family: "DM Sans", "Segoe UI", sans-serif;
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.edda-says.is-retry .edda-bubble {
+  border-color: #c9c0ee;
+}
+
+/* The star grows with how developed the answer was. */
+.edda-bubble > .edda-star.is-level-1 {
+  width: 20px;
+  height: 20px;
+  fill: #fbe39a;
+  stroke: #e0b84a;
+}
+
+.edda-bubble > .edda-star.is-level-2 {
+  width: 34px;
+  height: 34px;
+}
+
+.edda-bubble > .edda-star.is-level-3 {
+  width: 54px;
+  height: 54px;
+  filter: drop-shadow(0 0 7px rgba(248, 201, 58, 0.75));
+}
+
+@media (max-width: 760px) {
+  .topbar {
+    flex-wrap: wrap;
+    gap: 10px 14px;
+  }
+
+  .lesson-progress {
+    flex: 1 1 100%;
+    order: 3;
+  }
+}
+
+/* Comparing a simple and a developed example */
+
+.compared-example {
+  margin: 0 0 22px;
+  padding: 16px 20px;
+  border: 1px solid var(--surface-line);
+  border-radius: 14px;
+}
+
+.exemplar-text .compared-example h2 {
+  margin: 0 0 6px;
+  color: #7b8090;
+  font-family: "DM Sans", "Segoe UI", sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.exemplar-text.is-focusing .compared-example h2 {
+  filter: none;
+  opacity: 1;
+}
+
+.exemplar-text .compared-example p {
+  margin: 0;
+}
+
+.compare-quote {
+  margin: 0 0 8px;
+  padding: 9px 14px;
+  border: 1px solid var(--surface-line);
+  border-radius: 10px;
+  color: var(--board-ink);
+  font-size: 19px;
+  line-height: 1.35;
+}
+
+.compare-quote.is-developed {
+  margin-bottom: 14px;
+  border-color: transparent;
+  background: #fff3b0;
+}
+
+.compare-label {
+  display: block;
+  color: #7b8090;
+  font-family: "DM Sans", "Segoe UI", sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.exemplar-text .compared-example p {
+  white-space: pre-line;
+}
+
+.related-words {
+  margin: 14px 0 0;
+  padding: 9px 14px;
+  border: 1px dashed var(--surface-line);
+  border-radius: 10px;
+  color: var(--board-ink);
+  font-size: 19px;
+  line-height: 1.35;
+}
+
+/* Error hunt on the whiteboard: every part of the text can be clicked */
+
+.hunt-text {
+  margin: 0 0 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--surface-line);
+  border-radius: 12px;
+  color: var(--board-ink);
+  font-size: 22px;
+  line-height: 1.7;
+}
+
+.hunt-part {
+  margin: 0 5px 0 0;
+  padding: 0 2px;
+  border: 0;
+  border-bottom: 2px dotted #a996ea;
+  border-radius: 3px 3px 0 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+}
+
+.hunt-part:not(:disabled):hover,
+.hunt-part:focus-visible {
+  background: #efeafd;
+  outline: none;
+}
+
+.hunt-part:disabled {
+  cursor: default;
+}
+
+.hunt-part.is-found {
+  border-bottom-color: transparent;
+  background: #ffe97a;
+}
+
+.hunt-part.is-missed {
+  background: #eceef0;
+}
+
+.hunt-explanations,
+.hunt-areas {
+  display: grid;
+  gap: 4px;
+  margin: 0 0 4px;
+  padding: 0;
+  list-style: none;
+  color: var(--board-ink);
+  font-size: 18px;
+  line-height: 1.35;
+}
+
+.hunt-areas {
+  font-size: 16px;
+}
+
+.hunt-next {
+  justify-self: start;
+  margin-top: 4px;
+  align-self: flex-start;
+}
+
+.error-hunt .compare-quote {
+  font-size: 20px;
 }

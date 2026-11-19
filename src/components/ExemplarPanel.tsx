@@ -1,11 +1,5 @@
-import { useMemo, useRef, useState } from "react";
-import {
-  exemplarFocus,
-  exemplarLabels,
-  exemplarTexts,
-  markExemplar,
-  type ExemplarId,
-} from "../data/exemplars";
+import { useMemo, useRef } from "react";
+import { exemplarFocus, exemplarLabels, exemplarTexts, markExemplar, type ExemplarComparison } from "../data/exemplars";
 import type { SkillId } from "../data/lessons";
 import { useFitToHeight } from "../lib/useFitToHeight";
 
@@ -18,8 +12,8 @@ export type ExemplarMode =
   | "focus"
   /** The check: the lesson's parts are lit and the student answers by clicking one of them. */
   | "pick"
-  /** After the walk-through: all marks with numbered explanations, and the comparison text. */
-  | "recap";
+  /** A simple and a developed example side by side; matching parts are lit in step with the whiteboard. */
+  | "compare";
 
 type Props = {
   skillId: SkillId;
@@ -27,63 +21,58 @@ type Props = {
   /** Which of the lesson's highlights is in focus (mode "focus"). */
   focusIndex?: number | null;
   /** State of the check in mode "pick". */
-  pick?: { selected: number | null; solved: boolean; disabled: boolean };
+  pick?: { selected: number | null; found: number[]; disabled: boolean };
   onPick?: (index: number) => void;
+  /** The two examples and which pair of parts is in focus (mode "compare"). */
+  comparison?: ExemplarComparison | null;
+  pairIndex?: number | null;
 };
 
 const fittedLayout = "(min-width: 901px) and (min-height: 480px)";
 
-export default function ExemplarPanel({ skillId, mode, focusIndex = null, pick, onPick }: Props) {
-  const [chosen, setChosen] = useState<ExemplarId>("strong");
+/**
+ * The exemplar text on the writing surface. Edda decides what it shows: the student cannot
+ * switch views here, the text follows the whiteboard.
+ */
+export default function ExemplarPanel({ skillId, mode, focusIndex = null, pick, onPick, comparison = null, pairIndex = null }: Props) {
   const stageRef = useRef<HTMLDivElement>(null);
   const textRef = useRef<HTMLElement>(null);
 
-  const isRecap = mode === "recap";
   const isPick = mode === "pick";
-  const exemplarId = isRecap ? chosen : "strong";
-  const text = exemplarTexts[exemplarId];
-  const lessonHighlights = exemplarFocus[skillId].highlights[exemplarId];
+  const text = exemplarTexts.strong;
+  const lessonHighlights = exemplarFocus[skillId].highlights.strong;
   const focused = mode === "focus" && focusIndex !== null ? lessonHighlights[focusIndex] ?? null : null;
   const marked = useMemo(
-    () => markExemplar(text, isRecap || isPick ? lessonHighlights : focused ? [focused] : []),
-    [text, isRecap, isPick, lessonHighlights, focused],
+    () => markExemplar(text, isPick ? lessonHighlights : focused ? [focused] : []),
+    [text, isPick, lessonHighlights, focused],
   );
 
-  // Outside the recap the whole text stays visible without scrolling.
-  useFitToHeight(stageRef, textRef, isRecap ? "not all" : fittedLayout, 0.45);
+  // The whole text stays visible without scrolling.
+  useFitToHeight(stageRef, textRef, fittedLayout, 0.45);
+
+  if (mode === "compare" && comparison) {
+    const pair = pairIndex !== null ? comparison.pairs[pairIndex] ?? null : null;
+    return (
+      <div className="exemplar-panel is-compare">
+        <div className="exemplar-stage" ref={stageRef}>
+          <article
+            aria-label="Två exempel att jämföra"
+            className={`exemplar-text exemplar-compare ${pair ? "is-focusing" : ""}`}
+            ref={textRef}
+          >
+            <ComparedExample label={comparison.simpleLabel} text={comparison.simple} quote={pair?.simple ?? null} />
+            <ComparedExample label={comparison.developedLabel} text={comparison.developed} quote={pair?.developed ?? null} />
+          </article>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`exemplar-panel is-${mode}`}>
-      {isRecap && (
-        <div className="exemplar-toolbar">
-          <div className="exemplar-choice" role="group" aria-label="Välj exempeltext">
-            {(Object.keys(exemplarLabels) as ExemplarId[]).map((id) => (
-              <button
-                aria-pressed={exemplarId === id}
-                className="exemplar-choice-option"
-                key={id}
-                onClick={() => setChosen(id)}
-                type="button"
-              >
-                {exemplarLabels[id]}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {isRecap && marked.legend.length > 0 && (
-        <div className="exemplar-legend">
-          <strong>Det gulmarkerade visar</strong>
-          <ol>
-            {marked.legend.map((item) => <li key={item.number}>{item.label}</li>)}
-          </ol>
-        </div>
-      )}
-
       <div className="exemplar-stage" ref={stageRef}>
         <article
-          aria-label={`${exemplarLabels[exemplarId]}: ${text.title}`}
+          aria-label={`${exemplarLabels.strong}: ${text.title}`}
           className={`exemplar-text ${focused ? "is-focusing" : ""}`}
           ref={textRef}
         >
@@ -92,12 +81,13 @@ export default function ExemplarPanel({ skillId, mode, focusIndex = null, pick, 
               if (segment.kind !== "mark") return <span className="exemplar-plain" key={index}>{segment.text}</span>;
 
               if (isPick) {
+                const isFound = pick?.found.includes(segment.index) ?? false;
                 const isSelected = pick?.selected === segment.index;
                 return (
                   <button
-                    aria-pressed={isSelected}
-                    className={`exemplar-mark is-candidate ${isSelected ? (pick?.solved ? "is-solved" : "is-selected") : ""}`}
-                    disabled={pick?.disabled ?? true}
+                    aria-pressed={isFound || isSelected}
+                    className={`exemplar-mark is-candidate ${isFound ? "is-solved" : isSelected ? "is-selected" : ""}`}
+                    disabled={(pick?.disabled ?? true) || isFound}
                     key={index}
                     onClick={() => onPick?.(segment.index)}
                     type="button"
@@ -108,14 +98,9 @@ export default function ExemplarPanel({ skillId, mode, focusIndex = null, pick, 
               }
 
               return (
-                <mark className={`exemplar-mark ${focused ? "is-focus" : ""}`} key={index}>
+                <mark className="exemplar-mark is-focus" key={index}>
                   {segment.text}
-                  {isRecap ? (
-                    <sup className="exemplar-mark-number">
-                      <span className="exemplar-mark-label"> (markering {segment.number}: {segment.label}) </span>
-                      <span aria-hidden="true">{segment.number}</span>
-                    </sup>
-                  ) : <span className="exemplar-mark-label"> ({segment.label}) </span>}
+                  <span className="exemplar-mark-label"> ({segment.label}) </span>
                 </mark>
               );
             });
@@ -127,5 +112,27 @@ export default function ExemplarPanel({ skillId, mode, focusIndex = null, pick, 
         </article>
       </div>
     </div>
+  );
+}
+
+/** One of the two compared examples, with the part in focus lit and the rest stepped back. */
+function ComparedExample({ label, text, quote }: { label: string; text: string; quote: string | null }) {
+  const start = quote ? text.indexOf(quote) : -1;
+
+  return (
+    <section className="compared-example">
+      <h2>{label}</h2>
+      <p>
+        {start < 0 || !quote ? (
+          <span className="exemplar-plain">{text}</span>
+        ) : (
+          <>
+            <span className="exemplar-plain">{text.slice(0, start)}</span>
+            <mark className="exemplar-mark is-focus">{quote}</mark>
+            <span className="exemplar-plain">{text.slice(start + quote.length)}</span>
+          </>
+        )}
+      </p>
+    </section>
   );
 }

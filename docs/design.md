@@ -2,15 +2,17 @@
 
 ## Visuell huvudreferens
 
-Den användartillhandahållna skärmbilden styr appens grundläggande visuella identitet. Behåll:
+Skrivcoachen ska kännas som samma produkt som matematikvyn. Det som delas är:
 
-- ljusgrå bakgrund,
-- kompakt progression högt upp,
-- stor vit whiteboard till vänster med kraftig mörk ram och markerade hörn,
-- separat vit, rundad skrivyta till höger,
-- diskreta accentfärger, rundade hörn och tydlig typografi.
+- ljus bakgrund, och en skrivyta med tunn ljus kant och rundade hörn,
+- en topprad med titel, underrad (”Kapitel 1 av 6 · Struktur”), en förloppslinje med ett segment per kapitel och en liten etikett för var i kapitlet eleven är,
+- vänsterställd handskriven text på whiteboarden: lila rubriker och mörk brödtext,
+- Edda som figur: ett lila runt ansikte med en pratbubbla med lila kant och namnet ovanför; stjärnan ligger i bubblan,
+- knappar som rundade rektanglar: blå för huvudhandlingen, vit med tunn kant för övriga och varmt gul för ledtråd.
 
-Introducera inte ett separat designsystem. Anpassa bara referensens innehåll till skrivuppgiften.
+Det som skiljer sig från matematikvyn är avsiktligt: whiteboarden ska se ut som en whiteboard, med kraftig mörk ram, markerade hörn och vit yta. Varken whiteboarden eller skrivytan har rutnät, och skrivytan är helt vit med sin egen seriftypografi.
+
+Färgerna är uppskattade från en skärmbild av matematikvyn och ligger som variabler överst i avsnittet ”Shared look with the mathematics view” i `src/styles.css`. Byt dem där när de exakta värdena finns.
 
 Whiteboarden använder det lokalt bundlade handskriftsfontet Patrick Hand för all undervisningstext. Skrivytans text behåller sin egen lättlästa seriftypografi. Ladda inte typsnittet från en extern webbfontstjänst.
 
@@ -18,11 +20,11 @@ Whiteboarden använder det lokalt bundlade handskriftsfontet Patrick Hand för a
 
 - På breda skärmar fördelas tvåkolumnslayouten med ungefär 45 procent till whiteboarden och 55 procent till skrivytan.
 - När skärmbredden är högst 900 px staplas panelerna så skrivytan förblir användbar; progressionen får kunna rullas horisontellt.
-- Visa lektionsprogressionen en gång högst upp; undvik extra status- och fasrader.
+- Visa lektionsprogressionen en gång högst upp, i toppraden; undvik extra status- och fasrader.
 - Whiteboarden visar ett undervisningssteg åt gången.
-- Hela whiteboarden ska synas utan att eleven behöver rulla. På breda skärmar fyller arbetsytan fönstrets höjd; långt innehåll på skrivytan rullar inne i sitt eget kort. Tavlan visar en del i taget och suddas inför nästa del, och eleven kan gå tillbaka med **Visa föregående del**. Om en del ändå inte ryms förminskas tavlans innehåll precis så mycket som behövs (som lägst till 60 procent). På smala, staplade skärmar rullar sidan som vanligt.
+- Hela whiteboarden ska synas utan att eleven behöver rulla. På breda skärmar fyller arbetsytan fönstrets höjd; långt innehåll på skrivytan rullar inne i sitt eget kort. Tavlan visar en del i taget och suddas inför nästa del; det går inte att bläddra tillbaka. Om en del ändå inte ryms förminskas tavlans innehåll precis så mycket som behövs (som lägst till 60 procent). På smala, staplade skärmar rullar sidan som vanligt.
 - Whiteboarden skriver sin undervisningstext för hand, del för del, i stället för att visa allt samtidigt. Vid varje stopp (efter målet, mellan exemplen och före avstämningen i övriga steg) väntar tavlan tills eleven väljer **Fortsätt**; svarsfält och knappar visas först när frågan är färdigskriven.
-- Eleven kan alltid välja **Visa hela texten** för att hoppa över skrivandet av den aktuella delen. Ett steg som eleven redan har sett visas direkt när eleven går tillbaka till det.
+- Det finns ingen knapp för att hoppa över skrivandet: Edda bestämmer när texten visas, i takt med det hon lyfter fram på tavlan. Eleven kan gå vidare först när delen är färdigskriven. Ett steg som eleven redan har sett visas direkt om eleven kommer tillbaka till det.
 - Eddas återkoppling och elevens egna svar skrivs inte ut med skrivanimationen.
 - Avstämningen visar antingen svarsalternativ eller ett fritextfält beroende på uppgiften, aldrig båda samtidigt.
 - Varje nytt kapitel börjar med en kort återkallningsfråga; visa vid behov ett kort författat stöd först efter elevens försök.
@@ -33,13 +35,18 @@ Whiteboarden använder det lokalt bundlade handskriftsfontet Patrick Hand för a
 - Sidan har ingen sidfot med demotexter. En rad visas längst ned bara om lärprofilen inte kan läsas eller sparas.
 - Före slutdiagnosen visas en fråga i taget i en separat återkallningsrunda utan elevutkast, exempel eller AI-feedback.
 - Skrivytan ska förbli den tydligaste platsen för elevens eget skrivande.
-- Skrivytan visar en exempeltext under momenten Struktur till Språk, från det att eleven har lyssnat på den första gången. Eleven växlar mellan **Exempeltext** och **Din text**; exempeltexten visas som standard under startfrågan och modelleringen, och elevens text i övriga steg. Exempeltexten går inte att redigera och elevens utkast ändras aldrig av växlingen.
+- Lektionen är guidad. Eleven går framåt ett steg i taget: övriga kapitel i progressionen är låsta, det finns ingen **Tillbaka**-knapp, och **Nästa steg** öppnas först när hela tavlan för steget har visats och eleven har svarat på stegets kontroll eller gjort klart dess uppgift. Två försök räcker för att få gå vidare, och ett fel från AI-tjänsten låser aldrig eleven.
+- Edda bestämmer vad skrivytan visar; eleven kan inte själv växla. Exempeltexten visas under kapitlets öppning och modellering (kapitel 1–5), och elevens egen text visas från och med kapitlets skrivuppgift. Elevens utkast ändras aldrig av att ytan byter innehåll.
+- Fri navigering för visning och granskning: lägg till `?fri` i adressen. Då går kapitlen att öppna i valfri ordning och **Tillbaka**/**Nästa steg** är alltid tillgängliga. Skrivytan styrs fortfarande av Edda.
 - Varje moment öppnar med tre korta sidor på whiteboarden: en rad som fångar uppmärksamheten, momentets elevnära mål (med kursplanens formulering som liten referens) och sedan förkunskapsfrågan. I första momentet är frågan ”Vad är en argumenterande text?” och exempeltexten presenteras först efter den. Under de sidorna är skrivytan helt tom: varken skrivuppgift, verktyg eller ett tidigare sparat utkast visas. Utkastet finns kvar och visas under **Din text** när lektionen har börjat. Därefter lyssnar eleven på hela exempeltexten utan markeringar medan whiteboarden väntar, och sedan börjar modelleringen. I senare moment ligger exempeltexten kvar utan markeringar under startfrågan. Därefter är det tyst: uppläsningen startar aldrig av sig själv.
 - När eleven lyssnar visas hela exempeltexten utan rullning; på breda skärmar förminskas texten så att den ryms i kortet. Skrivytan visar då bara texten; knappen **Lyssna på texten** ligger på whiteboarden så att den inte tar plats från texten. Efter lyssnandet är lektionen tyst och det finns ingen knapp för att lyssna igen.
-- I modelleringen är exempeltexten synkad med whiteboarden. Tavlan går igenom texten en liten del i taget: delen citeras på tavlan med en kort förklaring från läraren, och samma del lyser gult och förstoras i exempeltexten medan resten av texten blir suddig. Eleven styr takten med **Fortsätt** och kan gå tillbaka med **Visa föregående del**; exempeltexten följer med åt båda håll. Under genomgången finns ingen lyssna-knapp och ingen lista över alla markeringar.
+- I modelleringen är exempeltexten synkad med whiteboarden. Tavlan går igenom texten en liten del i taget: delen citeras på tavlan med en kort förklaring från läraren, och samma del lyser gult och förstoras i exempeltexten medan resten av texten blir suddig. Eleven går vidare med **Fortsätt** och exempeltexten följer med. Under genomgången finns ingen lyssna-knapp och ingen lista över alla markeringar.
 - Whiteboarden ska aldrig arbeta med annat material än exempeltexten under modelleringen: allt som tavlan lyfter fram är hämtat ur texten bredvid, så att eleven inte behöver hålla två olika exempel i huvudet.
-- Genomgången avslutas med en kontroll som görs i själva texten: tavlan ställer en fråga (till exempel ”Klicka på tesen i texten till höger”), momentets delar lyser gult i exempeltexten och eleven svarar genom att klicka på rätt del. Edda svarar på tavlan. Fel val kan göras om; rätt val låser markeringarna.
-- I övriga steg kan eleven öppna exempeltexten som en sammanfattning: alla momentets markeringar är gula och numrerade med förklaringar ovanför texten, så att färgen inte är den enda informationsbäraren, och den enklare texten finns att jämföra med. Gult används bara för exempeltextens markeringar; rött är fortsatt reserverat för möjliga problem i elevens text.
+- Ett kapitel kan börja genomgången med en jämförelse: skrivytan visar då ett enkelt och ett utvecklat exempel i var sin ruta, och tavlan lyfter ett par motsvarande delar i taget som lyser gult i båda exemplen. Det utvecklade exemplet är exempeltextens egen inledning, ordagrant. Kapitel 2 gör så innan Edda går igenom begreppen i hela texten.
+- Kapitel 5 avslutar genomgången med en felsökning på whiteboarden i stället för kontroller i exempeltexten. En kort påhittad elevtext med språkfel står på tavlan, Edda frågar efter en sorts fel i taget och eleven klickar i texten på tavlan. Alla delar av texten är klickbara och har samma prickade understrykning, så att markeringarna inte avslöjar svaren; hittade fel blir gula och får en kort förklaring. Sist visas texten före och efter rättning tillsammans med de tre språkliga områdena. Texten är påhittad, inte en verklig elevtext.
+- Genomgången avslutas med kontroller som görs i själva texten: tavlan ställer en fråga i taget, momentets delar lyser gult i exempeltexten och eleven svarar genom att klicka på rätt del. Kapitel 1 har fyra frågor (tesen, argumenten, motargumentet, avslutningen); övriga kapitel har en. När flera delar är rätt, som de två argumenten, bekräftas varje fynd i texten och Edda svarar när alla är hittade. Fel val kan göras om. I guidat läge går eleven vidare till nästa fråga först när den aktuella är löst, försökt två gånger eller AI-tjänsten har fallerat.
+- Före skrivuppgiften visar Edda ett bättre och ett svagare exempel på just den del eleven ska skriva (i kapitel 1 en tes, i kapitel 2 ett argument och så vidare). Eleven klickar på det som är bäst och får Eddas svar; först därefter visas uppgiften. Korten heter **Exempel A** och **Exempel B** tills eleven har valt rätt. Exemplen är hämtade ordagrant ur de två exempeltexterna och handlar därför om ett annat ämne än elevens egen text.
+- Varje kapitel har en tydlig skrivuppgift i elevens egen text som följer direkt på genomgången (till exempel ”Börja med att skriva din inledning med tes”). Eleven markerar själv uppgiften som klar; det kräver att texten inte är tom och skickar ingenting till AI. Gult används bara för exempeltextens markeringar; rött är fortsatt reserverat för möjliga problem i elevens text.
 - Exempeltexten döljs i återkallningssteget, i återkallningsrundan före slutdiagnosen och i hela slutdiagnosmomentet.
 
 ## Kognitiv belastning och teknologisk mättnad

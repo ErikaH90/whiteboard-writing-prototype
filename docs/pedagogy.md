@@ -9,24 +9,36 @@ Varje moment på whiteboarden följer Gagnés nio steg, i den här ordningen:
 3. **Aktivera tidigare kunskaper:** en förkunskaps- eller återkallningsfråga utan ledtråd.
 4. **Presentera innehållet:** eleven lyssnar på och läser exempeltexten.
 5. **Ge vägledning:** whiteboarden går igenom exempeltexten en del i taget med lärarens förklaringar; ledtrådar och stöd finns i träningen.
-6. **Låt eleven öva:** eleven pekar ut rätt del i exempeltexten, gör träningsuppgiften och skriver i sin egen text.
+6. **Låt eleven öva:** eleven pekar ut rätt del i exempeltexten och gör sedan kapitlets skrivuppgift i sin egen text.
 7. **Ge återkoppling:** Edda svarar efter varje svar och säger konkret vad eleven har visat att den kan, och eleven kan be om återkoppling på sitt utkast.
 8. **Utvärdera lärandet:** återkallning utan stöd, självkontroll och exit ticket. Målet visas igen inför exit ticketen och när den är klar, så att eleven stämmer av sina svar mot det.
 9. **Stärk minnet och överföringen:** nästa moment börjar med att återkalla det föregående, återkallningsrundan före slutdiagnosen täcker alla moment och slutdiagnosen har ett nytt ämne.
 
 De elevnära målen och öppningsraderna är författade för prototypen och ska granskas av en lärare. De är inte kursplans- eller betygskriterier.
 
+## Kontrollfrågorna följer kapitlets innehåll
+
+Allt eleven får frågor om efter skrivuppgiften (återkallning, självkontroll och exit ticket) ska gälla antingen det Edda har gått igenom i kapitlets exempeltext eller det eleven just har skrivit. Frågor om delar av texten som eleven ännu inte har skrivit, eller om begrepp som inte har tagits upp, hör inte hemma i kapitlet. Exit ticketens sista fråga får peka framåt mot nästa kapitels skrivuppgift.
+
+| Kapitel | Edda går igenom | Eleven skriver | Självkontrollen gäller |
+|---|---|---|---|
+| 1 Struktur | rubrik, tes, argument, motargument, avslutning | inledning med tes | rubrik, inledning, tes |
+| 2 Resonemang | jämförelse mellan en enkel och en utvecklad inledning; begreppen argument, sakargument, följd, pathos och logos, motargument, bemötande, triad | de första argumenten | förklarade argument som stödjer tesen |
+| 3 Textbindning | före och efter: tre lösa meningar binds ihop med sambandsord; sedan de fem slagen av sambandsord i exempeltexten (tillägg, orsak, konsekvens, kontrast, struktur) med fler ord av varje slag | motargument och sambandsord | motargumentet och sambandsorden |
+| 4 Meningsbyggnad | tre före/efter-exempel på språklig variation (ordval, meningsstarter, korta och långa meningar); sedan meningsstarter och meningslängd i exempeltexten | avslutning, meningsbyggnad i hela texten | avslutningen och meningarnas variation |
+| 5 Språk | skiljetecken och ordval i exempeltexten; sedan en felsökning på whiteboarden i en påhittad elevtext (stor bokstav, talspråk, särskrivning, stavfel, ofullständig mening) med rättad version | genomläsning mot skrivreglerna | stavning, skiljetecken, ordval |
+
 ## Återkommande lektionssteg
 
 1. **Modellering:** jämför exempel och synliggör kvalitetsval.
-2. **Träna själv:** pröva med ledtrådar och stödstrukturer.
+2. **Träna själv:** kapitlets skrivuppgift i elevens egen text, med ledtråd vid behov. Uppgifterna bygger steg för steg upp en hel text: inledning med tes (kapitel 1), argument (2), motargument och sambandsord (3), avslutning och meningsbyggnad (4), skrivregler i hela texten (5).
 3. **Återkallning:** visa kunskap utan att modellen eller ledtråden visas.
 4. **Självkontroll:** granska och bearbeta den egna texten.
 5. **Slutbedömning:** få återkoppling mot tydliga, relevanta kriterier.
 
 Stödet ska minska över tid. Återkallning och slutdiagnos ska inte visa färdiga svar som eleven kan kopiera.
 
-Under momenten Struktur till Språk arbetar eleven parallellt med en exempeltext som visas på skrivytan. Eleven hämtar först fram sina förkunskaper med en enkel fråga, lyssnar sedan på hela texten och följer därefter lektionen på whiteboarden, där läraren modellerar genom att gå igenom exempeltexten en del i taget: delen lyser gult i texten medan tavlan förklarar vad den gör. Därefter kontrolleras förståelsen i samma text: tavlan frågar och eleven klickar på rätt del. Tavlan och texten ska hela tiden handla om samma material, för att inte belasta arbetsminnet med parallella exempel. En enklare text om samma ämne finns att jämföra med. Exempeltexterna är författade exempel från läraren, inte bedömda nationella prov, och får inte beskrivas med ett betyg. De handlar om ett annat ämne än elevens skrivuppgift och slutdiagnosen, och visas inte i återkallningssteg eller slutdiagnos. Texterna och markeringarna finns i `src/data/exemplarTexts.json` och `src/data/exemplars.ts`; markeringarnas förklaringar behöver granskas av en lärare.
+Under momenten Struktur till Språk arbetar eleven parallellt med en exempeltext som visas på skrivytan. Eleven hämtar först fram sina förkunskaper med en enkel fråga, lyssnar sedan på hela texten och följer därefter lektionen på whiteboarden, där läraren modellerar genom att gå igenom exempeltexten en del i taget: delen lyser gult i texten medan tavlan förklarar vad den gör. Därefter kontrolleras förståelsen i samma text: tavlan frågar och eleven klickar på rätt del. Tavlan och texten ska hela tiden handla om samma material, för att inte belasta arbetsminnet med parallella exempel. Exempeltexterna är författade exempel från läraren, inte bedömda nationella prov, och får inte beskrivas med ett betyg. De handlar om ett annat ämne än elevens skrivuppgift och slutdiagnosen, och visas inte i återkallningssteg eller slutdiagnos. Texterna och markeringarna finns i `src/data/exemplarTexts.json` och `src/data/exemplars.ts`; markeringarnas förklaringar behöver granskas av en lärare.
 
 Inom varje steg presenterar whiteboarden innehållet i mindre delar som skrivs fram en i taget, i elevens egen takt: eleven läser målet, studerar ett exempel i taget och får sedan frågan. Syftet är att minska mängden information som ska bearbetas samtidigt; uppdelningen ändrar inte stegens innehåll eller ordning.
 
