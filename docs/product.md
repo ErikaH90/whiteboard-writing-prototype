@@ -14,7 +14,7 @@ Skrivcoach hjälper elever i årskurs 9 att lära sig skriva och bearbeta argume
 
 - Sex sammanhängande skrivmoment med gemensam femstegsmodell och en kort förkunskaps-/återkallningsfråga före modelleringen.
 - Begränsad anpassning av återkallningsfrågor och stödnivåer utifrån elevens svar och en lokal, summerad demoprofil.
-- En lokal demoprofil som bevarar sammanfattade färdighetssignaler och elevens självskattning av svårighet mellan besök, samt ett frivilligt, valbart ämnesintresse för exempel. Endast syntetiska texter får användas i denna prototyp.
+- En lokal demoprofil som bevarar sammanfattade färdighetssignaler mellan besök. Endast syntetiska texter får användas i denna prototyp.
 - Elevstyrd generering av korta fiktiva exempel, där AI-anropet får färdighet, lektionsmål, valt ämne och summerade signaler men inte elevens utkast.
 - Kort avstämningsfråga i varje lektionssteg, med valbara alternativ eller eget textsvar.
 - Tvåkolumnsvy med undervisningswhiteboard till vänster och elevens skrivyta till höger.

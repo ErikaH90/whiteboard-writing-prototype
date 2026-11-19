@@ -1,11 +1,12 @@
 import { useId, useState, type FormEvent } from "react";
+import EddaFeedback from "./EddaFeedback";
 import type { LearningEvidence, Lesson, SkillId } from "../data/lessons";
 import {
   submitCheckIn,
   type CheckInFeedback,
   type LearningContext,
-  type PersonalizedExample,
 } from "../lib/coachApi";
+import { AfterWriting, Written } from "./BoardWriting";
 import ChapterExitTicket from "./ChapterExitTicket";
 
 type Props = {
@@ -13,14 +14,15 @@ type Props = {
   phaseIndex: number;
   priorEvidence: LearningContext["priorEvidence"];
   onEvidence: (skillIds: SkillId[], evidence: LearningEvidence) => void;
-  personalizedExample?: PersonalizedExample | null;
+  achievements?: string[];
+  firstAnswer?: string | null;
 };
 const maxAttempts = 10;
 
-export default function LessonCheckIn({ lesson, phaseIndex, priorEvidence, onEvidence, personalizedExample }: Props) {
+export default function LessonCheckIn({ lesson, phaseIndex, priorEvidence, onEvidence, achievements, firstAnswer }: Props) {
   return phaseIndex === 4
     ? lesson.exitTicket
-      ? <ChapterExitTicket lesson={lesson} exitTicket={lesson.exitTicket} priorEvidence={priorEvidence} onEvidence={onEvidence} />
+      ? <ChapterExitTicket lesson={lesson} exitTicket={lesson.exitTicket} priorEvidence={priorEvidence} onEvidence={onEvidence} achievements={achievements} firstAnswer={firstAnswer} />
       : null
     : (
       <LessonCheckInForm
@@ -28,16 +30,14 @@ export default function LessonCheckIn({ lesson, phaseIndex, priorEvidence, onEvi
         phaseIndex={phaseIndex}
         priorEvidence={priorEvidence}
         onEvidence={onEvidence}
-        personalizedExample={personalizedExample}
       />
     );
 }
 
-function LessonCheckInForm({ lesson, phaseIndex, priorEvidence, onEvidence, personalizedExample }: Props) {
+function LessonCheckInForm({ lesson, phaseIndex, priorEvidence, onEvidence }: Props) {
   const checkIn = lesson.checkIns[phaseIndex];
-  const adaptedExample = phaseIndex === 0 ? personalizedExample ?? null : null;
-  const mode = adaptedExample ? "text" : checkIn.mode;
-  const question = adaptedExample?.question ?? checkIn.question;
+  const mode = checkIn.mode;
+  const question = checkIn.question;
   const answerId = useId();
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [writtenAnswer, setWrittenAnswer] = useState("");
@@ -51,6 +51,7 @@ function LessonCheckInForm({ lesson, phaseIndex, priorEvidence, onEvidence, pers
     ? selectedOption !== null
     : writtenAnswer.trim().length > 0;
   const hintAllowed = phaseIndex < 2;
+  const isOnTrack = feedback?.kind === "on_track";
 
   async function submitAnswer(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -84,12 +85,6 @@ function LessonCheckInForm({ lesson, phaseIndex, priorEvidence, onEvidence, pers
           question,
           answer: writtenAnswer,
           focus: lesson.checkInFocus,
-          ...(adaptedExample && {
-            exampleContext: {
-              needsWork: adaptedExample.needsWork,
-              developed: adaptedExample.developed,
-            },
-          }),
           learningContext: {
             attempt: nextAttempt,
             supportLevel,
@@ -111,7 +106,8 @@ function LessonCheckInForm({ lesson, phaseIndex, priorEvidence, onEvidence, pers
 
   return (
     <form className="check-in" onSubmit={submitAnswer}>
-      <p className="check-in-question">{question}</p>
+      <p className="check-in-question"><Written>{question}</Written></p>
+      <AfterWriting>
       {mode === "choice" && checkIn.mode === "choice" ? (
         <div className="check-in-options" role="group" aria-label="Välj ett svar">
           {checkIn.options.map((option, index) => (
@@ -160,31 +156,27 @@ function LessonCheckInForm({ lesson, phaseIndex, priorEvidence, onEvidence, pers
       )}
       {requestError && <p className="check-in-error" role="alert">{requestError}</p>}
       {feedback && (
-        <div className={`check-in-feedback is-${feedback.kind === "on_track" ? "on-track" : "retry"}`} role="status">
-          <strong>AI-coach</strong>
-          <span>{feedback.feedback}</span>
-        </div>
+        <EddaFeedback feedback={feedback} />
       )}
       <div className="check-in-actions">
-        <p className="ai-action-note">
-          {adaptedExample
-            ? "Ditt svar och exemplen skickas till OpenAI när du skickar in det."
-            : "Ditt svar skickas till OpenAI när du skickar in det."}
-        </p>
-        {hintAllowed && (
+        {hintAllowed && !isOnTrack && (
           <button className="hint-button" onClick={() => setShowHint((visible) => !visible)} type="button">
             {showHint ? "Dölj ledtråd" : "Jag behöver en ledtråd"}
           </button>
         )}
-        {hintAllowed && feedback?.kind === "retry" && attempt > 1 && !showExample && !adaptedExample && (
+        {hintAllowed && feedback?.kind === "retry" && attempt > 1 && !showExample && (
           <button className="hint-button" onClick={() => setShowExample(true)} type="button">
             Se ett exempel
           </button>
         )}
-        <button className="primary-button check-in-submit" disabled={!canAnswer || isSubmitting || attempt >= maxAttempts} type="submit">
-          {isSubmitting ? "Skickar …" : feedback ? "Försök igen" : "Svara"}
-        </button>
+        {/* After a successful answer there is nothing more to press here; the student moves on. */}
+        {!isOnTrack && (
+          <button className="primary-button check-in-submit" disabled={!canAnswer || isSubmitting || attempt >= maxAttempts} type="submit">
+            {isSubmitting ? "Skickar …" : feedback ? "Försök igen" : "Svara"}
+          </button>
+        )}
       </div>
+      </AfterWriting>
     </form>
   );
 }

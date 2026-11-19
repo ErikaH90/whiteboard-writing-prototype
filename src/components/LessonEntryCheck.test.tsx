@@ -19,17 +19,22 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+// Each lesson opens with an attention line and the goal before the entry question is asked.
+async function openEntryQuestion(user: ReturnType<typeof userEvent.setup>) {
+  while (!screen.queryByRole("textbox", { name: "Ditt svar, utan ledtråd" })) {
+    await user.click(screen.getByRole("button", { name: "Fortsätt" }));
+  }
+}
+
 describe("lesson entry check", () => {
   it("adapts the retrieval question to session evidence and sends only after submission", async () => {
     const user = userEvent.setup();
     const onComplete = vi.fn();
     const onEvidence = vi.fn();
-    const onDifficulty = vi.fn();
     render(
       <LessonEntryCheck
         lesson={lessons[1]}
         learningEvidence={{ structure: "independent" }}
-        difficultyRating={null}
         priorEvidence={[{
           skillId: "structure",
           evidence: "independent",
@@ -39,13 +44,21 @@ describe("lesson entry check", () => {
           needsSupport: 0,
         }]}
         onEvidence={onEvidence}
-        onDifficulty={onDifficulty}
         onComplete={onComplete}
       />,
     );
 
-    expect(screen.getByText(lessons[1].entryCheck.extensionQuestion)).toBeInTheDocument();
+    // The lesson opens with an attention line, then the goal, and only then the retrieval question.
+    expect(screen.getByText(lessons[1].hook)).toBeVisible();
+    expect(screen.queryByText(lessons[1].learnerGoal)).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Fortsätt" }));
+    expect(screen.getByText(lessons[1].learnerGoal)).toBeVisible();
+    expect(screen.getByText(lessons[1].goal)).toBeVisible();
+    expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Fortsätt" }));
+    expect(screen.getByText(lessons[1].entryCheck.extensionQuestion)).toBeVisible();
     expect(fetch).not.toHaveBeenCalled();
+    await openEntryQuestion(user);
     await user.type(screen.getByRole("textbox", { name: "Ditt svar, utan ledtråd" }), "Tesen visar ståndpunkten.");
     await user.click(screen.getByRole("button", { name: "Svara" }));
 
@@ -73,8 +86,8 @@ describe("lesson entry check", () => {
       needsSupport: 0,
     }]);
     expect(onEvidence).toHaveBeenCalledWith(["structure"], "independent");
-    await user.click(screen.getByRole("button", { name: "För svårt" }));
-    expect(onDifficulty).toHaveBeenCalledWith(["structure"], "too_hard");
+    expect(screen.queryByText(/Koppling till momentet/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "Hur kändes frågan?" })).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Börja momentet" }));
     expect(onComplete).toHaveBeenCalledOnce();
   });
@@ -95,18 +108,19 @@ describe("lesson entry check", () => {
         lesson={lessons[0]}
         learningEvidence={{}}
         priorEvidence={[]}
-        difficultyRating={null}
         onEvidence={vi.fn()}
-        onDifficulty={vi.fn()}
         onComplete={vi.fn()}
       />,
     );
+
+    await openEntryQuestion(user);
 
     await user.type(screen.getByRole("textbox", { name: "Ditt svar, utan ledtråd" }), "En berättelse.");
     await user.click(screen.getByRole("button", { name: "Svara" }));
     expect(await screen.findByText(lessons[0].foundationSupport)).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Försök igen" }));
+    await openEntryQuestion(user);
     await user.type(screen.getByRole("textbox", { name: "Ditt svar, utan ledtråd" }), "En ståndpunkt med skäl.");
     await user.click(screen.getByRole("button", { name: "Svara igen" }));
     await user.click(await screen.findByRole("button", { name: "Visa ett exempel" }));
@@ -126,12 +140,12 @@ describe("lesson entry check", () => {
         lesson={lessons[0]}
         learningEvidence={{}}
         priorEvidence={[]}
-        difficultyRating={null}
         onEvidence={onEvidence}
-        onDifficulty={vi.fn()}
         onComplete={onComplete}
       />,
     );
+
+    await openEntryQuestion(user);
 
     await user.type(screen.getByRole("textbox", { name: "Ditt svar, utan ledtråd" }), "En ståndpunkt.");
     await user.click(screen.getByRole("button", { name: "Svara" }));

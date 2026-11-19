@@ -4,12 +4,19 @@ import DemoTeacherInbox from "./components/DemoTeacherInbox";
 import FinalDiagnosisChecklist from "./components/FinalDiagnosisChecklist";
 import LessonEntryCheck from "./components/LessonEntryCheck";
 import LessonCheckIn from "./components/LessonCheckIn";
+import ExamplePick from "./components/ExamplePick";
+import EddaFeedback from "./components/EddaFeedback";
+import ExemplarPanel, { type ExemplarMode } from "./components/ExemplarPanel";
+import { exemplarFocus } from "./data/exemplars";
+import { useFitToHeight } from "./lib/useFitToHeight";
+import { useExemplarAudio } from "./lib/useExemplarAudio";
+import { AfterWriting, BoardSequence, BoardStep, Written } from "./components/BoardWriting";
 import { finalRecallQuestions, lessons, phases, type LearningEvidence, type SkillId } from "./data/lessons";
 import {
-  generatePersonalizedExample,
   reviewDraft,
   type Finding,
-  type PersonalizedExample,
+  submitCheckIn,
+  type CheckInFeedback,
   type ReviewFeedback,
 } from "./lib/coachApi";
 import {
@@ -17,13 +24,9 @@ import {
   emptyLearnerProfile,
   getEvidenceSummaries,
   getLatestEvidence,
-  interestOptions,
   readLearnerProfile,
   recordEvidence as appendEvidence,
-  recordDifficulty as saveDifficultyRating,
   writeLearnerProfile,
-  type DifficultyRating,
-  type InterestId,
   type LearnerProfile,
 } from "./lib/learnerProfile";
 import {
@@ -67,14 +70,35 @@ function App() {
   const [learnerProfile, setLearnerProfile] = useState<LearnerProfile>(savedLearnerProfile.profile);
   const [profileLoadError, setProfileLoadError] = useState(savedLearnerProfile.error);
   const [profileSaveError, setProfileSaveError] = useState(false);
-  const [personalizedExample, setPersonalizedExample] = useState<PersonalizedExample | null>(null);
-  const [exampleLoading, setExampleLoading] = useState(false);
-  const [exampleError, setExampleError] = useState<string | null>(null);
+  // The check in the modelling step is answered by clicking a part of the exemplar text.
+  const [textPick, setTextPick] = useState<{
+    lesson: number;
+    selected: number | null;
+    solved: boolean;
+    attempt: number;
+    submitting: boolean;
+    feedback: CheckInFeedback | null;
+    error: string | null;
+  } | null>(null);
   const [completedEntryLessons, setCompletedEntryLessons] = useState<number[]>([]);
+  const [seenBoards, setSeenBoards] = useState<string[]>([]);
+  const [hasMetExemplar, setHasMetExemplar] = useState(false);
+  // The read-aloud is started from the whiteboard; when it ends the lesson begins.
+  const exemplarAudio = useExemplarAudio(() => setHasMetExemplar(true));
+  // What the student has shown they can do, per lesson (index into lesson.canDo), and their first
+  // answer in each lesson. Kept only in this session; never stored or sent anywhere.
+  const [achievements, setAchievements] = useState<Record<number, number[]>>({});
+  const [entryAnswers, setEntryAnswers] = useState<Record<number, string>>({});
+  const [boardPage, setBoardPage] = useState<{ board: string; page: number } | null>(null);
+  const [surfaceChoice, setSurfaceChoice] = useState<{ board: string; view: "exemplar" | "draft" } | null>(null);
   const [showFinalRecall, setShowFinalRecall] = useState(false);
   const [finalRecallIndex, setFinalRecallIndex] = useState(0);
   const [finalRecallAnswers, setFinalRecallAnswers] = useState<string[]>([]);
   const editorRef = useRef<HTMLTextAreaElement>(null);
+  const boardSurfaceRef = useRef<HTMLDivElement>(null);
+  const boardContentRef = useRef<HTMLDivElement>(null);
+  // Keep the whole whiteboard visible in the window; the query matches the fitted layout in styles.css.
+  useFitToHeight(boardSurfaceRef, boardContentRef, "(min-width: 901px) and (min-height: 480px)");
   const editorWrapRef = useRef<HTMLDivElement>(null);
   const findingButtonsRef = useRef(new Map<string, HTMLButtonElement>());
   const reviewRequestId = useRef(0);
@@ -166,8 +190,6 @@ function App() {
     setShowFinalRecall(false);
     setIsSeparateRevision(false);
     setRevisionDraft("");
-    setPersonalizedExample(null);
-    setExampleError(null);
   }
 
   function movePhase(index: number) {
@@ -204,50 +226,19 @@ function App() {
     setLearnerProfile((current) => appendEvidence(current, skillIds, evidence));
   }
 
-  function recordDifficulty(skillIds: SkillId[], rating: DifficultyRating) {
-    setLearnerProfile((current) => saveDifficultyRating(current, skillIds, rating));
+  function recordCheck(skillIds: SkillId[], evidence: LearningEvidence) {
+    recordEvidence(skillIds, evidence);
+    if (evidence === "needs_support" || phaseIndex > 3) return;
+    setAchievements((current) => {
+      const earned = current[lessonIndex] ?? [];
+      return earned.includes(phaseIndex) ? current : { ...current, [lessonIndex]: [...earned, phaseIndex].sort() };
+    });
   }
 
-  function setInterest(value: InterestId | null) {
-    setLearnerProfile((current) => ({ ...current, interest: value }));
-    setPersonalizedExample(null);
-    setExampleError(null);
-  }
-
-  async function createPersonalizedExample() {
-    setExampleError(null);
-    setExampleLoading(true);
-    try {
-      const currentEvidence = learnerProfile.evidence[lesson.skillIds[0]];
-      const currentDifficulty = learnerProfile.difficulty[lesson.skillIds[0]];
-      const supportLevel = currentEvidence?.latest === "needs_support" || currentDifficulty === "too_hard"
-        ? 0
-        : currentDifficulty === "too_easy" || currentEvidence?.latest === "independent" && currentEvidence.independent >= 2
-          ? 2
-          : 1;
-      const result = await generatePersonalizedExample({
-        skillId: lesson.skillIds[0],
-        lessonTitle: lesson.title,
-        goal: lesson.goal,
-        interest: learnerProfile.interest,
-        supportLevel,
-        evidence: getEvidenceSummaries(learnerProfile),
-      });
-      setPersonalizedExample(result);
-    } catch (error) {
-      setExampleError(error instanceof Error ? error.message : "Det anpassade exemplet kunde inte skapas.");
-    } finally {
-      setExampleLoading(false);
-    }
-  }
-
-  function completeEntryCheck() {
+  function completeEntryCheck(answer: string | null) {
+    if (answer) setEntryAnswers((current) => current[lessonIndex] ? current : { ...current, [lessonIndex]: answer });
     setCompletedEntryLessons((current) => current.includes(lessonIndex) ? current : [...current, lessonIndex]);
   }
-
-  const entryDifficultyRating = lesson.entryCheck.skillIds
-    .map((skillId) => learnerProfile.difficulty[skillId])
-    .find((rating) => rating !== undefined) ?? null;
 
   function startFinalDiagnosis() {
     reviewRequestId.current += 1;
@@ -412,27 +403,94 @@ function App() {
     editor.setSelectionRange(finding.start, finding.end);
   }
 
+  const boardKey = `${lessonIndex}-${phaseIndex}`;
+  // The exemplar text supports the lesson, but is hidden when the student should recall or be assessed without a model.
+  // Before the exemplar is presented, the student first retrieves what they already know.
+  const exemplarAvailable = !isFinalDiagnosis
+    && !isFinalRecall
+    && (hasMetExemplar || hasCompletedEntry)
+    && lessonIndex < lessons.length - 1
+    && phaseIndex !== 2;
+  // The student meets the exemplar by listening to it once, right after the first entry question.
+  const isListeningIntro = exemplarAvailable && !hasMetExemplar;
+  // At the very start the writing surface is blank: neither the exemplar nor a saved draft is shown yet.
+  const isBlankStart = !isFinalDiagnosis
+    && !isFinalRecall
+    && !hasMetExemplar
+    && !hasCompletedEntry
+    && lessonIndex < lessons.length - 1;
+  const surfaceKey = `${boardKey}-${hasCompletedEntry ? "lesson" : "entry"}`;
+  const surfaceView = !exemplarAvailable
+    ? "draft"
+    : isListeningIntro
+      ? "exemplar"
+      : surfaceChoice?.board === surfaceKey
+        ? surfaceChoice.view
+        : !hasCompletedEntry || phaseIndex === 0 ? "exemplar" : "draft";
+  // In the modelling step the whiteboard walks through the exemplar one part at a time:
+  // page 0 is the goal, then one page per highlighted part, and last the comparison of two examples.
+  const walkthrough = exemplarAvailable && phaseIndex === 0
+    ? exemplarFocus[lesson.skillIds[0]].highlights.strong
+    : [];
+  const currentBoardPage = boardPage?.board === boardKey ? boardPage.page : 0;
+  const focusIndex = hasCompletedEntry && currentBoardPage >= 1 && currentBoardPage <= walkthrough.length
+    ? currentBoardPage - 1
+    : null;
+  const textCheck = walkthrough.length > 0 ? exemplarFocus[lesson.skillIds[0]].check : null;
+  const isTextCheckPage = textCheck !== null && hasCompletedEntry && currentBoardPage === walkthrough.length + 1;
+  const pick = textPick?.lesson === lessonIndex
+    ? textPick
+    : { lesson: lessonIndex, selected: null, solved: false, attempt: 0, submitting: false, feedback: null, error: null };
+  const exemplarMode: ExemplarMode = isListeningIntro
+    ? "listen"
+    : !hasCompletedEntry
+      ? "plain"
+      : phaseIndex !== 0
+        ? "recap"
+        : focusIndex !== null ? "focus" : isTextCheckPage ? "pick" : "plain";
+
+  async function pickInText(index: number) {
+    if (!textCheck || pick.submitting || pick.solved || pick.attempt >= 10) return;
+    const isCorrect = index === textCheck.target;
+    const attempt = pick.attempt + 1;
+    const pickedLesson = lessonIndex;
+    setTextPick({ ...pick, selected: index, submitting: true, feedback: null, error: null });
+
+    try {
+      const feedback = await submitCheckIn({
+        mode: "choice",
+        question: textCheck.prompt,
+        answer: walkthrough[index].quote,
+        focus: lesson.checkInFocus,
+        isCorrect,
+        learningContext: { attempt, supportLevel: 0, priorEvidence },
+      });
+      setTextPick({ lesson: pickedLesson, selected: index, solved: isCorrect, attempt, submitting: false, feedback, error: null });
+      recordCheck(lesson.skillIds, !isCorrect ? "needs_support" : attempt === 1 ? "independent" : "supported");
+    } catch (error) {
+      setTextPick({
+        ...pick,
+        selected: null,
+        submitting: false,
+        feedback: null,
+        error: error instanceof Error ? error.message : "Återkopplingen misslyckades. Försök igen.",
+      });
+    }
+  }
+  const boardHeader = (
+    <>
+      <p className="board-kicker"><Written>{`DEL ${lessonIndex + 1}: ${lesson.shortTitle.toUpperCase()}`}</Written></p>
+      <p className="board-goal"><strong><Written>Mål:</Written></strong> <Written>{lesson.learnerGoal}</Written></p>
+      <div className="board-divider" />
+    </>
+  );
+
   return (
-    <main className="app-shell">
+    <main className={`app-shell ${isFinalDiagnosis || isFinalRecall ? "" : "is-fitted"}`}>
       {!isFinalDiagnosis && !isFinalRecall && (
         <header className="topbar">
           <div className="topbar-main">
             <h1 className="page-title">Argumenterande text</h1>
-            <label className="interest-control">
-              <span>Exempelämne</span>
-              <select
-                aria-label="Välj intresse för exempel"
-                value={learnerProfile.interest ?? ""}
-                onChange={(event) => setInterest(
-                  interestOptions.find((option) => option.value === event.currentTarget.value)?.value ?? null,
-                )}
-              >
-                <option value="">Ingen särskild preferens</option>
-                {interestOptions.map((option) => (
-                  <option key={option.value} value={option.value}>{option.label}</option>
-                ))}
-              </select>
-            </label>
           </div>
 
           <nav className="lesson-progress" aria-label="Lektionens moment">
@@ -468,8 +526,8 @@ function App() {
           <span className="frame-corner corner-top-right" aria-hidden="true" />
           <span className="frame-corner corner-bottom-left" aria-hidden="true" />
           <span className="frame-corner corner-bottom-right" aria-hidden="true" />
-          <div className="board-surface">
-            <div className="board-content">
+          <div className="board-surface" ref={boardSurfaceRef}>
+            <div className="board-content" ref={boardContentRef}>
               {isFinalRecall ? (
                 <FinalRecall
                   index={finalRecallIndex}
@@ -489,102 +547,172 @@ function App() {
                   lesson={lesson}
                   learningEvidence={learningEvidence}
                   priorEvidence={priorEvidence}
-                  difficultyRating={entryDifficultyRating}
                   onEvidence={recordEvidence}
-                  onDifficulty={recordDifficulty}
                   onComplete={completeEntryCheck}
                 />
+              ) : isListeningIntro ? (
+                <BoardSequence key="listening-intro">
+                  <BoardStep>
+                    <div className="board-activity">
+                      <p className="board-prompt"><Written>Lyssna nu</Written></p>
+                      <p className="activity-instruction">
+                        <Written>Till höger finns ett gott exempel på en argumenterande text. Lyssna på hela texten och följ med medan du lyssnar. Sedan går vi igenom vad som gör den bra.</Written>
+                      </p>
+                      <AfterWriting>
+                        <div className="listen-actions">
+                          <button
+                            className="primary-button"
+                            disabled={exemplarAudio.state === "loading"}
+                            onClick={exemplarAudio.toggle}
+                            type="button"
+                          >
+                            {exemplarAudio.state === "loading"
+                              ? "Hämtar uppläsningen …"
+                              : exemplarAudio.state === "playing"
+                                ? "Pausa uppläsningen"
+                                : exemplarAudio.state === "paused" ? "Fortsätt lyssna" : "Lyssna på texten"}
+                          </button>
+                          <button
+                            className="text-button"
+                            onClick={() => {
+                              exemplarAudio.stop();
+                              setHasMetExemplar(true);
+                            }}
+                            type="button"
+                          >
+                            Starta lektionen utan att lyssna
+                          </button>
+                        </div>
+                        {exemplarAudio.error && <p className="check-in-error" role="alert">{exemplarAudio.error}</p>}
+                      </AfterWriting>
+                    </div>
+                  </BoardStep>
+                </BoardSequence>
               ) : (
                 <>
-              <p className="board-kicker">DEL {lessonIndex + 1}: {lesson.shortTitle.toUpperCase()}</p>
-              <p className="board-goal"><strong>Mål:</strong> {lesson.goal}</p>
-              <div className="board-divider" />
-              {phaseIndex === 0 && (
-                <div className="teaching-content">
-                  <p className="board-prompt">Jämför exemplen</p>
-                  <div className="example-pair">
-                    <article className="example-card example-needs-work">
-                      <span className="example-label">MINDRE TYDLIGT</span>
-                      <p>{lesson.model.needsWork}</p>
-                    </article>
-                    <article className="example-card example-strong">
-                      <span className="example-label">MER UTVECKLAT</span>
-                      <p>{lesson.model.strong}</p>
-                    </article>
-                  </div>
-                  <p className="board-question">{lesson.model.question}</p>
-                  <div className="personalized-example-control">
-                    <button className="text-button" disabled={exampleLoading} onClick={createPersonalizedExample} type="button">
-                      {exampleLoading ? "Skapar exempel …" : personalizedExample ? "Skapa ett nytt anpassat exempel" : "Skapa exempel med valt ämne"}
-                    </button>
-                    {exampleError && <p className="check-in-error" role="alert">{exampleError}</p>}
-                    {personalizedExample && (
-                      <div className="example-pair personalized-example-pair">
-                        <article className="example-card example-needs-work">
-                          <span className="example-label">MINDRE UTVECKLAT</span>
-                          <p>{personalizedExample.needsWork}</p>
-                        </article>
-                        <article className="example-card example-strong">
-                          <span className="example-label">MER UTVECKLAT</span>
-                          <p>{personalizedExample.developed}</p>
-                        </article>
-                      </div>
+              {phaseIndex > 0 && (
+                <p className="board-kicker">{`DEL ${lessonIndex + 1}: ${lesson.shortTitle.toUpperCase()}`}</p>
+              )}
+              <BoardSequence
+                key={boardKey}
+                instant={seenBoards.includes(boardKey)}
+                onComplete={() => setSeenBoards((current) => current.includes(boardKey) ? current : [...current, boardKey])}
+                onPageChange={(page) => setBoardPage({ board: boardKey, page })}
+              >
+                {phaseIndex === 0 && (
+                  <BoardStep pause>
+                    {boardHeader}
+                    {exemplarAvailable && (
+                      <p className="board-exemplar-note"><Written>{exemplarFocus[lesson.skillIds[0]].boardNote}</Written></p>
                     )}
-                  </div>
-                </div>
-              )}
-              {phaseIndex === 1 && (
-                <div className="board-activity">
-                  <p className="board-prompt">Din övning</p>
-                  <p className="activity-instruction">{lesson.practice}</p>
-                  {showHint && <p className="hint-card"><span aria-hidden="true">✦</span> {lesson.hint}</p>}
-                  <button className="text-button" onClick={() => setShowHint((visible) => !visible)}>
-                    {showHint ? "Dölj ledtråd" : "Visa en ledtråd"}
-                  </button>
-                </div>
-              )}
-              {phaseIndex === 2 && (
-                <div className="board-activity recall-activity">
-                  <p className="board-prompt">Försök utan stöd</p>
-                  <p className="activity-instruction">{lesson.recall}</p>
-                  <p className="board-small-note">Titta inte på exemplen medan du tänker efter.</p>
-                </div>
-              )}
-              {phaseIndex === 3 && (
-                <div className="board-activity">
-                  <p className="board-prompt">Din egenkontroll</p>
-                  <div className="checklist">
-                    {lesson.checklist.map((item) => (
-                      <label className="check-item" key={item}>
-                        <input
-                          type="checkbox"
-                          checked={checkedItems.includes(item)}
-                          onChange={() => setCheckedItems((current) => current.includes(item) ? current.filter((entry) => entry !== item) : [...current, item])}
-                        />
-                        <span>{item}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {phaseIndex === 4 && (
-                <div className="board-activity">
-                  <p className="board-prompt">Det här granskar du</p>
-                  <ul className="criteria-list">
-                    {lesson.criteria.map((criterion) => <li key={criterion}>{criterion}</li>)}
-                  </ul>
-                  <p className="assessment-note">Detta är stöd för din bearbetning – inte ett officiellt betyg.</p>
-                  <p className="board-small-note">Använd kriterierna när du granskar ditt utkast till höger.</p>
-                </div>
-              )}
-              <LessonCheckIn
-                key={`${lessonIndex}-${phaseIndex}-${personalizedExample ? JSON.stringify(personalizedExample) : "standard"}`}
-                lesson={lesson}
-                phaseIndex={phaseIndex}
-                priorEvidence={priorEvidence}
-                onEvidence={recordEvidence}
-                personalizedExample={personalizedExample}
-              />
+                  </BoardStep>
+                )}
+                {walkthrough.map((part, index) => (
+                  <BoardStep key={`part-${index}`} pause>
+                    <div className="board-activity focus-walk">
+                      <p className="board-kicker">{`${index + 1} AV ${walkthrough.length}`}</p>
+                      <p className="board-prompt"><Written>{part.label}</Written></p>
+                      <p className="focus-quote"><Written>{`”${part.quote}”`}</Written></p>
+                      <p className="activity-instruction"><Written>{part.explain ?? ""}</Written></p>
+                    </div>
+                  </BoardStep>
+                ))}
+                {textCheck && (
+                  <BoardStep>
+                    <div className="board-activity text-pick">
+                      <p className="board-prompt"><Written>Din tur</Written></p>
+                      <p className="activity-instruction"><Written>{textCheck.prompt}</Written></p>
+                      {pick.submitting && <p className="example-pick-status" role="status">Edda läser ditt val …</p>}
+                      {pick.error && <p className="check-in-error" role="alert">{pick.error}</p>}
+                      {pick.feedback && <EddaFeedback feedback={pick.feedback} />}
+                    </div>
+                  </BoardStep>
+                )}
+                {phaseIndex === 0 && !textCheck && (
+                  <BoardStep>
+                    <ExamplePick
+                      key={lessonIndex}
+                      lesson={lesson}
+                      examples={lesson.model}
+                      strongFirst={lessonIndex % 2 === 1}
+                      priorEvidence={priorEvidence}
+                      onEvidence={recordCheck}
+                    />
+                  </BoardStep>
+                )}
+                {phaseIndex === 1 && (
+                  <BoardStep pause>
+                    <div className="board-activity">
+                      <p className="board-prompt"><Written>Din övning</Written></p>
+                      <p className="activity-instruction"><Written>{lesson.practice}</Written></p>
+                      {showHint && <p className="hint-card"><span aria-hidden="true">✦</span> <Written>{lesson.hint}</Written></p>}
+                      <AfterWriting>
+                        <button className="text-button" onClick={() => setShowHint((visible) => !visible)}>
+                          {showHint ? "Dölj ledtråd" : "Visa en ledtråd"}
+                        </button>
+                      </AfterWriting>
+                    </div>
+                  </BoardStep>
+                )}
+                {phaseIndex === 2 && (
+                  <BoardStep pause>
+                    <div className="board-activity recall-activity">
+                      <p className="board-prompt"><Written>Försök utan stöd</Written></p>
+                      <p className="activity-instruction"><Written>{lesson.recall}</Written></p>
+                      <p className="board-small-note"><Written>Titta inte på exemplen medan du tänker efter.</Written></p>
+                    </div>
+                  </BoardStep>
+                )}
+                {phaseIndex === 3 && (
+                  <BoardStep pause>
+                    <div className="board-activity">
+                      <p className="board-prompt"><Written>Din egenkontroll</Written></p>
+                      <div className="checklist">
+                        {lesson.checklist.map((item) => (
+                          <label className="check-item board-hold" key={item}>
+                            <input
+                              type="checkbox"
+                              checked={checkedItems.includes(item)}
+                              onChange={() => setCheckedItems((current) => current.includes(item) ? current.filter((entry) => entry !== item) : [...current, item])}
+                            />
+                            <span><Written>{item}</Written></span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  </BoardStep>
+                )}
+                {phaseIndex === 4 && (
+                  <BoardStep pause>
+                    <div className="board-activity">
+                      <p className="board-goal goal-reminder"><strong><Written>Målet:</Written></strong> <Written>{lesson.learnerGoal}</Written></p>
+                      <p className="board-prompt"><Written>Det här granskar du</Written></p>
+                      <ul className="criteria-list">
+                        {lesson.criteria.map((criterion) => (
+                          <li className="board-hold" key={criterion}><Written>{criterion}</Written></li>
+                        ))}
+                      </ul>
+                      <p className="assessment-note"><Written>Detta är stöd för din bearbetning – inte ett officiellt betyg.</Written></p>
+                      <p className="board-small-note"><Written>Använd kriterierna när du granskar ditt utkast till höger.</Written></p>
+                    </div>
+                  </BoardStep>
+                )}
+                {phaseIndex > 0 && (phaseIndex < 4 || lesson.exitTicket) && (
+                  <BoardStep>
+                    <LessonCheckIn
+                      key={`${lessonIndex}-${phaseIndex}`}
+                      lesson={lesson}
+                      phaseIndex={phaseIndex}
+                      priorEvidence={priorEvidence}
+                      onEvidence={recordCheck}
+                      achievements={(achievements[lessonIndex] ?? []).map((index) => lesson.canDo[index])}
+                      firstAnswer={lesson.entryCheck.skillIds.every((skillId) => lesson.skillIds.includes(skillId))
+                        ? entryAnswers[lessonIndex] ?? null
+                        : null}
+                    />
+                  </BoardStep>
+                )}
+              </BoardSequence>
               <div className="board-footer">
                 <div className="phase-controls">
                   <button className="quiet-button" onClick={() => movePhase(Math.max(0, phaseIndex - 1))} disabled={phaseIndex === 0}>Tillbaka</button>
@@ -601,7 +729,33 @@ function App() {
           </div>
         </section>}
 
-        {!isFinalRecall && <section className={`writing-card ${isFinalDiagnosis ? "final-diagnosis-card" : ""}`} aria-label={isFinalDiagnosis ? "Slutdiagnosens skrivyta" : "Elevens skrivyta"}>
+        {!isFinalRecall && <section className={`writing-card ${isFinalDiagnosis ? "final-diagnosis-card" : ""}`} aria-label={isFinalDiagnosis ? "Slutdiagnosens skrivyta" : surfaceView === "exemplar" ? "Exempeltext" : "Elevens skrivyta"}>
+          {exemplarAvailable && !isListeningIntro && (
+            <div className="surface-switch" role="group" aria-label="Välj vad skrivytan visar">
+              {([["exemplar", "Exempeltext"], ["draft", "Din text"]] as const).map(([view, label]) => (
+                <button
+                  aria-pressed={surfaceView === view}
+                  className="surface-switch-option"
+                  key={view}
+                  onClick={() => setSurfaceChoice({ board: surfaceKey, view })}
+                  type="button"
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
+          {surfaceView === "exemplar" && (
+            <ExemplarPanel
+              skillId={lesson.skillIds[0]}
+              mode={exemplarMode}
+              focusIndex={focusIndex}
+              pick={{ selected: pick.selected, solved: pick.solved, disabled: pick.submitting || pick.solved }}
+              onPick={pickInText}
+            />
+          )}
+          {surfaceView === "draft" && !isBlankStart && (
+          <>
           <div className="writing-prompt">
             {isFinalDiagnosis
               ? <h1 className="prompt-label">{isSeparateRevision ? "SEPARAT BEARBETNING" : "SLUTDIAGNOS"}</h1>
@@ -619,11 +773,7 @@ function App() {
           <div className="editor-toolbar">
             <div className="editor-status">
               <span className="word-count">{wordCount} ord</span>
-              {saveError && !isFinalDiagnosis && <span className="save-status has-error" role="status">Kunde inte spara lokalt</span>}
-              {(!isFinalDiagnosis || isDiagnosisSubmitted) && (
-                <span className="ai-action-note">Text skickas till OpenAI vid AI-återkoppling.</span>
-              )}
-            </div>
+              {saveError && !isFinalDiagnosis && <span className="save-status has-error" role="status">Kunde inte spara lokalt</span>}            </div>
             <div className="editor-actions">
               {isFinalDiagnosis && isDiagnosisSubmitted && !isSeparateRevision && (
                 <button
@@ -810,6 +960,8 @@ function App() {
               </div>
             )}
           </div>
+          </>
+          )}
           {showTeacherInbox && (
             <DemoTeacherInbox
               submissions={demoSubmissions}
@@ -819,24 +971,17 @@ function App() {
           )}
         </section>}
       </section>
-      {!isFinalDiagnosis && !isFinalRecall && (
+      {!isFinalDiagnosis && !isFinalRecall && (profileLoadError || profileSaveError || submissionError) && (
         <footer className="page-footer">
-          <span>DEMO · Använd endast syntetiska elevtexter</span>
-          <span>
-            {profileLoadError
-              ? "Sparad lärprofil kunde inte läsas"
-              : profileSaveError
-                ? "Lärprofilen kunde inte sparas lokalt"
-                : "Lärsignaler och ämnesval sparas lokalt i demoläget"}
-          </span>
+          {(profileLoadError || profileSaveError) && (
+            <span>{profileLoadError ? "Sparad lärprofil kunde inte läsas" : "Lärprofilen kunde inte sparas lokalt"}</span>
+          )}
           {profileLoadError && (
             <button className="text-button" onClick={resetLearnerProfile} type="button">
               Rensa felaktig demo-profil
             </button>
           )}
-          <button className="text-button" onClick={openTeacherInbox} type="button">Lärarvy (demoläge)</button>
           {submissionError && <span role="alert">{submissionError}</span>}
-          <span>Kursplansanknytning är vägledande, inte ett automatiskt betyg.</span>
         </footer>
       )}
     </main>

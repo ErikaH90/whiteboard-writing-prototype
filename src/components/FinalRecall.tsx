@@ -1,4 +1,5 @@
 import { finalRecallQuestions } from "../data/lessons";
+import { AfterWriting, BoardSequence, BoardStep, Written } from "./BoardWriting";
 
 type Props = {
   index: number;
@@ -17,8 +18,12 @@ export default function FinalRecall({ index, answers, onAnswer, onPrevious, onNe
   return (
     <section className="final-recall" aria-labelledby="final-recall-title">
       <p className="board-kicker">ÅTERKALLA FRÅN ALLA MOMENT · {index + 1} AV {finalRecallQuestions.length}</p>
-      <h2 className="board-prompt" id="final-recall-title">{question.title}</h2>
-      <p className="entry-check-question">{question.question}</p>
+      <BoardSequence>
+      <BoardStep>
+      <h2 className="board-prompt" id="final-recall-title"><Written>{question.title}</Written></h2>
+      <p className="entry-check-question"><Written>{question.question}</Written></p>
+      <AfterWriting>
+      <div className="board-fill">
       <label className="check-in-answer-label" htmlFor="final-recall-answer">Ditt svar, utan stöd</label>
       <textarea
         className="check-in-answer final-recall-answer"
@@ -44,6 +49,10 @@ export default function FinalRecall({ index, answers, onAnswer, onPrevious, onNe
           </button>
         )}
       </div>
+      </div>
+      </AfterWriting>
+      </BoardStep>
+      </BoardSequence>
     </section>
   );
 }

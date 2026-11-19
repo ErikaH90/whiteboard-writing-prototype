@@ -1,5 +1,21 @@
 # Pedagogisk modell
 
+## Lektionens upplägg enligt Nine Events of Instruction
+
+Varje moment på whiteboarden följer Gagnés nio steg, i den här ordningen:
+
+1. **Fånga uppmärksamheten:** momentet öppnar med en kort rad eller fråga som väcker intresse (`hook` i `src/data/lessons.ts`).
+2. **Presentera lärandemålen:** därefter visas ett elevnära mål som börjar med ”När du är klar kan du …” (`learnerGoal`), med kursplanens formulering som liten referens. Målet upprepas när modelleringen börjar.
+3. **Aktivera tidigare kunskaper:** en förkunskaps- eller återkallningsfråga utan ledtråd.
+4. **Presentera innehållet:** eleven lyssnar på och läser exempeltexten.
+5. **Ge vägledning:** whiteboarden går igenom exempeltexten en del i taget med lärarens förklaringar; ledtrådar och stöd finns i träningen.
+6. **Låt eleven öva:** eleven pekar ut rätt del i exempeltexten, gör träningsuppgiften och skriver i sin egen text.
+7. **Ge återkoppling:** Edda svarar efter varje svar och säger konkret vad eleven har visat att den kan, och eleven kan be om återkoppling på sitt utkast.
+8. **Utvärdera lärandet:** återkallning utan stöd, självkontroll och exit ticket. Målet visas igen inför exit ticketen och när den är klar, så att eleven stämmer av sina svar mot det.
+9. **Stärk minnet och överföringen:** nästa moment börjar med att återkalla det föregående, återkallningsrundan före slutdiagnosen täcker alla moment och slutdiagnosen har ett nytt ämne.
+
+De elevnära målen och öppningsraderna är författade för prototypen och ska granskas av en lärare. De är inte kursplans- eller betygskriterier.
+
 ## Återkommande lektionssteg
 
 1. **Modellering:** jämför exempel och synliggör kvalitetsval.
@@ -10,13 +26,17 @@
 
 Stödet ska minska över tid. Återkallning och slutdiagnos ska inte visa färdiga svar som eleven kan kopiera.
 
-Varje kapitel börjar med en kort förkunskaps- eller återkallningsfråga innan modelleringen visas. Första frågan sonderar förkunskaper; senare frågor återkommer till tidigare delförmågor. Frågan anpassas med begränsade signaler från den lokala demoprofilen: vid tidigare svårighet blir frågan mer grundläggande, och efter självständiga svar kan den kräva en mer utvecklad koppling. Efter ett försök visas en kort koppling till föregående och aktuellt moment.
+Under momenten Struktur till Språk arbetar eleven parallellt med en exempeltext som visas på skrivytan. Eleven hämtar först fram sina förkunskaper med en enkel fråga, lyssnar sedan på hela texten och följer därefter lektionen på whiteboarden, där läraren modellerar genom att gå igenom exempeltexten en del i taget: delen lyser gult i texten medan tavlan förklarar vad den gör. Därefter kontrolleras förståelsen i samma text: tavlan frågar och eleven klickar på rätt del. Tavlan och texten ska hela tiden handla om samma material, för att inte belasta arbetsminnet med parallella exempel. En enklare text om samma ämne finns att jämföra med. Exempeltexterna är författade exempel från läraren, inte bedömda nationella prov, och får inte beskrivas med ett betyg. De handlar om ett annat ämne än elevens skrivuppgift och slutdiagnosen, och visas inte i återkallningssteg eller slutdiagnos. Texterna och markeringarna finns i `src/data/exemplarTexts.json` och `src/data/exemplars.ts`; markeringarnas förklaringar behöver granskas av en lärare.
+
+Inom varje steg presenterar whiteboarden innehållet i mindre delar som skrivs fram en i taget, i elevens egen takt: eleven läser målet, studerar ett exempel i taget och får sedan frågan. Syftet är att minska mängden information som ska bearbetas samtidigt; uppdelningen ändrar inte stegens innehåll eller ordning.
+
+Varje kapitel börjar med en kort förkunskaps- eller återkallningsfråga innan modelleringen visas. Första frågan sonderar förkunskaper; senare frågor återkommer till tidigare delförmågor. Frågan anpassas med begränsade signaler från den lokala demoprofilen: vid tidigare svårighet blir frågan mer grundläggande, och efter självständiga svar kan den kräva en mer utvecklad koppling.
 
 Avstämningsfrågorna under lektionsstegen ger eleven ytterligare tillfällen att visa förståelse. Vid behov kan stödet öka stegvis från en ledtråd till ett lärargranskat exempel. Eleven kan försöka igen eller gå vidare till modelleringen. I återkallningssteg och slutdiagnos visas inga ledtrådar. Visa aldrig svarsalternativ och fritextfält samtidigt.
 
-Lärsignalerna är begränsade till `independent`, `supported` eller `needs_support`. Demoprofilen sammanställer antal observationer och senaste signal per delförmåga; råa elevsvar sparas inte i profilen. Eleven kan dessutom självskatta en startfråga som för lätt, lagom eller för svår. Det är en signal om uppgiftens upplevda nivå, inte en slutsats om elevens kognitiva förmåga. Lärsignalerna är preliminära underlag, inte en säker mätning av elevens kunskap eller ett betyg. I demoläget sparas profilen lokalt i webbläsaren, utan elevkonto eller åtkomstskydd, och får endast användas med syntetiska texter. Vid OpenAI-anrop skickas endast aktuellt svar och sammanfattade signaler efter elevens uttryckliga val.
+Lärsignalerna är begränsade till `independent`, `supported` eller `needs_support`. Demoprofilen sammanställer antal observationer och senaste signal per delförmåga; råa elevsvar sparas inte i profilen. Eleven ombeds inte själv skatta svårighet; nivån på frågor och exempel anpassas utifrån lärsignalerna. Lärsignalerna är preliminära underlag, inte en säker mätning av elevens kunskap eller ett betyg. I demoläget sparas profilen lokalt i webbläsaren, utan elevkonto eller åtkomstskydd, och får endast användas med syntetiska texter. Vid OpenAI-anrop skickas endast aktuellt svar och sammanfattade signaler efter elevens uttryckliga val.
 
-Eleven kan frivilligt välja ett ämnesintresse från en kort, förvald lista eller avstå. Intresset påverkar exempelns kontext, inte lärandemålet eller bedömningen. AI-genererade exempel skapas först efter elevens val och använder inte elevens utkast.
+Whiteboardens exempel hämtas alltid ur exempeltexten. Ämnesanpassade exempel och ämnesväljaren är borttagna ur gränssnittet; serverns `/api/example` finns kvar men anropas inte.
 När ett personligt exempel skapats utgår den aktiva avstämningsfrågan från just det exemplet. Eleven svarar då med egna ord i stället för att välja mellan generiska alternativ, och det fiktiva exempelparet skickas som bedömningskontext först när eleven skickar sitt svar.
 
 Återkallning återkommer mellan kapitel och i en avslutande runda inför slutdiagnosen. Demoprofilen kan bevara sammanfattade signaler mellan besök i samma webbläsare, men repetition är inte tidsstyrd över dagar och profilen är inte kopplad till ett elevkonto. Återkopplingen ska visa vad eleven verkar förstå och ge ett nästa tänkesteg, inte framställa en enkel kontroll som ett säkert kunskapstest.

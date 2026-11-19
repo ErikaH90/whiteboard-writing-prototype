@@ -44,10 +44,24 @@ export type Lesson = {
   entryCheck: EntryCheck;
   foundationSupport: string;
   foundationExample: string;
+  /**
+   * What the student has shown they can do after each check: choosing the better example,
+   * the practice check, recall without support and the self-check.
+   */
+  canDo: [string, string, string, string];
+  /** Opens the lesson: a short line that catches the student's attention. */
+  hook: string;
+  /** What the student will be able to do after the lesson, in the student's own language. */
+  learnerGoal: string;
+  /** The curriculum wording the lesson relates to. Shown as a reference, never invented. */
   goal: string;
   model: {
     strong: string;
     needsWork: string;
+    /**
+     * The two examples share the exemplar text's topic (eating less meat), not the topic of the
+     * student's own writing task. The student answers by clicking one of them.
+     */
     question: string;
   };
   practice: string;
@@ -120,18 +134,22 @@ export const lessons: Lesson[] = [
       skillIds: ["structure"],
       previousTopic: "Dina förkunskaper",
       bridge: "Du börjar med att samla det du redan vet om argumenterande texter.",
-      question: "Utan ledtråd: vad behöver läsaren förstå för att känna igen en argumenterande text?",
+      question: "Vad är en argumenterande text?",
       focus: "förkunskaper om argumenterande texter och deras struktur",
-      supportQuestion: "Vad är det en skribent gör när hen tar ställning i en text?",
-      extensionQuestion: "Hur kan en tes och ett skäl tillsammans hjälpa läsaren att förstå en ståndpunkt?",
+      // The very first question is the same simple one for every student.
+      supportQuestion: "Vad är en argumenterande text?",
+      extensionQuestion: "Vad är en argumenterande text?",
     },
     foundationSupport: "En argumenterande text visar en ståndpunkt och ger skäl som hjälper läsaren att förstå den.",
     foundationExample: "Skoldagen borde börja senare. Då kan fler elever hinna vakna ordentligt.",
+    canDo: ["Hitta tesen i en argumenterande text", "Veta vad inledningen ska visa läsaren", "Förklara vad en tes är med egna ord", "Veta vad du letar efter när du granskar strukturen"],
+    hook: "Kan en text få dig att ändra åsikt? Det beror mycket på hur den är uppbyggd.",
+    learnerGoal: "När du är klar kan du peka ut tes, argument, motargument och avslutning i en argumenterande text, och bygga upp din egen text på samma sätt.",
     goal: writingCriterion,
     model: {
-      strong: "Skoldagen borde börja senare. Många ungdomar är trötta på morgonen, vilket gör det svårare att koncentrera sig. En senare start skulle därför kunna ge fler en bättre början på dagen.",
-      needsWork: "Skolan är dålig. Jag gillar inte att gå upp. Det borde vara annorlunda.",
-      question: "Vilket exempel gör det tydligast vad skribenten vill övertyga läsaren om – och varför?",
+      strong: "Vi borde äta mindre kött. Köttproduktionen orsakar stora utsläpp, vilket skadar klimatet. Att välja vegetariskt oftare är därför ett enkelt sätt att göra skillnad.",
+      needsWork: "Kött är inte så bra. Jag gillar inte tanken på det. Något borde ändras.",
+      question: "Klicka på det exempel som tydligast visar vad skribenten vill övertyga läsaren om.",
     },
     practice: "Skriv en möjlig tes till frågan: Borde skoldagen börja senare?",
     hint: "En tes tar tydlig ställning. Börja gärna med ”Skoldagen borde …” eller ”Skoldagen borde inte …”.",
@@ -198,11 +216,14 @@ export const lessons: Lesson[] = [
     },
     foundationSupport: "Ett argument blir tydligare när du förklarar hur skälet hänger ihop med din tes.",
     foundationExample: "En senare start kan göra elever piggare. Då kan det bli lättare att fokusera.",
+    canDo: ["Hitta var skribenten visar vad något leder till", "Veta vad som ska följa efter ett skäl", "Förklara vad som gör ett resonemang utvecklat", "Ställa rätt fråga när du granskar ett resonemang"],
+    hook: "”Det är bättre för att det är bättre.” Blir du övertygad?",
+    learnerGoal: "När du är klar kan du utveckla ett argument genom att förklara varför det stämmer och vad det leder till.",
     goal: writingCriterion,
     model: {
-      strong: "En senare start kan göra det lättare att koncentrera sig. När elever är piggare kan de också få bättre förutsättningar att delta i undervisningen.",
-      needsWork: "Det är bättre med en senare start för att det är bättre.",
-      question: "Vilket exempel förklarar sitt argument så att läsaren får veta mer än bara skribentens åsikt?",
+      strong: "Vegetarisk mat är bättre för klimatet. Att föda upp djur kräver mycket mark, vatten och foder, och det leder till stora utsläpp.",
+      needsWork: "Det är bättre att äta vegetariskt för att det är bättre.",
+      question: "Klicka på det exempel som förklarar sitt argument, så att läsaren får veta mer än bara skribentens åsikt.",
     },
     practice: "Välj ett skäl för din ståndpunkt. Förklara sedan varför det skälet spelar roll för elever.",
     hint: "Pröva frågorna: Vad kan hända? Vem påverkas? Hur stödjer det min tes?",
@@ -269,11 +290,14 @@ export const lessons: Lesson[] = [
     },
     foundationSupport: "Ett utvecklat resonemang förklarar hur ett skäl stödjer tesen; textbindning hjälper läsaren att följa kopplingen.",
     foundationExample: "Många elever är trötta på morgonen. Därför kan en senare start hjälpa.",
+    canDo: ["Hitta ord som binder ihop orsak och följd", "Veta vad sambandsord hjälper läsaren med", "Nämna olika samband som sambandsord kan visa", "Granska om ett sambandsord säger det du menar"],
+    hook: "”Därför” eller ”däremot”? Ett enda ord kan vända hela meningen.",
+    learnerGoal: "När du är klar kan du välja sambandsord som visar hur dina tankar hänger ihop.",
     goal: writingCriterion,
     model: {
-      strong: "Många elever är trötta tidigt på morgonen. Därför kan en senare skolstart göra det lättare att koncentrera sig.",
-      needsWork: "Många elever är trötta tidigt på morgonen. Däremot kan en senare skolstart göra det lättare att koncentrera sig.",
-      question: "Vilket sambandsord visar det samband som skribenten verkar vilja uttrycka?",
+      strong: "Köttproduktionen orsakar stora utsläpp. Därför kan en mer vegetarisk kost minska vår klimatpåverkan.",
+      needsWork: "Köttproduktionen orsakar stora utsläpp. Däremot kan en mer vegetarisk kost minska vår klimatpåverkan.",
+      question: "Klicka på det exempel där sambandsordet visar det samband som skribenten verkar vilja uttrycka.",
     },
     practice: "Skriv två meningar om din ståndpunkt och välj ett sambandsord som visar sambandet mellan dem.",
     hint: "Vill du visa orsak, följd, tillägg eller motsats? Välj sambandsord efter tanken.",
@@ -340,11 +364,14 @@ export const lessons: Lesson[] = [
     },
     foundationSupport: "Välj först vilken relation du vill visa, till exempel orsak eller motsats. Välj sedan meningsbyggnad och sambandsord som gör relationen tydlig.",
     foundationExample: "En senare start kan göra skillnad. Fler elever kanske orkar delta.",
+    canDo: ["Se när en mening börjar med en bisats", "Veta vad du kan prova när meningar börjar likadant", "Beskriva ett sätt att variera meningsbyggnaden", "Granska om upprepade starter gör texten enformig"],
+    hook: "Jag tycker. Jag tycker. Jag tycker. Hur länge orkar du läsa?",
+    learnerGoal: "När du är klar kan du variera hur dina meningar börjar och hur långa de är, utan att texten blir svår att följa.",
     goal: languageCriterion,
     model: {
-      strong: "En senare start kan göra stor skillnad. Fler elever kanske orkar lyssna och delta när skoldagen börjar.",
-      needsWork: "Jag tycker att skolan borde börja senare. Jag tycker att elever är trötta. Jag tycker att det är ett problem.",
-      question: "Vad händer med rytmen och tydligheten när samma inledning upprepas?",
+      strong: "Mindre kött kan göra stor skillnad. När fler väljer vegetariskt minskar både utsläppen och djurens lidande.",
+      needsWork: "Jag tycker att vi borde äta mindre kött. Jag tycker att djuren har det dåligt. Jag tycker att det är ett problem.",
+      question: "Klicka på det exempel där meningarna börjar på olika sätt.",
     },
     practice: "Skriv två meningar om ditt ämne. Prova att börja dem på olika sätt.",
     hint: "Du kan börja med en tid, en orsak eller det viktigaste ordet – inte bara med ”jag tycker”.",
@@ -411,11 +438,14 @@ export const lessons: Lesson[] = [
     },
     foundationSupport: "En variation hjälper bara om meningen fortfarande är tydlig. Kontrollera att läsaren kan följa sambandet mellan idéerna.",
     foundationExample: "En senare skolstart kan ge elever bättre möjlighet att möta dagen utvilade.",
+    canDo: ["Se hur ett semikolon binder ihop två påståenden", "Veta vad du kontrollerar när du läser igenom en mening", "Förklara hur språkliga normer hjälper läsaren", "Använda ett korrektursteg som fungerar"],
+    hook: "En punkt eller ett ord på fel plats kan få läsaren att tappa tråden.",
+    learnerGoal: "När du är klar kan du granska stavning, skiljetecken och ordval så att din text blir lätt att följa.",
     goal: languageCriterion,
     model: {
-      strong: "En senare skolstart kan ge elever bättre möjlighet att möta skoldagen utvilade.",
-      needsWork: "en senare skolstart kan ge elever bättre möjligheter möta skoldagen utvilad",
-      question: "Vad behöver läsaren för att den andra meningen ska bli lättare att följa?",
+      strong: "En vegetarisk kost kan ge oss all den näring vi behöver för att må bra.",
+      needsWork: "en vegetarisk kost kan ge oss all den näringen vi behöver må bra",
+      question: "Klicka på det exempel som är lättast för läsaren att följa.",
     },
     practice: "Läs en mening i din text högt. Välj ett ställe där ett ord eller ett skiljetecken kan göra betydelsen tydligare.",
     hint: "Kontrollera stor bokstav, meningsgränser och att orden passar ihop. Ändra bara det du själv kan motivera.",
@@ -482,11 +512,14 @@ export const lessons: Lesson[] = [
     },
     foundationSupport: "Läs meningen högt och kontrollera sedan meningsgräns, ord som passar ihop och om meningen uttrycker det du menar.",
     foundationExample: "En tydlig mening hjälper läsaren att förstå en tanke.",
+    canDo: ["Välja ett arbetssätt som hjälper dig att bearbeta", "Arbeta självständigt med din text", "Beskriva ett eget granskningssteg", "Sätta ett bra mål för självkontrollen"],
+    hook: "Nu får du visa vad du har lärt dig, i en helt ny text.",
+    learnerGoal: "När du är klar har du skrivit och granskat en egen argumenterande text med det du har övat på.",
     goal: `${writingCriterion}\n${languageCriterion}`,
     model: {
       strong: "Börja med att läsa texten som en läsare. Välj sedan ett utvecklingsområde och gör en egen ändring som du kan förklara.",
       needsWork: "Försök ändra allt på en gång utan att veta vad du vill förbättra.",
-      question: "Vilken ändring skulle göra störst skillnad för läsarens förståelse – och hur vet du det?",
+      question: "Klicka på det arbetssätt som hjälper dig mest när du bearbetar din text.",
     },
     practice: "Skriv klart din argumenterande text och välj själv vad du vill bearbeta först.",
     hint: "Stöd är avsiktligt begränsat här. Använd dina egna granskningsfrågor från tidigare moment.",

@@ -48,6 +48,11 @@ type CheckInRequest = {
 export type CheckInFeedback = {
   kind: "on_track" | "retry";
   feedback: string;
+  /**
+   * How much the answer showed, for an answer on the right track: 1 = on track but brief,
+   * 2 = explained, 3 = developed. Decides the size of Edda's star. Not a grade.
+   */
+  level?: 1 | 2 | 3;
 };
 
 export type LearningContext = {
@@ -211,7 +216,8 @@ export async function submitCheckIn(request: CheckInRequest): Promise<CheckInFee
     throw new Error("AI-återkopplingen gav ett ogiltigt resultat.");
   }
 
-  return { kind: result.kind, feedback: result.feedback };
+  const level = result.level === 1 || result.level === 2 || result.level === 3 ? result.level : undefined;
+  return { kind: result.kind, feedback: result.feedback, ...(result.kind === "on_track" && level && { level }) };
 }
 
 export async function generatePersonalizedExample(request: PersonalizedExampleRequest): Promise<PersonalizedExample> {

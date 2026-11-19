@@ -29,12 +29,17 @@ describe("lesson check-in", () => {
     const lesson = lessons[0];
     render(<LessonCheckIn lesson={lesson} phaseIndex={0} priorEvidence={[]} onEvidence={vi.fn()} />);
 
-    expect(screen.getByText("Ditt svar skickas till OpenAI när du skickar in det.")).toBeInTheDocument();
+    expect(screen.queryByText("Ditt svar skickas till OpenAI när du skickar in det.")).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Skoldagen borde börja senare." }));
     expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Svara" }));
 
     expect(screen.getByRole("status")).toHaveTextContent("Precis.");
+    expect(screen.getByRole("status")).toHaveTextContent("Edda");
+    expect(screen.getByRole("status").querySelector(".edda-star")).toBeInTheDocument();
+    // A correct answer needs no further button press here.
+    expect(screen.queryByRole("button", { name: "Försök igen" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Svara" })).not.toBeInTheDocument();
   });
 
   it("shows a text field without choices when the student should answer in writing", async () => {

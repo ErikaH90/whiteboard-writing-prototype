@@ -11,7 +11,8 @@ export default defineConfig({
   projects: [
     {
       name: "chromium",
-      use: { ...devices["Desktop Chrome"] },
+      // The whiteboard writes its text over time; tests opt in to motion when they check it.
+      use: { ...devices["Desktop Chrome"], reducedMotion: "reduce" },
     },
   ],
   webServer: {

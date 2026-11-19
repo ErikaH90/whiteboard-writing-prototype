@@ -1,16 +1,16 @@
 import { useState, type FormEvent } from "react";
+import EddaFeedback from "./EddaFeedback";
 import type { LearningEvidence, Lesson } from "../data/lessons";
 import { submitCheckIn, type CheckInFeedback, type LearningContext } from "../lib/coachApi";
-import type { DifficultyRating } from "../lib/learnerProfile";
+import { AfterWriting, BoardSequence, BoardStep, Written } from "./BoardWriting";
 
 type Props = {
   lesson: Lesson;
   learningEvidence: Partial<Record<LearningEvidenceKey, LearningEvidence>>;
   priorEvidence: LearningContext["priorEvidence"];
-  difficultyRating: DifficultyRating | null;
   onEvidence: (skillIds: Lesson["skillIds"], evidence: LearningEvidence) => void;
-  onDifficulty: (skillIds: Lesson["skillIds"], rating: DifficultyRating) => void;
-  onComplete: () => void;
+  /** Called with the answer the student last submitted, if any. */
+  onComplete: (answer: string | null) => void;
 };
 
 type LearningEvidenceKey = Lesson["skillIds"][number];
@@ -20,9 +20,7 @@ export default function LessonEntryCheck({
   lesson,
   learningEvidence,
   priorEvidence,
-  difficultyRating,
   onEvidence,
-  onDifficulty,
   onComplete,
 }: Props) {
   const [answer, setAnswer] = useState("");
@@ -31,6 +29,8 @@ export default function LessonEntryCheck({
   const [attempt, setAttempt] = useState(0);
   const [supportLevel, setSupportLevel] = useState<0 | 1 | 2>(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [firstSubmitted, setFirstSubmitted] = useState<string | null>(null);
+  const complete = () => onComplete(firstSubmitted);
   const relevantEvidence = lesson.entryCheck.skillIds.flatMap((skillId) => {
     const evidence = learningEvidence[skillId];
     return evidence ? [{ skillId, evidence }] : [];
@@ -63,6 +63,7 @@ export default function LessonEntryCheck({
         },
       });
       setAttempt(nextAttempt);
+      setFirstSubmitted((current) => current ?? answer.trim());
       setFeedback(result);
       onEvidence(lesson.entryCheck.skillIds, result.kind === "retry"
         ? "needs_support"
@@ -77,11 +78,25 @@ export default function LessonEntryCheck({
 
   return (
     <section className="entry-check" aria-labelledby="entry-check-title">
-      <p className="board-kicker">{lesson.entryCheck.previousTopic}</p>
+      <BoardSequence>
+      {/* The lesson opens by catching attention and stating the goal, before prior knowledge is recalled. */}
+      <BoardStep pause>
+        <p className="board-kicker">{lesson.shortTitle.toUpperCase()}</p>
+        <p className="board-hook"><Written>{lesson.hook}</Written></p>
+      </BoardStep>
+      <BoardStep pause>
+        <p className="board-kicker">{lesson.shortTitle.toUpperCase()}</p>
+        <h2 className="board-prompt"><Written>Målet med lektionen</Written></h2>
+        <p className="activity-instruction"><Written>{lesson.learnerGoal}</Written></p>
+        <p className="board-small-note curriculum-reference">Ur kursplanen: <Written>{lesson.goal}</Written></p>
+      </BoardStep>
+      <BoardStep>
+      <p className="board-kicker"><Written>{lesson.entryCheck.previousTopic}</Written></p>
       <h2 className="board-prompt" id="entry-check-title">
-        {lesson.entryCheck.previousTopic === "Dina förkunskaper" ? "Hämta fram det du redan vet" : "Börja med att återkalla"}
+        <Written>{lesson.entryCheck.previousTopic === "Dina förkunskaper" ? "Hämta fram det du redan vet" : "Börja med att återkalla"}</Written>
       </h2>
-      <p className="entry-check-question">{question}</p>
+      <p className="entry-check-question"><Written>{question}</Written></p>
+      <AfterWriting>
 
       <form className="entry-check-form" onSubmit={submitAnswer}>
         <label className="check-in-answer-label" htmlFor="entry-check-answer">Ditt svar, utan ledtråd</label>
@@ -99,31 +114,7 @@ export default function LessonEntryCheck({
           value={answer}
         />
         {feedback && (
-          <div className={`check-in-feedback is-${feedback.kind === "on_track" ? "on-track" : "retry"}`} role="status">
-            <strong>AI-coach</strong>
-            <span>{feedback.feedback}</span>
-          </div>
-        )}
-        {feedback && <p className="entry-check-bridge"><strong>Koppling till momentet:</strong> {lesson.entryCheck.bridge}</p>}
-        {feedback && (
-          <div className="difficulty-rating" role="group" aria-label="Hur kändes frågan?">
-            <span>Hur kändes frågan? Din skattning hjälper välja nästa stöd.</span>
-            {([
-              ["too_easy", "För lätt"],
-              ["about_right", "Lagom"],
-              ["too_hard", "För svårt"],
-            ] as const).map(([rating, label]) => (
-              <button
-                aria-pressed={difficultyRating === rating}
-                className="difficulty-rating-option"
-                key={rating}
-                onClick={() => onDifficulty(lesson.entryCheck.skillIds, rating)}
-                type="button"
-              >
-                {label}
-              </button>
-            ))}
-          </div>
+          <EddaFeedback feedback={feedback} />
         )}
         {feedback?.kind === "retry" && (
           <div className="entry-check-support">
@@ -153,18 +144,17 @@ export default function LessonEntryCheck({
         )}
         {requestError && <p className="check-in-error" role="alert">{requestError}</p>}
         {requestError && (
-          <button className="text-button entry-check-continue" onClick={onComplete} type="button">
+          <button className="text-button entry-check-continue" onClick={complete} type="button">
             Fortsätt utan AI-återkoppling
           </button>
         )}
         <div className="check-in-actions">
-          <p className="ai-action-note">Ditt svar skickas till OpenAI när du skickar in det.</p>
           {feedback?.kind === "on_track" ? (
-            <button className="primary-button" onClick={onComplete} type="button">Börja momentet</button>
+            <button className="primary-button" onClick={complete} type="button">Börja momentet</button>
           ) : feedback?.kind === "retry" ? (
-            <button className="primary-button" onClick={onComplete} type="button">Gå vidare till modellen</button>
+            <button className="primary-button" onClick={complete} type="button">Gå vidare till modellen</button>
           ) : !feedback && attempt >= maxAttempts ? (
-            <button className="primary-button" onClick={onComplete} type="button">
+            <button className="primary-button" onClick={complete} type="button">
               Fortsätt till modellen utan fler försök
             </button>
           ) : (
@@ -174,11 +164,9 @@ export default function LessonEntryCheck({
           )}
         </div>
       </form>
-      {!feedback && (
-        <p className="entry-check-note">
-          Om det känns svårt får du ett kort exempel efter ditt försök.
-        </p>
-      )}
+      </AfterWriting>
+      </BoardStep>
+      </BoardSequence>
     </section>
   );
 }

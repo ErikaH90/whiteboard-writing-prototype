@@ -64,6 +64,71 @@ async function post(app: ReturnType<typeof createApiApp>, path: string, body: un
   }
 }
 
+describe("exemplar read-aloud API", () => {
+  async function requestAudio(app: ReturnType<typeof createApiApp>, body: unknown) {
+    const server = createServer(app);
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    const address = server.address() as AddressInfo;
+
+    try {
+      const response = await fetch(`http://127.0.0.1:${address.port}/api/exemplar-audio`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const isAudio = response.headers.get("content-type")?.includes("audio/mpeg") ?? false;
+      return {
+        status: response.status,
+        isAudio,
+        body: isAudio ? Buffer.from(await response.arrayBuffer()).toString() : await response.json(),
+      };
+    } finally {
+      await new Promise<void>((resolve, reject) => {
+        server.close((error) => error ? reject(error) : resolve());
+      });
+    }
+  }
+
+  it("reads only the fixed exemplar text aloud and reuses the audio", async () => {
+    const speech = vi.fn(async (_text: string) => Buffer.from("ljud"));
+    const app = createApiApp({ client: null, speech });
+
+    const first = await requestAudio(app, { exemplarId: "strong", text: "Elevens egen text ska aldrig läsas upp." });
+    const second = await requestAudio(app, { exemplarId: "strong" });
+
+    expect(first).toMatchObject({ status: 200, isAudio: true, body: "ljud" });
+    expect(second).toMatchObject({ status: 200, isAudio: true, body: "ljud" });
+    expect(speech).toHaveBeenCalledTimes(1);
+    const spoken = speech.mock.calls[0][0];
+    expect(spoken).toContain("Tallrikens tysta offer");
+    expect(spoken).toContain("välja medvetet.");
+    expect(spoken).not.toContain("Stolt vegetarian");
+    expect(spoken).not.toContain("Elevens egen text");
+  });
+
+  it("rejects unknown exemplar ids before calling the speech service", async () => {
+    const speech = vi.fn(async () => Buffer.from("ljud"));
+    const result = await requestAudio(createApiApp({ client: null, speech }), { exemplarId: "__proto__" });
+
+    expect(result.status).toBe(400);
+    expect(speech).not.toHaveBeenCalled();
+  });
+
+  it("returns clear errors when read-aloud is missing or fails", async () => {
+    const missing = await requestAudio(createApiApp({ client: null, speech: null }), { exemplarId: "strong" });
+    expect(missing).toMatchObject({ status: 503, body: { error: "Uppläsning är inte konfigurerad på servern." } });
+
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const speech = vi.fn(async () => { throw new Error("hemlig detalj"); });
+    const app = createApiApp({ client: null, speech });
+    const failed = await requestAudio(app, { exemplarId: "strong" });
+    expect(failed.status).toBe(502);
+    expect(JSON.stringify(failed.body)).not.toContain("hemlig detalj");
+    await requestAudio(app, { exemplarId: "strong" });
+    expect(speech).toHaveBeenCalledTimes(2);
+  });
+});
+
 describe("server AI API", () => {
   it("only returns review highlights that exactly match the student's text", async () => {
     const client = mockClient(reviewModelResult("tes", [{
@@ -305,7 +370,8 @@ describe("server AI API", () => {
     });
 
     expect(result.status).toBe(200);
-    expect(result.body).toEqual({ kind: "on_track", feedback: "Kan du ge ett exempel?" });
+    // Without a valid level from the model the answer counts as on track but brief.
+    expect(result.body).toEqual({ kind: "on_track", feedback: "Kan du ge ett exempel?", level: 1 });
   });
 
   it("passes only validated learning signals with the student's submitted answer", async () => {
@@ -405,5 +471,34 @@ describe("server AI API", () => {
 
     expect(result.status).toBe(502);
     expect(result.body).toHaveProperty("error");
+  });
+
+  it("reports how developed a written answer was and never gives a click the highest level", async () => {
+    const written = await post(createApiApp({ client: mockClient({ kind: "on_track", level: 3, feedback: "Du förklarar och ger skäl. Vad vill du lägga till?" }) }), "/api/check-in", {
+      mode: "text",
+      question: "Vad är en tes?",
+      answer: "Tesen är det skribenten vill övertyga läsaren om, och den behöver stå tidigt så att läsaren kan följa argumenten.",
+      focus: "tesens funktion",
+    });
+    expect(written.body).toMatchObject({ kind: "on_track", level: 3 });
+
+    const click = (attempt: number) => post(createApiApp({ client: mockClient({ kind: "on_track", level: 3, feedback: "Du valde tesen. Vad visar den?" }) }), "/api/check-in", {
+      mode: "choice",
+      question: "Vilken formulering visar en tydlig tes?",
+      answer: "Skoldagen borde börja senare.",
+      focus: "tesens funktion",
+      isCorrect: true,
+      learningContext: { attempt, supportLevel: 0, priorEvidence: [] },
+    });
+    expect((await click(1)).body).toMatchObject({ kind: "on_track", level: 2 });
+    expect((await click(2)).body).toMatchObject({ kind: "on_track", level: 1 });
+
+    const retry = await post(createApiApp({ client: mockClient({ kind: "retry", level: 2, feedback: "Vad vill skribenten?" }) }), "/api/check-in", {
+      mode: "text",
+      question: "Vad är en tes?",
+      answer: "Vet inte.",
+      focus: "tesens funktion",
+    });
+    expect(retry.body).toEqual({ kind: "retry", feedback: "Vad vill skribenten?" });
   });
 });

@@ -9,10 +9,11 @@
 - `src/components/LessonCheckIn.tsx` skickar avstämningssvar och visar coachens återkoppling.
 - `src/components/LessonEntryCheck.tsx` samlar en explicit förkunskaps-/återkallningssignal före varje kapitel.
 - `src/components/FinalRecall.tsx` visar fem stödfria återkallningsfrågor före diagnosen; svaren hålls endast i React-minne.
-- `src/lib/learnerProfile.ts` håller en lokal, versionshanterad demo-profil med summerade lärsignaler, elevens frivilliga svårighetsskattning per färdighet och ett frivilligt ämnesintresse. Råa svar lagras inte i profilen.
+- `src/lib/learnerProfile.ts` håller en lokal, versionshanterad demo-profil med summerade lärsignaler och ett frivilligt ämnesintresse. Råa svar lagras inte i profilen.
 - `src/lib/demoSubmissions.ts` sparar diagnoser först efter elevens uttryckliga inlämning till den lokala demo-lärarvyn.
 - `server/api.mjs` validerar förfrågningar, anropar OpenAI och kontrollerar modellens citerade textspann.
-- `/api/example` skapar efter elevens val korta fiktiva exempel utifrån lektionsmål, färdighet, stödsammanfattning och valt ämnesintresse. Elevens utkast skickas inte till denna endpoint.
+- `/api/example` kan skapa korta fiktiva exempel men anropas inte längre av klienten, eftersom ämnesanpassade exempel är borttagna ur gränssnittet.
+- `/api/exemplar-audio` läser upp kursens fasta exempeltext via ElevenLabs efter elevens val. Endast exempeltextens id tas emot; nyckeln hämtas server-side från `ELEVENLABS_API_KEY`.
 - I utveckling monterar Vite API:t på samma origin. `server/index.mjs` serverar den byggda appen och API:t lokalt.
 - Elevtext sparas i webbläsarens `localStorage` på aktuell enhet.
 - Tränade utkast autosparas lokalt. Lärprofilen sparas i `localStorage` i demoläget och innehåller endast summerade antal/senaste signaler, inte råa svar. Diagnosutkast sparas först lokalt efter uttrycklig inlämning till demo-lärarvyn.

@@ -19,6 +19,10 @@ describe("lesson progression", () => {
       expect(lesson.model.strong.trim()).not.toBe("");
       expect(lesson.model.needsWork.trim()).not.toBe("");
       expect(lesson.model.question.trim()).not.toBe("");
+      expect(lesson.hook.trim()).not.toBe("");
+      expect(lesson.canDo).toHaveLength(4);
+      expect(lesson.canDo.every((skill) => skill.trim() !== "")).toBe(true);
+      expect(lesson.learnerGoal).toMatch(/^När du är klar /);
       expect(lesson.skillIds.length).toBeGreaterThan(0);
       expect(lesson.entryCheck.skillIds.length).toBeGreaterThan(0);
       expect(lesson.entryCheck.bridge.trim()).not.toBe("");

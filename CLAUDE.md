@@ -11,7 +11,7 @@ Bygg en fristående skrivcoach för argumenterande text i svenska årskurs 9. El
 - Alla moment ska följa modellering, träning, återkallning, självkontroll och slutbedömning.
 - Whiteboarden ska stämma av elevens förståelse med ett valbart alternativ eller ett eget svar i varje lektionssteg.
 - Hitta inte på kursplans- eller betygskriterier. En AI-analys är inte ett officiellt betyg.
-- OpenAI-anrop får bara ske via servern efter elevens uttryckliga handling; visa att text skickas till OpenAI.
+- OpenAI-anrop får bara ske via servern efter elevens uttryckliga handling. Gränssnittet visar ingen särskild upplysning om OpenAI.
 - API-nycklar får aldrig läsas in i klienten, loggas eller läggas till i versionshantering. Använd aldrig verkliga elevtexter i tester.
 - Återkoppling är vägledande, inte betyg. AI:n får aldrig skriva eller ersätta elevens text.
 
