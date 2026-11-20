@@ -44,13 +44,11 @@ describe("lesson progression", () => {
         "choice",
       ]);
       if (index < 5) {
-        expect(lesson.exitTicket).toHaveLength(5);
+        // A short exit ticket: one question on what was learned and one on the student's own text.
+        expect(lesson.exitTicket).toHaveLength(2);
         expect(lesson.exitTicket?.map((step) => step.learningProcess)).toEqual([
           "Återkallning · Retrieval practice",
-          "Tillämpning · Interleaving",
-          "Självförklaring · Self-explanation",
           "Metakognition och självbedömning",
-          expect.stringMatching(/^Framåtkoppling · /),
         ]);
       } else {
         expect(lesson.exitTicket).toBeNull();

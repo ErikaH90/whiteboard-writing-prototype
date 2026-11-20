@@ -8,8 +8,10 @@ import ExamplePick from "./components/ExamplePick";
 import ErrorHunt from "./components/ErrorHunt";
 import EddaFeedback, { EddaStar } from "./components/EddaFeedback";
 import ExemplarPanel, { type ExemplarMode } from "./components/ExemplarPanel";
-import { exemplarFocus } from "./data/exemplars";
+import { exemplarFocus, modellingFlow } from "./data/exemplars";
+import { readSavedTopic, topicStorageKey, writingTopics, type WritingTopic } from "./data/topics";
 import { useFitToHeight } from "./lib/useFitToHeight";
+import { setSoundOn, useSoundOn } from "./lib/eddaVoice";
 import { useExemplarAudio } from "./lib/useExemplarAudio";
 import { AfterWriting, BoardSequence, BoardStep, Written } from "./components/BoardWriting";
 import { finalRecallQuestions, lessons, phases, type LearningEvidence, type SkillId } from "./data/lessons";
@@ -71,15 +73,14 @@ function App() {
   const [learnerProfile, setLearnerProfile] = useState<LearnerProfile>(savedLearnerProfile.profile);
   const [profileLoadError, setProfileLoadError] = useState(savedLearnerProfile.error);
   const [profileSaveError, setProfileSaveError] = useState(false);
-  // The check in the modelling step is answered by clicking a part of the exemplar text.
-  const [textPick, setTextPick] = useState<{
-    lesson: number;
-    /** Which of the chapter's checks the state belongs to. */
-    check: number;
-    /** Right parts found so far, for checks with several right parts. */
-    found: number[];
+  // In the modelling step the student first looks for each part themselves, by clicking in the
+  // text. The state belongs to one page of one board; Edda shows the answer after two tries.
+  const [pagePick, setPagePick] = useState<{
+    board: string;
+    page: number;
     selected: number | null;
     solved: boolean;
+    revealed: boolean;
     attempt: number;
     submitting: boolean;
     feedback: CheckInFeedback | null;
@@ -88,6 +89,17 @@ function App() {
   const [completedEntryLessons, setCompletedEntryLessons] = useState<number[]>([]);
   const [seenBoards, setSeenBoards] = useState<string[]>([]);
   const [hasMetExemplar, setHasMetExemplar] = useState(false);
+  // The lesson opens with a welcome where the student chooses what to write about.
+  const [hasStarted, setHasStarted] = useState(false);
+  // Edda reads her guidance aloud; the student can turn her voice off.
+  const soundOn = useSoundOn();
+  const [topic, setTopic] = useState<WritingTopic>(() => {
+    try {
+      return readSavedTopic(window.localStorage);
+    } catch {
+      return writingTopics[0];
+    }
+  });
   // The read-aloud is started from the whiteboard; when it ends the lesson begins.
   const exemplarAudio = useExemplarAudio(() => setHasMetExemplar(true));
   // What the student has shown they can do, per lesson (index into lesson.canDo), and their first
@@ -117,11 +129,17 @@ function App() {
   const [reviewLoading, setReviewLoading] = useState(false);
   const [reviewError, setReviewError] = useState<string | null>(null);
   const [reviewFeedback, setReviewFeedback] = useState<ReviewFeedback | null>(null);
+  // "task": Edda read the text when the student finished a writing task. "request": the student asked.
+  const [reviewSource, setReviewSource] = useState<"task" | "request">("request");
   const [activeFinding, setActiveFinding] = useState<string | null>(null);
   const [isRevising, setIsRevising] = useState(false);
   const [editorScrollTop, setEditorScrollTop] = useState(0);
   const [popoverPosition, setPopoverPosition] = useState({ left: 8, top: 8 });
-  const [checkedItems, setCheckedItems] = useState<string[]>([]);
+  // Self-check: for each statement the student marks the place in their own text that shows it.
+  const [selfMarks, setSelfMarks] = useState<Record<string, string>>({});
+  const [selfCheckHint, setSelfCheckHint] = useState(false);
+  // The advice Edda gave after a writing task, kept while the student tries it in the text.
+  const [taskAdvice, setTaskAdvice] = useState<{ board: string; message: string; reviewedDraft: string; round: 1 | 2 } | null>(null);
   const [saveError, setSaveError] = useState(savedDraft.error);
 
   const lesson = lessons[lessonIndex];
@@ -138,7 +156,19 @@ function App() {
   const activeDraft = isFinalDiagnosis
     ? isSeparateRevision ? revisionDraft : diagnosisDraft
     : draft;
-  const findings = reviewFeedback?.findings ?? null;
+  // After a writing task Edda points at one thing to develop; on request she may point at up to three.
+  const findings = reviewFeedback
+    ? reviewSource === "task" ? reviewFeedback.findings.slice(0, 1) : reviewFeedback.findings
+    : null;
+  // The strength is marked in the text too, so that it is as visible as what can be developed.
+  const strength = reviewFeedback
+    && !findings?.some((finding) => finding.start < reviewFeedback.success.end && reviewFeedback.success.start < finding.end)
+    ? reviewFeedback.success
+    : null;
+  const textMarks = [
+    ...(findings ?? []).map((finding) => ({ kind: "finding" as const, start: finding.start, end: finding.end, finding })),
+    ...(strength ? [{ kind: "strength" as const, start: strength.start, end: strength.end }] : []),
+  ].sort((a, b) => a.start - b.start);
   const wordCount = useMemo(() => activeDraft.trim().split(/\s+/).filter(Boolean).length, [activeDraft]);
   const recommendedLessonIndex = reviewFeedback?.findings.length
     ? lessons.findIndex((item) => item.skillIds.includes(reviewFeedback.findings[0].category))
@@ -189,7 +219,7 @@ function App() {
     setLessonIndex(index);
     setPhaseIndex(0);
     setShowHint(false);
-    setCheckedItems([]);
+    setSelfCheckHint(false);
     setReviewFeedback(null);
     setActiveFinding(null);
     setIsRevising(false);
@@ -219,7 +249,7 @@ function App() {
     reviewRequestId.current += 1;
     setPhaseIndex(index);
     setShowHint(false);
-    setCheckedItems([]);
+    setSelfCheckHint(false);
     setReviewFeedback(null);
     setActiveFinding(null);
     setIsRevising(false);
@@ -249,6 +279,49 @@ function App() {
       const earned = current[lessonIndex] ?? [];
       return earned.includes(phaseIndex) ? current : { ...current, [lessonIndex]: [...earned, phaseIndex].sort() };
     });
+  }
+
+  /** The student is done with the chapter's writing task: Edda reads what they wrote. */
+  async function finishWritingTask() {
+    // The last chapter is written without support, so Edda does not read the text here.
+    if (lesson.taskLink) {
+      const reviewedDraft = draft;
+      const result = await runReview(lesson.practice);
+      const advice = result?.findings[0]?.message;
+      setTaskAdvice(advice ? { board: boardKey, message: advice, reviewedDraft, round: 1 } : null);
+    }
+    // A failing service must not lock the student in the step.
+    markAttempted();
+    earnAchievement();
+  }
+
+  /** The student has tried Edda's advice in their text and asks her to look again. */
+  async function retryWritingTask() {
+    if (!taskAdvice) return;
+    const result = await runReview(lesson.practice, taskAdvice.message);
+    if (result) setTaskAdvice({ ...taskAdvice, reviewedDraft: draft, round: 2 });
+  }
+
+  /** Self-check: the student selects the place in their own text that shows the statement. */
+  function markInOwnText(item: string) {
+    const editor = editorRef.current;
+    const selected = editor ? draft.slice(editor.selectionStart, editor.selectionEnd).trim() : "";
+    if (!selected) {
+      setSelfCheckHint(true);
+      return;
+    }
+    setSelfCheckHint(false);
+    setSelfMarks((current) => ({ ...current, [`${boardKey}:${item}`]: selected.length > 160 ? `${selected.slice(0, 157)}…` : selected }));
+  }
+
+  function startLesson(chosen: WritingTopic) {
+    setTopic(chosen);
+    setHasStarted(true);
+    try {
+      window.localStorage.setItem(topicStorageKey, chosen.id);
+    } catch {
+      // The choice still applies for this visit.
+    }
   }
 
   function completeEntryCheck(answer: string | null) {
@@ -355,8 +428,9 @@ function App() {
     }
   }
 
-  async function runReview() {
+  async function runReview(task?: string, followUp?: string): Promise<ReviewFeedback | null> {
     const requestId = ++reviewRequestId.current;
+    setReviewSource(task ? "task" : "request");
     const reviewedDraft = activeDraft;
     const reviewedLesson = lesson;
     const reviewedPhase = phase;
@@ -373,13 +447,17 @@ function App() {
         phase: reviewedPhase,
         goal: reviewedLesson.goal,
         criteria: reviewedLesson.criteria,
+        ...(task && { task }),
+        ...(followUp && { followUp }),
       });
-      if (reviewRequestId.current !== requestId) return;
+      if (reviewRequestId.current !== requestId) return null;
       setReviewFeedback(result);
       if (isFinalDiagnosis && !isSeparateRevision) setTeacherSubmissionId(null);
+      return result;
     } catch (error) {
-      if (reviewRequestId.current !== requestId) return;
+      if (reviewRequestId.current !== requestId) return null;
       setReviewError(error instanceof Error ? error.message : "AI-granskningen misslyckades. Försök igen.");
+      return null;
     } finally {
       if (reviewRequestId.current === requestId) setReviewLoading(false);
     }
@@ -433,11 +511,11 @@ function App() {
   // The student meets the exemplar by listening to it once, right after the first entry question.
   const isListeningIntro = exemplarAvailable && !hasMetExemplar;
   // At the very start the writing surface is blank: neither the exemplar nor a saved draft is shown yet.
-  const isBlankStart = !isFinalDiagnosis
+  const isBlankStart = !hasStarted || (!isFinalDiagnosis
     && !isFinalRecall
     && !hasMetExemplar
     && !hasCompletedEntry
-    && lessonIndex < lessons.length - 1;
+    && lessonIndex < lessons.length - 1);
   const surfaceView = exemplarAvailable ? "exemplar" : "draft";
   const hasBoardCheck = phaseIndex < 4 || lesson.exitTicket !== null;
   // In guided mode the next step opens when the whole board has been shown and the student has
@@ -449,104 +527,114 @@ function App() {
     setAttemptedBoards((current) => current.includes(boardKey) ? current : [...current, boardKey]);
   }
 
-  // In the modelling step the whiteboard walks through the exemplar one part at a time:
-  // page 0 is the goal, then one page per highlighted part, and last the comparison of two examples.
-  const walkthrough = exemplarAvailable && phaseIndex === 0
-    ? exemplarFocus[lesson.skillIds[0]].highlights.strong
-    : [];
-  const currentBoardPage = boardPage?.board === boardKey ? boardPage.page : 0;
-  // Some chapters first compare a simple and a developed example: one page to read both,
-  // then one page per pair of matching parts.
-  const comparisons = walkthrough.length > 0 ? exemplarFocus[lesson.skillIds[0]].comparisons ?? [] : [];
-  // One board page per comparison to read both examples, then one per pair of matching parts.
-  const compareSteps = comparisons.flatMap((item, comparisonIndex) => [
-    { comparisonIndex, pairIndex: null as number | null },
-    ...item.pairs.map((_, index) => ({ comparisonIndex, pairIndex: index as number | null })),
-  ]);
-  const comparePages = compareSteps.length;
-  const compareStep = hasCompletedEntry && currentBoardPage >= 1 && currentBoardPage <= comparePages
-    ? compareSteps[currentBoardPage - 1]
-    : null;
-  const isComparePage = compareStep !== null;
-  const comparison = compareStep ? comparisons[compareStep.comparisonIndex] : null;
-  const pairIndex = compareStep?.pairIndex ?? null;
-  const walkthroughStart = comparePages + 1;
-  const focusIndex = hasCompletedEntry
-    && currentBoardPage >= walkthroughStart
-    && currentBoardPage < walkthroughStart + walkthrough.length
-    ? currentBoardPage - walkthroughStart
-    : null;
-  const textChecks = walkthrough.length > 0 ? exemplarFocus[lesson.skillIds[0]].checks : [];
+  // In the modelling step the whiteboard walks through the exemplar: comparisons of two examples,
+  // one part of the text at a time, and checks right after the parts they are about.
+  const modelling = exemplarAvailable && phaseIndex === 0 ? exemplarFocus[lesson.skillIds[0]] : null;
+  const walkthrough = modelling?.highlights.strong ?? [];
+  const comparisons = modelling?.comparisons ?? [];
   // Some chapters end the modelling with an error hunt on the whiteboard instead.
-  const errorHunt = walkthrough.length > 0 ? exemplarFocus[lesson.skillIds[0]].hunt ?? null : null;
-  // The checks follow the walk-through, one board page each.
-  const checksStart = walkthroughStart + walkthrough.length;
-  const checkIndex = hasCompletedEntry
-    && currentBoardPage >= checksStart
-    && currentBoardPage < checksStart + textChecks.length
-    ? currentBoardPage - checksStart
-    : null;
-  const textCheck = checkIndex !== null ? textChecks[checkIndex] : null;
-  const isTextCheckPage = textCheck !== null;
-  const emptyPick = { lesson: lessonIndex, check: checkIndex ?? 0, found: [], selected: null, solved: false, attempt: 0, submitting: false, feedback: null, error: null };
-  const pick = textPick?.lesson === lessonIndex && textPick.check === (checkIndex ?? textChecks.length - 1)
-    ? textPick
-    : emptyPick;
-  // A check is done when it is solved, tried twice, or the service failed.
-  const isPickResolved = pick.solved || pick.attempt >= 2 || pick.error !== null;
+  const errorHunt = modelling?.hunt ?? null;
+  type BoardPage =
+    | { kind: "compare"; comparisonIndex: number; pairIndex: number | null }
+    | { kind: "part"; index: number; number: number };
+  // Board page 0 is the goal; these pages follow it, in the chapter's own order.
+  const boardPages: BoardPage[] = [];
+  if (modelling) {
+    let partNumber = 0;
+    for (const step of modellingFlow(modelling)) {
+      if ("compare" in step) {
+        boardPages.push({ kind: "compare", comparisonIndex: step.compare, pairIndex: null });
+        comparisons[step.compare].pairs.forEach((_, pairIndex) => {
+          boardPages.push({ kind: "compare", comparisonIndex: step.compare, pairIndex });
+        });
+      } else {
+        partNumber += 1;
+        boardPages.push({ kind: "part", index: step.part, number: partNumber });
+      }
+    }
+  }
+  const currentBoardPage = boardPage?.board === boardKey ? boardPage.page : 0;
+  const currentPage = hasCompletedEntry && currentBoardPage >= 1 ? boardPages[currentBoardPage - 1] ?? null : null;
+  const isComparePage = currentPage?.kind === "compare";
+  const comparison = currentPage?.kind === "compare" ? comparisons[currentPage.comparisonIndex] : null;
+  const pairIndex = currentPage?.kind === "compare" ? currentPage.pairIndex : null;
+  const focusIndex = currentPage?.kind === "part" ? currentPage.index : null;
+  const pick = pagePick?.board === boardKey && pagePick.page === currentBoardPage
+    ? pagePick
+    : { board: boardKey, page: currentBoardPage, selected: null, solved: false, revealed: false, attempt: 0, submitting: false, feedback: null, error: null };
+  // The page is done when the student found the place, or Edda has shown it.
+  const isPickResolved = pick.solved || pick.revealed;
+  const isSearchingPart = currentPage?.kind === "part" && !isPickResolved;
   const exemplarMode: ExemplarMode = isListeningIntro
     ? "listen"
     : !hasCompletedEntry
       ? "plain"
-      : isComparePage ? "compare" : focusIndex !== null ? "focus" : isTextCheckPage ? "pick" : "plain";
+      : isComparePage ? "compare" : isSearchingPart ? "pick" : focusIndex !== null ? "focus" : "plain";
 
-  async function pickInText(index: number) {
-    if (!textCheck || checkIndex === null || pick.submitting || pick.solved || pick.attempt >= 10) return;
-    const isCorrect = textCheck.targets.includes(index);
-    const found = isCorrect ? [...pick.found, index] : pick.found;
-    const isLastCheck = checkIndex === textChecks.length - 1;
-
-    // With several right parts, the first finds are confirmed in the text; Edda answers when all are found.
-    if (isCorrect && found.length < textCheck.targets.length) {
-      setTextPick({ ...pick, found, selected: null, feedback: null, error: null });
+  /** The student clicks where they think the answer is: a part of the exemplar or of the second example. */
+  async function pickOnPage(index: number) {
+    if (!currentPage || pick.submitting || isPickResolved) return;
+    let target: number;
+    let question: string;
+    let answer: string;
+    if (currentPage.kind === "part") {
+      const part = walkthrough[currentPage.index];
+      target = currentPage.index;
+      question = part.ask ?? part.label;
+      answer = walkthrough[index].quote;
+    } else if (currentPage.pairIndex !== null) {
+      const item = comparisons[currentPage.comparisonIndex];
+      target = currentPage.pairIndex;
+      question = `Vilket ställe i den andra texten motsvarar ”${item.pairs[target].simple}”?`;
+      answer = item.pairs[index].developed;
+    } else {
       return;
     }
 
+    const isCorrect = index === target;
     const attempt = pick.attempt + 1;
-    const base = { ...pick, found };
-    setTextPick({ ...base, selected: isCorrect ? null : index, submitting: true, feedback: null, error: null });
+    // After two tries Edda shows the place, so that nobody gets stuck.
+    const reveal = !isCorrect && attempt >= 2;
+    const isLastPage = currentBoardPage === boardPages.length && !errorHunt;
+    setPagePick({ ...pick, selected: isCorrect ? null : index, submitting: true, feedback: null, error: null });
 
     try {
       const feedback = await submitCheckIn({
         mode: "choice",
-        question: textCheck.prompt,
-        answer: isCorrect ? found.map((part) => walkthrough[part].quote).join(" / ") : walkthrough[index].quote,
+        question,
+        answer,
         focus: lesson.checkInFocus,
         isCorrect,
         learningContext: { attempt, supportLevel: 0, priorEvidence },
       });
-      setTextPick({ ...base, selected: isCorrect ? null : index, solved: isCorrect, attempt, submitting: false, feedback, error: null });
-      if (isLastCheck && (isCorrect || attempt >= 2)) markAttempted();
+      setPagePick({
+        ...pick,
+        selected: isCorrect || reveal ? null : index,
+        solved: isCorrect,
+        revealed: reveal,
+        attempt,
+        submitting: false,
+        feedback,
+        error: null,
+      });
+      if ((isCorrect || reveal) && isLastPage) markAttempted();
       recordCheck(lesson.skillIds, !isCorrect ? "needs_support" : attempt === 1 ? "independent" : "supported");
     } catch (error) {
-      setTextPick({
-        ...base,
+      // A failing service must not lock the student in the step: Edda shows the place.
+      setPagePick({
+        ...pick,
         selected: null,
+        revealed: true,
+        attempt,
         submitting: false,
         feedback: null,
-        error: error instanceof Error ? error.message : "Återkopplingen misslyckades. Försök igen.",
+        error: error instanceof Error ? error.message : "Återkopplingen misslyckades.",
       });
-      // A failing service must not lock the student in the step.
-      if (isLastCheck) markAttempted();
+      if (isLastPage) markAttempted();
     }
   }
 
-  // Where in the chapter the student is, shown in the top bar.
-  const stepLabel = !hasCompletedEntry
-    ? "Start"
-    : isListeningIntro
-      ? "Lyssna"
-      : ["Genomgång", "Din uppgift", "Utan stöd", "Egenkontroll", "Avslut"][phaseIndex];
+  const currentAdvice = taskAdvice?.board === boardKey ? taskAdvice : null;
   const boardHeader = (
     <>
       <p className="board-kicker"><Written>{`DEL ${lessonIndex + 1}: ${lesson.shortTitle.toUpperCase()}`}</Written></p>
@@ -578,7 +666,14 @@ function App() {
             ))}
           </nav>
           <span className="topbar-count">{lessonIndex + 1}/{lessons.length}</span>
-          <span className="topbar-pill">{stepLabel}</span>
+          <button
+            aria-pressed={soundOn}
+            className="sound-toggle"
+            onClick={() => setSoundOn(!soundOn)}
+            type="button"
+          >
+            {soundOn ? "Ljud på" : "Ljud av"}
+          </button>
         </header>
       )}
 
@@ -613,6 +708,28 @@ function App() {
                   onNext={() => setFinalRecallIndex((current) => Math.min(finalRecallQuestions.length - 1, current + 1))}
                   onComplete={startFinalDiagnosis}
                 />
+              ) : !hasStarted ? (
+                <BoardSequence key="welcome">
+                  <BoardStep>
+                    <div className="board-activity welcome">
+                      <p className="board-kicker">START</p>
+                      <h2 className="board-prompt welcome-title"><Written byHand>Välkommen!</Written></h2>
+                      <p className="activity-instruction">
+                        <Written spoken>Hej! Jag heter Edda. Vi ska träna på att skriva argumenterande text tillsammans, steg för steg. Först vill jag veta: vad vill du skriva om? Det blir din skrivuppgift.</Written>
+                      </p>
+                      <AfterWriting>
+                        <div className="topic-choices" role="group" aria-label="Välj vad du vill skriva om">
+                          {writingTopics.map((item) => (
+                            <button className="topic-choice" key={item.id} onClick={() => startLesson(item)} type="button">
+                              <span aria-hidden="true" className="topic-icon">{item.icon}</span>
+                              {item.label}
+                            </button>
+                          ))}
+                        </div>
+                      </AfterWriting>
+                    </div>
+                  </BoardStep>
+                </BoardSequence>
               ) : !hasCompletedEntry ? (
                 <LessonEntryCheck
                   key={lessonIndex}
@@ -626,9 +743,9 @@ function App() {
                 <BoardSequence key="listening-intro">
                   <BoardStep>
                     <div className="board-activity">
-                      <p className="board-prompt"><Written>Lyssna nu</Written></p>
+                      <p className="board-prompt"><Written byHand>Lyssna nu</Written></p>
                       <p className="activity-instruction">
-                        <Written>Till höger finns ett gott exempel på en argumenterande text. Lyssna på hela texten och följ med medan du lyssnar. Sedan går vi igenom vad som gör den bra.</Written>
+                        <Written spoken>Till höger finns ett gott exempel på en argumenterande text. Lyssna på hela texten och följ med medan du lyssnar. Sedan går vi igenom vad som gör den bra.</Written>
                       </p>
                       <AfterWriting>
                         <div className="listen-actions">
@@ -675,72 +792,89 @@ function App() {
                   <BoardStep pause>
                     {boardHeader}
                     {exemplarAvailable && (
-                      <p className="board-exemplar-note"><Written>{exemplarFocus[lesson.skillIds[0]].boardNote}</Written></p>
+                      <p className="board-exemplar-note"><Written spoken>{exemplarFocus[lesson.skillIds[0]].boardNote}</Written></p>
                     )}
                   </BoardStep>
                 )}
-                {compareSteps.map((step, stepIndex) => {
-                  const item = comparisons[step.comparisonIndex];
-                  if (step.pairIndex === null) {
+                {boardPages.map((page, pageIndex) => {
+                  const isCurrent = pageIndex + 1 === currentBoardPage;
+                  const showAnswer = isCurrent && isPickResolved;
+                  const isLast = pageIndex === boardPages.length - 1 && !errorHunt;
+                  const eddaResponse = isCurrent && (
+                    <>
+                      {pick.submitting && <p className="example-pick-status" role="status">Edda läser ditt val …</p>}
+                      {pick.error && <p className="check-in-error" role="alert">{pick.error}</p>}
+                      {pick.feedback && <EddaFeedback feedback={pick.feedback} />}
+                      {pick.revealed && <p className="edda-shows">Edda visar stället i texten.</p>}
+                    </>
+                  );
+
+                  if (page.kind === "compare") {
+                    const item = comparisons[page.comparisonIndex];
+                    if (page.pairIndex === null) {
+                      return (
+                        <BoardStep key={`page-${pageIndex}`} pause>
+                          <div className="board-activity focus-walk">
+                            {comparisons.length > 1 && (
+                              <p className="board-kicker">{`${page.comparisonIndex + 1} AV ${comparisons.length}`}</p>
+                            )}
+                            <p className="board-prompt"><Written byHand>{item.title}</Written></p>
+                            <p className="activity-instruction"><Written spoken>{item.intro}</Written></p>
+                          </div>
+                        </BoardStep>
+                      );
+                    }
+                    const pair = item.pairs[page.pairIndex];
                     return (
-                      <BoardStep key={`compare-${stepIndex}`} pause>
+                      <BoardStep key={`page-${pageIndex}`} pause={!isLast} locked={!freeNavigation && !showAnswer}>
                         <div className="board-activity focus-walk">
-                          {comparisons.length > 1 && (
-                            <p className="board-kicker">{`${step.comparisonIndex + 1} AV ${comparisons.length}`}</p>
+                          <p className="board-kicker">{`JÄMFÖR · ${page.pairIndex + 1} AV ${item.pairs.length}`}</p>
+                          {showAnswer ? (
+                            <>
+                              <p className="board-prompt"><Written byHand>{pair.label}</Written></p>
+                              {eddaResponse}
+                              <p className="compare-quote"><span className="compare-label">{item.simpleTag}</span><Written>{`”${pair.simple}”`}</Written></p>
+                              <p className="compare-quote is-developed"><span className="compare-label">{item.developedTag}</span><Written>{`”${pair.developed}”`}</Written></p>
+                              <p className="activity-instruction"><Written spoken>{pair.explain}</Written></p>
+                            </>
+                          ) : (
+                            <>
+                              <p className="board-prompt"><Written byHand>Hitta samma ställe i den andra texten</Written></p>
+                              <p className="compare-quote"><span className="compare-label">{item.simpleTag}</span><Written>{`”${pair.simple}”`}</Written></p>
+                              <p className="board-small-note"><Written>Det här lyser gult i den övre rutan. Klicka på det som motsvarar det i den nedre.</Written></p>
+                              {eddaResponse}
+                            </>
                           )}
-                          <p className="board-prompt"><Written>{item.title}</Written></p>
-                          <p className="activity-instruction"><Written>{item.intro}</Written></p>
                         </div>
                       </BoardStep>
                     );
                   }
-                  const pair = item.pairs[step.pairIndex];
+
+                  const part = walkthrough[page.index];
                   return (
-                    <BoardStep key={`compare-${stepIndex}`} pause>
+                    <BoardStep key={`page-${pageIndex}`} pause={!isLast} locked={!freeNavigation && !showAnswer}>
                       <div className="board-activity focus-walk">
-                        <p className="board-kicker">{`JÄMFÖR · ${step.pairIndex + 1} AV ${item.pairs.length}`}</p>
-                        <p className="board-prompt"><Written>{pair.label}</Written></p>
-                        <p className="compare-quote"><span className="compare-label">{item.simpleTag}</span><Written>{`”${pair.simple}”`}</Written></p>
-                        <p className="compare-quote is-developed"><span className="compare-label">{item.developedTag}</span><Written>{`”${pair.developed}”`}</Written></p>
-                        <p className="activity-instruction"><Written>{pair.explain}</Written></p>
-                      </div>
-                    </BoardStep>
-                  );
-                })}
-                {walkthrough.map((part, index) => (
-                  <BoardStep key={`part-${index}`} pause>
-                    <div className="board-activity focus-walk">
-                      <p className="board-kicker">{`${index + 1} AV ${walkthrough.length}`}</p>
-                      <p className="board-prompt"><Written>{part.label}</Written></p>
-                      <p className="focus-quote"><Written>{`”${part.quote}”`}</Written></p>
-                      <p className="activity-instruction"><Written>{part.explain ?? ""}</Written></p>
-                      {part.related && (
-                        <p className="related-words">
-                          <span className="compare-label">{part.related.label}</span>
-                          <Written>{part.related.words.join(" · ")}</Written>
-                        </p>
-                      )}
-                    </div>
-                  </BoardStep>
-                ))}
-                {textChecks.map((check, index) => {
-                  const isCurrent = index === checkIndex;
-                  return (
-                    <BoardStep
-                      key={`check-${index}`}
-                      pause={index < textChecks.length - 1}
-                      locked={!freeNavigation && !(isCurrent && isPickResolved)}
-                    >
-                      <div className="board-activity text-pick">
-                        <p className="board-kicker">{textChecks.length > 1 ? `DIN TUR · ${index + 1} AV ${textChecks.length}` : "DIN TUR"}</p>
-                        <p className="board-prompt"><Written>{check.prompt}</Written></p>
-                        <p className="board-small-note"><Written>Svara genom att klicka i texten till höger.</Written></p>
-                        {isCurrent && check.targets.length > 1 && pick.found.length > 0 && !pick.solved && (
-                          <p className="example-pick-status" role="status">{pick.found.length} av {check.targets.length} hittade.</p>
+                        <p className="board-kicker">{`${page.number} AV ${walkthrough.length}`}</p>
+                        {showAnswer ? (
+                          <>
+                            <p className="board-prompt"><Written byHand>{part.label}</Written></p>
+                            {eddaResponse}
+                            <p className="focus-quote"><Written>{`”${part.quote}”`}</Written></p>
+                            <p className="activity-instruction"><Written spoken>{part.explain ?? ""}</Written></p>
+                            {part.related && (
+                              <p className="related-words">
+                                <span className="compare-label">{part.related.label}</span>
+                                <Written>{part.related.words.join(" · ")}</Written>
+                              </p>
+                            )}
+                          </>
+                        ) : (
+                          <>
+                            <p className="board-prompt"><Written byHand>{part.ask ?? part.label}</Written></p>
+                            <p className="board-small-note"><Written>Leta själv först. Svara genom att klicka i texten till höger.</Written></p>
+                            {eddaResponse}
+                          </>
                         )}
-                        {isCurrent && pick.submitting && <p className="example-pick-status" role="status">Edda läser ditt val …</p>}
-                        {isCurrent && pick.error && <p className="check-in-error" role="alert">{pick.error}</p>}
-                        {isCurrent && pick.feedback && <EddaFeedback feedback={pick.feedback} />}
                       </div>
                     </BoardStep>
                   );
@@ -787,26 +921,66 @@ function App() {
                 {phaseIndex === 1 && (
                   <BoardStep>
                     <div className="board-activity writing-task">
-                      <p className="board-prompt"><Written>Din uppgift</Written></p>
-                      <p className="activity-instruction"><Written>{lesson.practice}</Written></p>
+                      <p className="board-prompt"><Written byHand>Din uppgift</Written></p>
+                      <p className="activity-instruction"><Written spoken>{lesson.practice}</Written></p>
                       <p className="board-small-note"><Written>Skriv i din text till höger.</Written></p>
                       {showHint && <p className="hint-card"><span aria-hidden="true">✦</span> <Written>{lesson.hint}</Written></p>}
                       <AfterWriting>
                         <div className="task-actions">
-                          {attemptedBoards.includes(boardKey) ? (
-                            <p className="task-done" role="status"><EddaStar /> Uppgiften är klar. Gå vidare med Nästa steg.</p>
+                          {reviewLoading && reviewSource === "task" ? (
+                            <p className="example-pick-status" role="status">Edda läser din text …</p>
+                          ) : attemptedBoards.includes(boardKey) ? (
+                            reviewFeedback && reviewSource === "task" ? (
+                              <div className="task-feedback">
+                                <EddaFeedback
+                                  feedback={{
+                                    kind: "on_track",
+                                    level: 2,
+                                    feedback: `${reviewFeedback.success.message} Se det gröna i din text.`,
+                                  }}
+                                />
+                                {currentAdvice?.round === 2 ? (
+                                  <p className="task-link">Du prövade, och din text förändrades. Så arbetar en skribent.</p>
+                                ) : (
+                                  <>
+                                    {currentAdvice && (
+                                      <p className="develop-note">
+                                        <span className="compare-label">Att pröva</span>
+                                        {currentAdvice.message}
+                                        <span className="develop-next">Pröva det i din text. Sedan kan Edda titta igen.</span>
+                                      </p>
+                                    )}
+                                    {lesson.taskLink && <p className="task-link">{lesson.taskLink}</p>}
+                                  </>
+                                )}
+                              </div>
+                            ) : currentAdvice?.round === 1 ? (
+                              // The student is trying the advice: it stays on the board while they write.
+                              <div className="task-feedback">
+                                <p className="develop-note">
+                                  <span className="compare-label">Att pröva</span>
+                                  {currentAdvice.message}
+                                </p>
+                                <button
+                                  className="primary-button"
+                                  disabled={draft === currentAdvice.reviewedDraft || !draft.trim()}
+                                  onClick={retryWritingTask}
+                                  type="button"
+                                >
+                                  Jag har prövat – låt Edda titta igen
+                                </button>
+                              </div>
+                            ) : (
+                              <p className="task-done" role="status"><EddaStar /> Uppgiften är klar. Gå vidare med Nästa steg.</p>
+                            )
                           ) : (
                             <button
                               className="primary-button"
                               disabled={!draft.trim()}
-                              onClick={() => {
-                                // Finishing the task is the student's own report, not a learning signal.
-                                markAttempted();
-                                earnAchievement();
-                              }}
+                              onClick={finishWritingTask}
                               type="button"
                             >
-                              Jag är klar med uppgiften
+                              {lesson.taskLink ? "Jag är klar – låt Edda läsa" : "Jag är klar med uppgiften"}
                             </button>
                           )}
                           <button className="text-button" onClick={() => setShowHint((visible) => !visible)} type="button">
@@ -820,8 +994,8 @@ function App() {
                 {phaseIndex === 2 && (
                   <BoardStep pause>
                     <div className="board-activity recall-activity">
-                      <p className="board-prompt"><Written>Försök utan stöd</Written></p>
-                      <p className="activity-instruction"><Written>{lesson.recall}</Written></p>
+                      <p className="board-prompt"><Written byHand>Försök utan stöd</Written></p>
+                      <p className="activity-instruction"><Written spoken>{lesson.recall}</Written></p>
                       <p className="board-small-note"><Written>Titta inte på exemplen medan du tänker efter.</Written></p>
                     </div>
                   </BoardStep>
@@ -829,19 +1003,25 @@ function App() {
                 {phaseIndex === 3 && (
                   <BoardStep pause>
                     <div className="board-activity">
-                      <p className="board-prompt"><Written>Din egenkontroll</Written></p>
-                      <div className="checklist">
-                        {lesson.checklist.map((item) => (
-                          <label className="check-item board-hold" key={item}>
-                            <input
-                              type="checkbox"
-                              checked={checkedItems.includes(item)}
-                              onChange={() => setCheckedItems((current) => current.includes(item) ? current.filter((entry) => entry !== item) : [...current, item])}
-                            />
-                            <span><Written>{item}</Written></span>
-                          </label>
-                        ))}
-                      </div>
+                      <p className="board-prompt"><Written byHand>Din egenkontroll</Written></p>
+                      <p className="board-small-note"><Written>Markera stället i din text till höger och tryck sedan på knappen.</Written></p>
+                      <ul className="self-check">
+                        {lesson.checklist.map((item) => {
+                          const marked = selfMarks[`${boardKey}:${item}`];
+                          return (
+                            <li className={`self-check-item board-hold ${marked ? "is-marked" : ""}`} key={item}>
+                              <span className="self-check-statement"><Written>{item}</Written></span>
+                              {marked && <q className="self-check-quote">{marked}</q>}
+                              <button className="quiet-button" onClick={() => markInOwnText(item)} type="button">
+                                {marked ? "Markera ett annat ställe" : "Visa var i din text"}
+                              </button>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                      {selfCheckHint && (
+                        <p className="example-pick-status" role="status">Markera först stället i din text till höger, och tryck sedan på knappen.</p>
+                      )}
                     </div>
                   </BoardStep>
                 )}
@@ -849,7 +1029,7 @@ function App() {
                   <BoardStep pause>
                     <div className="board-activity">
                       <p className="board-goal goal-reminder"><strong><Written>Målet:</Written></strong> <Written>{lesson.learnerGoal}</Written></p>
-                      <p className="board-prompt"><Written>Det här granskar du</Written></p>
+                      <p className="board-prompt"><Written byHand>Det här granskar du</Written></p>
                       <ul className="criteria-list">
                         {lesson.criteria.map((criterion) => (
                           <li className="board-hold" key={criterion}><Written>{criterion}</Written></li>
@@ -903,9 +1083,25 @@ function App() {
               focusIndex={focusIndex}
               comparison={comparison}
               pairIndex={pairIndex}
-              pick={{ selected: pick.selected, found: pick.found, disabled: pick.submitting || pick.solved }}
-              onPick={pickInText}
+              pick={{ selected: pick.selected, found: [], disabled: pick.submitting, candidates: walkthrough.map((_, index) => index) }}
+              onPick={pickOnPage}
+              comparePick={{ resolved: isPickResolved, selected: pick.selected, disabled: pick.submitting }}
+              onPickPair={pickOnPage}
             />
+          )}
+          {!hasStarted && !isFinalDiagnosis && (
+            <div className="lesson-plan">
+              <h2>Så här går lektionen till</h2>
+              <ol>
+                {lessons.map((item) => <li key={item.shortTitle}>{item.title}</li>)}
+              </ol>
+              <p>
+                I varje kapitel: <strong>1. Genomgång</strong> (Edda frågar och du letar själv i en exempeltext)
+                {" → "}<strong>2. Din uppgift</strong> (du skriver i din egen text och Edda läser)
+                {" → "}<strong>3. Utan stöd</strong> (du visar vad du kan och kontrollerar din text).
+              </p>
+              <p className="lesson-plan-note">Edda anpassar stödet efter hur det går för dig.</p>
+            </div>
           )}
           {surfaceView === "draft" && !isBlankStart && (
           <>
@@ -913,7 +1109,7 @@ function App() {
             {isFinalDiagnosis
               ? <h1 className="prompt-label">{isSeparateRevision ? "SEPARAT BEARBETNING" : "SLUTDIAGNOS"}</h1>
               : <span className="prompt-label">SKRIVUPPGIFT</span>}
-            <p>{isFinalDiagnosis ? diagnosisPrompt : "Ta ställning: Borde skoldagen börja senare för elever i högstadiet?"}</p>
+            <p>{isFinalDiagnosis ? diagnosisPrompt : topic.prompt}</p>
             {isFinalDiagnosis && (
               <p className="demo-teacher-warning">
                 {isSeparateRevision
@@ -947,7 +1143,7 @@ function App() {
               ) : (
                 <button
                   className="primary-button coach-review-button"
-                  onClick={isFinalDiagnosis && !isDiagnosisSubmitted ? markDiagnosisComplete : runReview}
+                  onClick={isFinalDiagnosis && !isDiagnosisSubmitted ? markDiagnosisComplete : () => runReview()}
                   disabled={!activeDraft.trim() || reviewLoading}
                   type="button"
                 >
@@ -995,7 +1191,7 @@ function App() {
 
           {reviewLoading && <p className="review-state" role="status">Tutorn läser texten med fokus på {lesson.shortTitle.toLocaleLowerCase("sv")} …</p>}
           {reviewError && <p className="review-error" role="alert">{reviewError}</p>}
-          {reviewFeedback && (
+          {reviewFeedback && reviewSource === "request" && (
             <section className="formative-feedback" aria-label="Återkoppling på ditt utkast">
               <p><strong>Målet</strong>{lesson.goal}</p>
               <p>
@@ -1018,12 +1214,12 @@ function App() {
               )}
             </section>
           )}
-          {findings?.length === 0 && <p className="empty-review" role="status">Läs ändå texten själv – AI kan missa saker.</p>}
+          {findings?.length === 0 && reviewSource === "request" && <p className="empty-review" role="status">Läs ändå texten själv – AI kan missa saker.</p>}
 
           <div className="editor-wrap" ref={editorWrapRef}>
             <textarea
               ref={editorRef}
-              className={`text-editor ${findings?.length ? "has-inline-findings" : ""} ${isRevising ? "is-revising" : ""}`}
+              className={`text-editor ${textMarks.length ? "has-inline-findings" : ""} ${isRevising ? "is-revising" : ""}`}
               value={activeDraft}
               onChange={(event) => updateDraft(event.target.value)}
               onFocus={() => setActiveFinding(null)}
@@ -1037,11 +1233,20 @@ function App() {
               aria-label={isSeparateRevision ? "Din separata bearbetade text" : "Din argumenterande text"}
               spellCheck
             />
-            {findings && findings.length > 0 && !isRevising && (
+            {textMarks.length > 0 && !isRevising && (
               <div className="text-highlight-layer">
                 <div className="text-highlight-content" style={{ transform: `translateY(-${editorScrollTop}px)` }}>
-                  {findings.map((finding, index) => {
-                    const previousEnd = index > 0 ? findings[index - 1].end : 0;
+                  {textMarks.map((mark, index) => {
+                    const previousEnd = index > 0 ? textMarks[index - 1].end : 0;
+                    if (mark.kind === "strength") {
+                      return (
+                        <Fragment key="strength">
+                          <span aria-hidden="true">{activeDraft.slice(previousEnd, mark.start)}</span>
+                          <span aria-hidden="true" className="strength-mark">{activeDraft.slice(mark.start, mark.end)}</span>
+                        </Fragment>
+                      );
+                    }
+                    const finding = mark.finding;
                     return (
                       <Fragment key={finding.id}>
                         <span aria-hidden="true">{activeDraft.slice(previousEnd, finding.start)}</span>
@@ -1050,7 +1255,7 @@ function App() {
                             if (element) findingButtonsRef.current.set(finding.id, element);
                             else findingButtonsRef.current.delete(finding.id);
                           }}
-                          className="finding-mark"
+                          className={`finding-mark ${reviewSource === "task" ? "is-develop" : ""}`}
                           type="button"
                           aria-label={`Visa förklaring för markeringen ”${finding.quote}”. ${finding.title}`}
                           aria-expanded={activeFinding === finding.id}
@@ -1065,10 +1270,10 @@ function App() {
                       </Fragment>
                     );
                   })}
-                  <span aria-hidden="true">{activeDraft.slice(findings[findings.length - 1].end)}</span>
+                  <span aria-hidden="true">{activeDraft.slice(textMarks[textMarks.length - 1].end)}</span>
                 </div>
                 {activeFinding && (() => {
-                  const finding = findings.find((item) => item.id === activeFinding);
+                  const finding = findings?.find((item) => item.id === activeFinding);
                   if (!finding) return null;
                   return (
                     <aside

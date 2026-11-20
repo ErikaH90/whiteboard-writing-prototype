@@ -20,8 +20,8 @@ export default function FinalRecall({ index, answers, onAnswer, onPrevious, onNe
       <p className="board-kicker">ÅTERKALLA FRÅN ALLA MOMENT · {index + 1} AV {finalRecallQuestions.length}</p>
       <BoardSequence>
       <BoardStep>
-      <h2 className="board-prompt" id="final-recall-title"><Written>{question.title}</Written></h2>
-      <p className="entry-check-question"><Written>{question.question}</Written></p>
+      <h2 className="board-prompt" id="final-recall-title"><Written byHand>{question.title}</Written></h2>
+      <p className="entry-check-question"><Written spoken>{question.question}</Written></p>
       <AfterWriting>
       <div className="board-fill">
       <label className="check-in-answer-label" htmlFor="final-recall-answer">Ditt svar, utan stöd</label>

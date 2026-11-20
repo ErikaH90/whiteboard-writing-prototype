@@ -40,7 +40,7 @@ Testerna ska skydda elevens självständiga skrivande, lektionsprogressionen, se
 - **PED-02:** varje lektionssteg har ett eget innehåll och progressionen visar modellering, träning, återkallning, självkontroll och slutbedömning i rätt ordning.
 - **PED-03:** stöd/ledtrådar kan visas i träning och minskar vid återkallning och slutdiagnos.
 - **PED-04, manuell:** lärare bedömer om exempel går att jämföra och om träning och återkallning faktiskt kräver elevens egen formulering.
-- **PED-05:** de första fem kapitlen har fem exit-ticket-steg i ordningen återkallning, tillämpning, självförklaring, självbedömning och framåtkoppling; eleven svarar en fråga i taget och kan slutföra alla fem.
+- **PED-05:** de första fem kapitlen har en exit ticket med två steg: återkallning av kapitlets innehåll och självbedömning av den egna texten. Slutdiagnoskapitlet har ingen exit ticket.
 - **PED-17:** varje moment öppnar med en uppmärksamhetsrad, därefter ett elevnära mål som börjar med ”När du är klar” tillsammans med kursplanens formulering, och först sedan förkunskapsfrågan. Målet visas igen när modelleringen börjar, inför exit ticketen och när exit ticketen är klar.
 - **PED-07:** varje kapitel börjar med en förkunskaps- eller återkallningsfråga före modelleringen. Frågan är anpassad efter föregående sessionsevidens; ett felaktigt försök kan visa en kort förklaring och ett lärargranskat exempel.
 - **PED-08:** endast sammanfattade, validerade signaler (`independent`, `supported`, `needs_support`) hålls i sessionens minne. Råa tidigare svar lagras inte som lärhistorik och skickas inte i senare API-anrop.
@@ -55,12 +55,11 @@ Testerna ska skydda elevens självständiga skrivande, lektionsprogressionen, se
 - **PED-12:** efter diagnos kan ett textförankrat fynd rekommendera ett befintligt moment för fortsatt övning; inget officiellt betyg eller omskriven text visas.
 - **PED-14:** den avslutande checklistan visas först efter uttrycklig inlämning och omfattar de fyra specificerade områdena. Den är inte synlig eller tillgänglig under den stödfria diagnosen.
 - **PED-15:** efter inlämning är diagnosens originaltext låst. Checklistans separata bearbetningskopia börjar med samma text; ändringar i kopian ändrar inte den text eller återkoppling som lärarvyn redan tagit emot.
-- **PED-16:** modelleringens kontroller görs i exempeltexten: momentets delar är klickbara, ett felaktigt val ger en knuff utan stjärna och kan göras om, och ett rätt val markeras. Kapitel 1 frågar i tur och ordning efter tesen, argumenten (två delar som båda ska hittas), motargumentet och avslutningen. Tavlan visar inga exempel som inte kommer ur exempeltexten, och det finns ingen ämnesväljare.
 - **UX-01, manuell:** eleven kan snabbt identifiera aktuellt mål och nästa handling; endast relevant aktivitet visas och samma progressionsinformation upprepas inte i flera ytor.
 - **UX-02, manuell:** granska på dator och surfplatta att färger, animationer och statusmeddelanden inte konkurrerar med elevens text och aktuella uppgift.
 - **UX-03, manuell:** under modellering fångar elevexemplen blicken före kursplansmålet och hjälptexter; eleven kan enkelt jämföra exempeltexterna.
 - **UX-04, manuell:** slutdiagnosläget visar en skrivyta i full bredd utan synligt kursstöd; kontrollerna för att markera klar och därefter frivilligt få återkoppling är tydliga.
-- **UX-05:** whiteboardens text skrivs ut gradvis i dokumentordning och hela texten finns för hjälpmedel medan den skrivs. Det finns ingen knapp för att hoppa över skrivandet; **Fortsätt** visas först när delen är färdigskriven.
+- **UX-05:** rubriken i varje del av whiteboarden skrivs ut gradvis och övrig text visas direkt när rubriken är klar; hela texten finns för hjälpmedel medan den skrivs. Det finns ingen knapp för att hoppa över skrivandet; **Fortsätt** visas först när delen är färdig.
 - **UX-06:** tavlan stannar efter målet, mellan modelleringens två exempel och före avstämningen i övriga steg tills eleven väljer **Fortsätt**; svarsfält och svarsalternativ visas först när frågan är skriven. Stoppen gäller även med minskad rörelse, där texten visas direkt.
 - **UX-07:** ett lektionssteg som eleven redan har sett visas direkt utan skrivanimation och utan stopp när eleven går tillbaka.
 - **UX-09:** på en bred skärm syns hela whiteboarden utan att sidan eller tavlan behöver rullas; tavlan visar en del i taget, och det finns ingen knapp för att gå tillbaka till en tidigare del.
@@ -72,10 +71,19 @@ Testerna ska skydda elevens självständiga skrivande, lektionsprogressionen, se
 - **EX-07:** på en bred skärm syns hela exempeltexten utan rullning när eleven lyssnar och under genomgången.
 - **EX-04:** exempeltexten visas bara under kapitlets öppning och modellering; från skrivuppgiften och framåt, i återkallningsrundan och i slutdiagnosen visas den inte. Eleven har ingen kontroll för att växla mellan exempeltext och egen text, och utkastet ändras inte när ytan byter innehåll.
 - **PED-20:** felsökningen i kapitel 5 görs på whiteboarden: varje del av den påhittade texten går att klicka på, frågor med två fel kräver båda, fel val ger en knuff utan förklaring, och efter sista frågan visas den rättade texten. Två försök eller ett fel från AI-tjänsten räcker för att få gå vidare.
+- **VOICE-01:** medan Edda läser upp sin vägledning visas bara bubblan **Edda berättar**; texten, knapparna och svarsfälten visas först när uppläsningen är klar. Hela texten finns för hjälpmedel under tiden.
+- **VOICE-02:** med ljudet avstängt, utan röst på servern eller om uppspelningen blockeras visas texten direkt och lektionen fortsätter som vanligt. Automatiska tester använder aldrig den riktiga rösttjänsten.
+- **START-01:** lektionen öppnar med en välkomstsida där eleven väljer ett av tre ämnen att skriva om; valet blir skrivuppgiften och sparas lokalt, och skrivytan visar kapitlen och arbetsgången. Inget AI-anrop görs.
 - **NAV-01:** utan `?fri` är övriga kapitel låsta, **Tillbaka** saknas och **Nästa steg** är avstängd tills tavlan visats i sin helhet och stegets kontroll är besvarad eller uppgiften markerad som klar.
 - **NAV-02:** ett fel från AI-tjänsten i en kontroll öppnar **Nästa steg** så att eleven inte fastnar.
+- **PED-21:** i genomgången visas varken citat eller förklaring för en del förrän eleven har hittat den i texten eller Edda har visat den efter två försök; alla kapitlets delar är klickbara medan eleven letar. I jämförelserna gäller samma sak för de ändrade ställena i det andra exemplet. Ett fel från AI-tjänsten gör att Edda visar stället.
+- **PED-22:** efter Eddas råd på skrivuppgiften kan eleven ändra i texten och be Edda titta igen; förfrågan innehåller rådet, Edda ger inga nya punkter och loopen har högst en omgång.
+- **PED-23:** egenkontrollen kräver att eleven markerar ett ställe i sin egen text för varje påstående; inget AI-anrop görs och texten ändras inte.
+- **CHECK-10:** Eddas svar slutar med en fråga endast när eleven ska försöka igen; servern kräver frågetecken för sådana svar men inte för svar på rätt spår.
 - **PED-19:** i kapitel 1–5 föregås skrivuppgiften av två exempel på den del som ska skrivas; eleven väljer det bästa genom att klicka, etiketterna avslöjar inte svaret i förväg, och i guidat läge visas uppgiften först när valet är gjort (rätt, två försök eller fel från AI-tjänsten).
-- **NAV-03:** skrivuppgiften kan markeras som klar först när elevens text inte är tom, och det gör inget AI-anrop.
+- **NAV-03:** skrivuppgiften kan lämnas till Edda först när elevens text inte är tom. Inget AI-anrop görs medan eleven skriver, bara när eleven väljer **Jag är klar – låt Edda läsa**. Ett fel från AI-tjänsten låser inte eleven.
+- **FB-01:** efter skrivuppgiften visar Edda en styrka och högst en sak att pröva; styrkan är grönmarkerad och utvecklingspunkten lilamarkerad i elevens text, och texten ändras inte. Även vid återkoppling på begäran markeras styrkan i texten.
+- **FB-02, manuell:** granska att Eddas styrka är sann och konkret, att utvecklingspunkten är formulerad som något att pröva och inte som ett fel, och att ingen färdig formulering ges.
 - **EX-05, manuell:** en lärare granskar att markeringarna och deras förklaringar stämmer med momentets innehåll och att uppläsningens röst och uttal fungerar på svenska.
 - **CHECK-01:** avstämningsfrågor har ett enda svarssätt: två alternativ med exakt ett avsett svar, eller ett fritextfält.
 - **CHECK-02:** svarsalternativ visas i modellering, träning och självkontroll; ett fritextfält visas vid återkallning och varje exit-ticket-steg.

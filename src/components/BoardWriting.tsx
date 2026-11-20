@@ -12,6 +12,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { isVoiceActive, speak, useSoundOn } from "../lib/eddaVoice";
 
 /**
  * Whiteboard writing: the board "writes" its text like a teacher with a pen and
@@ -264,19 +265,48 @@ export function BoardStep({ children, className }: StepProps) {
   );
 }
 
-/** Text that the board writes by hand. Rendered as plain text outside a step. */
-export function Written({ children }: { children: string }) {
+/**
+ * Text on the board that appears in order. With `byHand` it is written out letter by letter,
+ * which is used for headings; other text is shown at once when its turn comes, so that the
+ * student does not have to wait for long explanations. Rendered as plain text outside a step.
+ */
+export function Written({ children, byHand = false, spoken = false }: {
+  children: string;
+  byHand?: boolean;
+  /** Edda says the text aloud first; it is shown when she has finished speaking. */
+  spoken?: boolean;
+}) {
   const step = useContext(StepContext);
   if (!step) return <>{children}</>;
-  return <Ink key={children} step={step} text={children} />;
+  return <Ink byHand={byHand} key={children} spoken={spoken} step={step} text={children} />;
 }
 
-function Ink({ step, text }: { step: StepContextValue; text: string }) {
+function Ink({ step, text, byHand, spoken }: { step: StepContextValue; text: string; byHand: boolean; spoken: boolean }) {
   const id = useId();
   const { register, finish } = step;
   const status = step.statusOf(id);
-  const [animate] = useState(canAnimateWriting);
+  const [animate] = useState(() => byHand && canAnimateWriting());
   const [count, setCount] = useState(1);
+  const soundOn = useSoundOn();
+  // Decided when Edda's turn comes: with sound she speaks, without it the text is shown at once.
+  const [isSpeaking, setIsSpeaking] = useState(false);
+
+  useEffect(() => {
+    if (status !== "writing" || !spoken || !isVoiceActive()) return;
+    setIsSpeaking(true);
+    const speech = speak(text);
+    let active = true;
+    speech.done.then(() => {
+      if (!active) return;
+      setIsSpeaking(false);
+      finish(id);
+    });
+    return () => {
+      active = false;
+      speech.cancel();
+    };
+    // Turning the sound off while she speaks ends the speech and shows the text.
+  }, [status, spoken, text, id, finish, soundOn]);
 
   useLayoutEffect(() => {
     register();
@@ -285,16 +315,33 @@ function Ink({ step, text }: { step: StepContextValue; text: string }) {
 
   useEffect(() => {
     if (status !== "writing") return;
+    if (spoken && isVoiceActive()) return;
     if (!animate || count >= text.length) {
       finish(id);
       return;
     }
     const timer = window.setTimeout(() => setCount((current) => current + 1), delayAfter(text[count - 1]));
     return () => window.clearTimeout(timer);
-  }, [status, animate, count, text, id, finish]);
+  }, [status, animate, count, text, id, finish, spoken, soundOn]);
 
   if (status === "pending") {
     return <span className="board-ink is-pending" data-board-ink={id}>{text}</span>;
+  }
+
+  if (status === "writing" && isSpeaking) {
+    // While Edda speaks only her bubble is shown; the text stays available to assistive technology.
+    return (
+      <span className="board-ink is-speaking" data-board-ink={id}>
+        <span className="board-ink-full">{text}</span>
+        <span aria-hidden="true" className="edda-speaking">
+          <span className="edda-face" />
+          <span className="edda-bubble-wrap">
+            <strong className="edda-name">Edda berättar</strong>
+            <span className="edda-bubble edda-dots"><i /><i /><i /></span>
+          </span>
+        </span>
+      </span>
+    );
   }
 
   if (status === "done" || !animate || count >= text.length) {

@@ -102,7 +102,7 @@ export default function ErrorHunt({ lesson, hunt, priorEvidence, onEvidence, onD
         {isFinished ? "RÄTTAD TEXT" : `DIN TUR · ${questionIndex + 1} AV ${hunt.questions.length}`}
       </p>
       <p className="board-prompt">
-        <Written>{isFinished ? "Så här kan texten bli" : question.prompt}</Written>
+        <Written byHand>{isFinished ? "Så här kan texten bli" : question.prompt}</Written>
       </p>
 
       <p className="hunt-text" role="group" aria-label="Elevens text">

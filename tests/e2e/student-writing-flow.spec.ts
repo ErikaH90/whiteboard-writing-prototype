@@ -5,6 +5,23 @@ async function skipListening(page: import("@playwright/test").Page) {
   await page.getByRole("button", { name: "Starta lektionen utan att lyssna" }).click();
 }
 
+// Edda's voice is never fetched from the real speech service in tests: without it the text is
+// shown directly, which is what the other tests rely on.
+test.beforeEach(async ({ page }) => {
+  await page.route("**/api/speech", async (route) => {
+    await route.fulfill({
+      status: 503,
+      contentType: "application/json",
+      body: JSON.stringify({ error: "Uppläsning är inte konfigurerad på servern." }),
+    });
+  });
+});
+
+// The lesson opens with a welcome where the student chooses what to write about.
+async function startLesson(page: import("@playwright/test").Page) {
+  await page.getByRole("button", { name: "Skoldagen" }).click();
+}
+
 async function completeEntry(
   page: import("@playwright/test").Page,
   answer = "En tes visar skribentens ståndpunkt.",
@@ -19,12 +36,27 @@ async function completeEntry(
   if (firstExemplarMeeting) await skipListening(page);
 }
 
-// The first modelling step has seven stops (goal and six parts of the exemplar); other steps have one.
 async function revealBoard(page: import("@playwright/test").Page, stops: number) {
   for (let stop = 0; stop < stops; stop += 1) {
     await page.getByRole("button", { name: "Fortsätt", exact: true }).click();
   }
   await expect(page.getByRole("button", { name: "Fortsätt", exact: true })).toHaveCount(0);
+}
+
+// The six parts the whiteboard asks the student to find in the first chapter, in order.
+const structureParts = [
+  "Tallrikens tysta offer – dags att duka av köttet",
+  "Det är hög tid att vi ifrågasätter vår köttnorm",
+  "För det första står köttindustrin för en massiv belastning på miljön.",
+  "Utöver miljöaspekten väcker den industriella djurhållningen en djupt etisk fråga.",
+  "Visst hävdas det ofta att kött är en oumbärlig källa till protein och järn",
+  "Sammanfattningsvis är köttnormen ett systemfel som vi måste börja montera ned.",
+];
+
+// The student looks for a part and clicks it in the text beside the whiteboard.
+async function findInText(page: import("@playwright/test").Page, quote: string) {
+  await page.getByRole("region", { name: "Exempeltext" }).getByRole("button", { name: quote, exact: true }).click();
+  await expect(page.getByRole("status").locator(".edda-star")).toBeVisible();
 }
 
 async function completeFinalRecall(page: import("@playwright/test").Page) {
@@ -74,6 +106,7 @@ test("student can ask for contextual tips while keeping their draft editable", a
     });
   });
   await page.goto("/?fri");
+  await startLesson(page);
   // The writing surface is blank until the first entry question has been answered.
   await expect(page.locator(".writing-card")).toBeEmpty();
   await completeEntry(page);
@@ -125,12 +158,21 @@ test("whiteboard accepts a choice or a written answer and responds", async ({ pa
     });
   });
   await page.goto("/?fri");
+  await startLesson(page);
 
   await completeEntry(page);
-  await revealBoard(page, 7);
-  // In the modelling step the student answers by clicking the right part of the exemplar text.
-  await expect(page.getByText("Klicka på tesen.")).toBeVisible();
-  await page.getByRole("region", { name: "Exempeltext" }).getByRole("button", { name: "Det är hög tid att vi ifrågasätter vår köttnorm" }).click();
+  // In the modelling step the whiteboard asks first, and the student looks for the place in the text.
+  await page.getByRole("button", { name: "Fortsätt", exact: true }).click();
+  await expect(page.getByText("Klicka på rubriken.")).toBeVisible();
+  await expect(page.getByText("Rubriken säger både vad texten handlar om")).toHaveCount(0);
+  const text = page.getByRole("region", { name: "Exempeltext" });
+  // A wrong try gives a nudge without a star.
+  await text.getByRole("button", { name: structureParts[5], exact: true }).click();
+  await expect(page.getByRole("status")).toContainText("Precis.");
+  await expect(page.getByRole("status").locator(".edda-star")).toHaveCount(0);
+  await text.getByRole("button", { name: structureParts[0], exact: true }).click();
+  // Only when the place is found does Edda explain it.
+  await expect(page.getByText(/^Rubriken säger både vad texten handlar om/)).toBeVisible();
   await expect(page.getByRole("status")).toContainText("Precis.");
   await expect(page.getByRole("status")).toContainText("Edda");
   await expect(page.getByRole("status").locator(".edda-star")).toBeVisible();
@@ -148,7 +190,7 @@ test("whiteboard accepts a choice or a written answer and responds", async ({ pa
   await expect(page.getByRole("status")).toContainText("inne på rätt spår");
 });
 
-test("student completes all five steps of the chapter exit ticket", async ({ page }) => {
+test("student completes the short chapter exit ticket", async ({ page }) => {
   await page.route("**/api/check-in", async (route) => {
     await route.fulfill({
       status: 200,
@@ -157,6 +199,7 @@ test("student completes all five steps of the chapter exit ticket", async ({ pag
     });
   });
   await page.goto("/?fri");
+  await startLesson(page);
   await completeEntry(page);
   for (let step = 0; step < 4; step += 1) {
     await page.getByRole("button", { name: /Nästa steg/ }).click();
@@ -166,10 +209,7 @@ test("student completes all five steps of the chapter exit ticket", async ({ pag
 
   const titles = [
     "Textens övergripande delar",
-    "Inledning och tes",
-    "Varför har texten en fast struktur?",
     "Bedöm din inledning",
-    "Inför argumenten",
   ];
 
   for (const [index, title] of titles.entries()) {
@@ -213,6 +253,7 @@ test("final diagnosis hides teaching support until completion and offers optiona
     });
   });
   await page.goto("/?fri");
+  await startLesson(page);
 
   await completeEntry(page);
   // Edda shows the student's own text with the chapter's writing task.
@@ -271,22 +312,24 @@ test("board uses 45 percent on desktop and stacks on narrow screens", async ({ p
   expect(narrowWritingArea!.y).toBeGreaterThan(narrowBoard!.y);
 });
 
-test("whiteboard writes its text by hand and waits for the student between parts", async ({ page }) => {
+test("whiteboard writes its headings by hand and waits for the student between parts", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "no-preference" });
   await page.goto("/?fri");
 
-  // While Edda writes there is nothing to press: no skip button and no way forward yet.
+  // While Edda writes the welcome there is nothing to press on the whiteboard.
   await expect(page.locator(".board-ink.is-writing").first()).toBeVisible();
   await expect(page.locator(".board-surface").getByRole("button")).toHaveCount(0);
-  await expect(page.getByRole("textbox", { name: "Ditt svar, utan ledtråd" })).toHaveCount(0);
+  // Meanwhile the writing surface shows how the lesson works.
+  await expect(page.getByRole("heading", { name: "Så här går lektionen till" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Elevens skrivyta" }).getByRole("listitem")).toHaveCount(6);
 
-  // When the part is written the board waits for the student. Attention first, then the goal.
+  // When the heading is written the choices appear; the choice starts the lesson.
+  await page.getByRole("button", { name: "Skoldagen" }).click({ timeout: 15_000 });
+  await expect(page.locator(".board-ink.is-writing")).toHaveCount(1);
   const next = page.getByRole("button", { name: "Fortsätt", exact: true });
   await expect(next).toBeVisible({ timeout: 15_000 });
   await expect(page.locator(".board-ink.is-writing")).toHaveCount(0);
   await expect(page.getByText("Kan en text få dig att ändra åsikt?")).toBeVisible();
-  await next.click();
-  await expect(page.locator(".board-ink.is-writing")).toHaveCount(1);
   await expect(page.getByRole("button", { name: "Visa hela texten" })).toHaveCount(0);
 });
 
@@ -308,6 +351,7 @@ test("exemplar text follows a retrieval question, is listened to and then shown 
     });
   });
   await page.goto("/?fri");
+  await startLesson(page);
 
   await expect(page.getByRole("region", { name: "Exempeltext" })).toHaveCount(0);
   await completeEntry(page, "En text där man tar ställning och ger skäl.", false);
@@ -326,13 +370,17 @@ test("exemplar text follows a retrieval question, is listened to and then shown 
   await skipListening(page);
   await expect(surface.locator("mark")).toHaveCount(0);
 
-  // The whiteboard walks through the text; only the part it talks about is lit, the rest is blurred.
+  // The student looks for each part; once found, only that part is lit and the rest is blurred.
   await page.getByRole("button", { name: "Fortsätt", exact: true }).click();
+  await expect(surface.locator("mark")).toHaveCount(0);
+  await expect(surface.locator(".exemplar-mark.is-candidate")).toHaveCount(6);
+  await findInText(page, structureParts[0]);
   await expect(surface.locator("mark")).toHaveCount(1);
   await expect(surface.locator("mark")).toContainText("Tallrikens tysta offer");
   await expect(surface.locator("mark")).toHaveCSS("background-color", "rgb(255, 233, 122)");
   await expect(page.getByText("”Tallrikens tysta offer – dags att duka av köttet”")).toBeVisible();
   await page.getByRole("button", { name: "Fortsätt", exact: true }).click();
+  await findInText(page, structureParts[1]);
   await expect(surface.locator("mark")).toHaveCount(1);
   await expect(surface.locator("mark")).toContainText("Det är hög tid att vi ifrågasätter vår köttnorm");
   await expect(surface.locator(".exemplar-plain").first()).toHaveCSS("filter", /blur/);
@@ -357,6 +405,7 @@ test("the whole whiteboard is visible without scrolling, one part at a time", as
   });
   await page.setViewportSize({ width: 1288, height: 720 });
   await page.goto("/?fri");
+  await startLesson(page);
 
   async function expectBoardFits() {
     await expect.poll(() => page.evaluate(() => {
@@ -374,35 +423,16 @@ test("the whole whiteboard is visible without scrolling, one part at a time", as
   await completeEntry(page);
   await expectBoardFits();
 
-  for (let stop = 0; stop < 7; stop += 1) {
+  // Every page of the modelling fits, both while the student is looking and after Edda has explained.
+  for (const quote of structureParts) {
     await page.getByRole("button", { name: "Fortsätt", exact: true }).click();
+    await expect(page.locator(".board-goal")).toBeHidden();
+    await expectBoardFits();
+    await findInText(page, quote);
     await expectBoardFits();
   }
-  // The goal has been wiped from the board; the check is answered in the text beside it.
-  const check = page.getByText("Klicka på tesen.");
-  await expect(check).toBeVisible();
-  await expect(page.locator(".board-goal")).toBeHidden();
-  await expectBoardFits();
   await expect(page.getByRole("button", { name: /Nästa steg/ })).toBeInViewport();
-
-  const surface = page.getByRole("region", { name: "Exempeltext" });
-  await expect(surface.locator(".exemplar-mark.is-candidate")).toHaveCount(6);
-  await surface.getByRole("button", { name: "Det är hög tid att vi ifrågasätter vår köttnorm" }).click();
-  await expect(page.getByRole("status")).toContainText("Edda");
-  await expect(surface.locator(".exemplar-mark.is-solved")).toHaveCount(1);
-  await expectBoardFits();
-
   await expect(page.getByRole("button", { name: "Visa föregående del" })).toHaveCount(0);
-
-  // The next question is about two parts; both have to be found.
-  await page.getByRole("button", { name: "Fortsätt", exact: true }).click();
-  await expect(page.getByText("Klicka på argumenten. Det finns två.")).toBeVisible();
-  await surface.getByRole("button", { name: /^För det första står köttindustrin/ }).click();
-  await expect(page.getByText("1 av 2 hittade.")).toBeVisible();
-  await surface.getByRole("button", { name: /^Utöver miljöaspekten/ }).click();
-  await expect(page.getByRole("status").locator(".edda-star")).toBeVisible();
-  await expect(surface.locator(".exemplar-mark.is-solved")).toHaveCount(2);
-  await expectBoardFits();
   await expect(page.getByText(/DEMO|Kursplansanknytning/)).toHaveCount(0);
 });
 
@@ -414,7 +444,22 @@ test("the lesson is guided: chapters are locked and Edda decides what the writin
       body: JSON.stringify({ kind: "on_track", level: 2, feedback: "Du hittade tesen. Vad visar den?" }),
     });
   });
+  await page.route("**/api/review", async (route) => {
+    const request = route.request().postDataJSON() as { draft: string };
+    const quote = request.draft.match(/[\p{L}\p{N}]+/u)?.[0] ?? "";
+    const start = request.draft.indexOf(quote);
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        success: { start, end: start + quote.length, quote, message: "Du visar tydligt vad du tycker." },
+        nextStep: "Vilket skäl vill du ge?",
+        findings: [],
+      }),
+    });
+  });
   await page.goto("/");
+  await startLesson(page);
 
   await expect(page.getByRole("button", { name: /Resonemang/ })).toBeDisabled();
   await completeEntry(page);
@@ -423,27 +468,15 @@ test("the lesson is guided: chapters are locked and Edda decides what the writin
   await expect(page.getByRole("button", { name: "Tillbaka" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Din text" })).toHaveCount(0);
 
-  await revealBoard(page, 7);
-  await expect(next).toBeDisabled();
-  const text = page.getByRole("region", { name: "Exempeltext" });
   const proceed = page.getByRole("button", { name: "Fortsätt", exact: true });
-
-  // Four questions answered in the text. Each one holds the student until it is answered.
-  await expect(page.getByText("Klicka på tesen.")).toBeVisible();
-  await expect(proceed).toHaveCount(0);
-  await text.getByRole("button", { name: "Det är hög tid att vi ifrågasätter vår köttnorm" }).click();
-  await expect(next).toBeDisabled();
-  await proceed.click();
-  await expect(page.getByText("Klicka på argumenten. Det finns två.")).toBeVisible();
-  await text.getByRole("button", { name: /^För det första står köttindustrin/ }).click();
-  await expect(proceed).toHaveCount(0);
-  await text.getByRole("button", { name: /^Utöver miljöaspekten/ }).click();
-  await proceed.click();
-  await expect(page.getByText("Klicka på motargumentet.")).toBeVisible();
-  await text.getByRole("button", { name: /^Visst hävdas det ofta/ }).click();
-  await proceed.click();
-  await expect(page.getByText("Klicka på avslutningen.")).toBeVisible();
-  await text.getByRole("button", { name: /^Sammanfattningsvis är köttnormen/ }).click();
+  // Each question holds the student until the place is found, or Edda has shown it.
+  for (const [index, quote] of structureParts.entries()) {
+    await proceed.click();
+    await expect(proceed).toHaveCount(0);
+    await expect(next).toBeDisabled();
+    await findInText(page, quote);
+    if (index < structureParts.length - 1) await expect(next).toBeDisabled();
+  }
   await expect(next).toBeEnabled();
 
   await next.click();
@@ -456,6 +489,49 @@ test("the lesson is guided: chapters are locked and Edda decides what the writin
   await expect(page.getByRole("region", { name: "Exempeltext" })).toHaveCount(0);
   await expect(next).toBeDisabled();
   await page.getByRole("textbox", { name: "Din argumenterande text" }).fill("Skoldagen borde börja senare.");
-  await page.getByRole("button", { name: "Jag är klar med uppgiften" }).click();
+  await page.getByRole("button", { name: "Jag är klar – låt Edda läsa" }).click();
+  // Edda has read the text: the strength is marked in green in the student's own text.
+  await expect(page.locator(".strength-mark")).toHaveText("Skoldagen");
+  await expect(page.getByRole("status")).toContainText("Du visar tydligt vad du tycker.");
   await expect(next).toBeEnabled();
+});
+
+test("Edda speaks her guidance and the text appears when she has finished", async ({ page }) => {
+  let spoken: string[] = [];
+  // A very short silent sound stands in for Edda's voice.
+  const silence = Buffer.from(
+    "UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=",
+    "base64",
+  );
+  await page.unroute("**/api/speech");
+  await page.route("**/api/speech", async (route) => {
+    spoken.push((route.request().postDataJSON() as { text: string }).text);
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    await route.fulfill({ status: 200, contentType: "audio/wav", body: silence });
+  });
+  await page.goto("/?fri");
+  await startLesson(page);
+
+  // The hook is a heading and is not spoken; the goal that follows is Edda's guidance.
+  await page.getByRole("button", { name: "Fortsätt", exact: true }).click();
+  await expect(page.getByText("Edda berättar")).toBeVisible();
+  await expect(page.locator(".board-ink.is-speaking")).toHaveCount(1);
+  await expect(page.getByRole("button", { name: "Fortsätt", exact: true })).toHaveCount(0);
+
+  // When she has finished the text is shown and the student can go on.
+  await expect(page.getByText("Edda berättar")).toHaveCount(0);
+  await expect(page.locator(".board-step:not([hidden]) .activity-instruction .board-ink").first()).toBeVisible();
+  await expect(page.getByRole("button", { name: "Fortsätt", exact: true })).toBeVisible();
+  // The welcome and the goal are Edda's guidance; the hook between them is a heading and is not spoken.
+  expect(spoken).toHaveLength(2);
+  expect(spoken[0]).toMatch(/^Hej! Jag heter Edda\./);
+  expect(spoken[1]).toMatch(/^När du är klar kan du/);
+
+  // With the sound off Edda does not speak, and the text is shown at once.
+  spoken = [];
+  await page.getByRole("button", { name: "Ljud på" }).click();
+  await expect(page.getByRole("button", { name: "Ljud av" })).toBeVisible();
+  await page.getByRole("button", { name: "Fortsätt", exact: true }).click();
+  await expect(page.getByText("Vad är en argumenterande text?")).toBeVisible();
+  expect(spoken).toHaveLength(0);
 });

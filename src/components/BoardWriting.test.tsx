@@ -1,6 +1,7 @@
-import { act, cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { resetVoice } from "../lib/eddaVoice";
 import { AfterWriting, BoardPause, BoardSequence, BoardStep, Written } from "./BoardWriting";
 
 function allowMotion() {
@@ -15,7 +16,7 @@ afterEach(() => {
 
 describe("board writing", () => {
   it("renders plain text outside a sequence", () => {
-    render(<p><Written>Hela texten</Written></p>);
+    render(<p><Written byHand>Hela texten</Written></p>);
 
     expect(screen.getByText("Hela texten").tagName).toBe("P");
   });
@@ -27,8 +28,8 @@ describe("board writing", () => {
     render(
       <BoardSequence onComplete={onComplete}>
         <BoardStep>
-          <p><Written>Första raden</Written></p>
-          <p><Written>Andra raden</Written></p>
+          <p><Written byHand>Första raden</Written></p>
+          <p><Written byHand>Andra raden</Written></p>
           <AfterWriting><button type="button">Svara</button></AfterWriting>
         </BoardStep>
       </BoardSequence>,
@@ -62,9 +63,9 @@ describe("board writing", () => {
     render(
       <BoardSequence>
         <BoardStep pause>
-          <p><Written>En lång mening som tar tid att skriva för hand på tavlan.</Written></p>
+          <p><Written byHand>En lång mening som tar tid att skriva för hand på tavlan.</Written></p>
         </BoardStep>
-        <BoardStep><p><Written>Nästa del.</Written></p></BoardStep>
+        <BoardStep><p><Written byHand>Nästa del.</Written></p></BoardStep>
       </BoardSequence>,
     );
 
@@ -77,12 +78,12 @@ describe("board writing", () => {
     render(
       <BoardSequence>
         <BoardStep pause>
-          <p><Written>Exempel ett</Written></p>
+          <p><Written byHand>Exempel ett</Written></p>
           <BoardPause />
-          <p><Written>Exempel två</Written></p>
+          <p><Written byHand>Exempel två</Written></p>
         </BoardStep>
         <BoardStep>
-          <p><Written>Frågan</Written></p>
+          <p><Written byHand>Frågan</Written></p>
         </BoardStep>
       </BoardSequence>,
     );
@@ -104,8 +105,8 @@ describe("board writing", () => {
     allowMotion();
     render(
       <BoardSequence instant>
-        <BoardStep pause><p><Written>Del ett</Written></p></BoardStep>
-        <BoardStep><p><Written>Del två</Written></p></BoardStep>
+        <BoardStep pause><p><Written byHand>Del ett</Written></p></BoardStep>
+        <BoardStep><p><Written byHand>Del två</Written></p></BoardStep>
       </BoardSequence>,
     );
 
@@ -118,8 +119,8 @@ describe("board writing", () => {
     const user = userEvent.setup();
     render(
       <BoardSequence>
-        <BoardStep pause><p><Written>Del ett</Written></p></BoardStep>
-        <BoardStep><p><Written>Del två</Written></p></BoardStep>
+        <BoardStep pause><p><Written byHand>Del ett</Written></p></BoardStep>
+        <BoardStep><p><Written byHand>Del två</Written></p></BoardStep>
       </BoardSequence>,
     );
 
@@ -130,5 +131,60 @@ describe("board writing", () => {
     expect(screen.getByText("Del två")).toBeVisible();
     // The board has no button for going back to an earlier part.
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  });
+
+  it("lets Edda say her guidance first and shows the text when she has finished", async () => {
+    class FakeAudio extends EventTarget {
+      static instances: FakeAudio[] = [];
+      play = vi.fn(async () => undefined);
+      pause = vi.fn();
+
+      constructor(public src: string) {
+        super();
+        FakeAudio.instances.push(this);
+      }
+    }
+    resetVoice();
+    allowMotion();
+    vi.stubGlobal("Audio", FakeAudio);
+    vi.stubGlobal("URL", Object.assign(URL, { createObjectURL: vi.fn(() => "blob:edda") }));
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => new Response("ljud", { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    render(
+      <BoardSequence>
+        <BoardStep pause>
+          <p><Written spoken>Här står tesen.</Written></p>
+          <AfterWriting><button type="button">Svara</button></AfterWriting>
+        </BoardStep>
+        <BoardStep><p><Written>Nästa del.</Written></p></BoardStep>
+      </BoardSequence>,
+    );
+
+    // While she speaks only her bubble is shown; the text is not visible and nothing can be pressed.
+    await waitFor(() => expect(FakeAudio.instances).toHaveLength(1));
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toEqual({ text: "Här står tesen." });
+    expect(screen.getByText("Edda berättar")).toBeInTheDocument();
+    expect(screen.getByText("Här står tesen.")).toHaveClass("board-ink-full");
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+
+    act(() => { FakeAudio.instances[0].dispatchEvent(new Event("ended")); });
+    await waitFor(() => expect(screen.queryByText("Edda berättar")).not.toBeInTheDocument());
+    expect(screen.getByText("Här står tesen.")).toHaveClass("board-ink");
+    expect(screen.getByRole("button", { name: "Svara" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Fortsätt" })).toBeInTheDocument();
+  });
+
+  it("shows the text at once when Edda's voice cannot be used", async () => {
+    resetVoice();
+    allowMotion();
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ error: "nej" }), { status: 503 })));
+    render(
+      <BoardSequence>
+        <BoardStep><p><Written spoken>Här står tesen.</Written></p></BoardStep>
+      </BoardSequence>,
+    );
+
+    await waitFor(() => expect(screen.getByText("Här står tesen.")).toHaveClass("board-ink"));
+    expect(screen.queryByText("Edda berättar")).not.toBeInTheDocument();
   });
 });

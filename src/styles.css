@@ -2310,14 +2310,6 @@ input:focus-visible {
   outline-offset: 3px;
 }
 
-.topbar-pill {
-  padding: 6px 13px;
-  border-radius: 999px;
-  background: #f1f2f6;
-  color: #444a59;
-  font-size: 13px;
-  white-space: nowrap;
-}
 
 /* Surfaces */
 
@@ -2688,4 +2680,328 @@ input:focus-visible {
 
 .error-hunt .compare-quote {
   font-size: 20px;
+}
+
+/* Edda's response to the student's own text: a strength and something to try, equally visible */
+
+.strength-mark {
+  border-bottom: 2px solid #4f9a6b;
+  border-radius: 2px;
+  background: linear-gradient(transparent 62%, #cfead8 62%);
+  color: #2f6b47;
+}
+
+.finding-mark.is-develop {
+  border-bottom-color: #6a4fd0;
+  background: linear-gradient(transparent 62%, #e3dcfa 62%);
+  color: #4a36a3;
+}
+
+.task-feedback {
+  width: 100%;
+}
+
+.develop-note {
+  margin: 0 0 10px;
+  padding: 10px 14px;
+  border: 1px solid #d9d0f7;
+  border-radius: 12px;
+  background: #f6f3fe;
+  color: var(--board-ink);
+  font-size: 19px;
+  line-height: 1.35;
+}
+
+.task-link {
+  margin: 0;
+  color: var(--board-ink);
+  font-size: 19px;
+  line-height: 1.4;
+}
+
+.edda-shows {
+  margin: 0 0 10px;
+  color: #7b8090;
+  font-size: 16px;
+}
+
+.compared-example .exemplar-mark.is-candidate {
+  padding: 1px 3px;
+  border-radius: 4px;
+}
+
+/* Self-check: the student shows where in their own text each statement is true */
+
+.self-check {
+  display: grid;
+  gap: 9px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.self-check-item {
+  display: grid;
+  gap: 6px;
+  justify-items: start;
+  padding: 12px 14px;
+  border: 1px solid var(--surface-line);
+  border-radius: 12px;
+  color: var(--board-ink);
+  font-size: 18px;
+  line-height: 1.35;
+}
+
+.self-check-item.is-marked {
+  border-color: #cfe5d6;
+  background: #f6fbf7;
+}
+
+.self-check-quote {
+  color: #2f6b47;
+  font-size: 17px;
+}
+
+.develop-next {
+  display: block;
+  margin-top: 6px;
+  color: #6b7280;
+  font-size: 16px;
+}
+
+/* Top bar as in the mathematics view: a white strip across the page with a thin line under it,
+   a bold title with the chapter under it, and a segmented progress bar where the current
+   chapter is outlined, finished chapters are filled and coming chapters are grey. */
+
+.topbar {
+  gap: 28px;
+  margin: calc(-1 * var(--shell-top, 28px)) 0 16px;
+  padding: 14px 0;
+  border: 0;
+  border-radius: 0;
+  background: #fff;
+  box-shadow: 0 0 0 100vmax #fff, 0 1px 0 100vmax var(--surface-line);
+  clip-path: inset(0 -100vmax -1px);
+}
+
+.topbar .page-title {
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.topbar-subtitle {
+  font-size: 15px;
+}
+
+.topbar-count {
+  font-size: 16px;
+}
+
+.lesson-progress {
+  gap: 9px;
+}
+
+.lesson-segment {
+  height: 9px;
+  box-sizing: border-box;
+  border: 2px solid transparent;
+  border-radius: 5px;
+  background: #cfd4e0;
+}
+
+.lesson-segment.is-complete {
+  background: var(--action);
+}
+
+.lesson-segment.is-current {
+  border-color: var(--action);
+  background: #fff;
+}
+
+@media (max-width: 760px) {
+  .app-shell {
+    --shell-top: 16px;
+  }
+}
+
+/* Welcome: the student chooses what to write about, and sees how the lesson works */
+
+.welcome .board-kicker {
+  margin-bottom: 14px;
+  font-size: 16px;
+}
+
+.board-prompt.welcome-title {
+  margin: 0 0 14px;
+  font-size: 44px;
+  font-weight: 400;
+}
+
+.topic-choices {
+  display: grid;
+  gap: 12px;
+  margin-top: 22px;
+}
+
+.topic-choice {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 20px;
+  border: 2px solid var(--surface-line);
+  border-radius: 16px;
+  background: #fff;
+  color: var(--board-ink);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 24px;
+  text-align: left;
+}
+
+.topic-choice:hover,
+.topic-choice:focus-visible {
+  border-color: var(--action);
+  outline: none;
+}
+
+.topic-icon {
+  font-size: 24px;
+}
+
+.lesson-plan {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  padding: 34px 40px 28px;
+  color: #4d515b;
+}
+
+.lesson-plan h2 {
+  margin: 0 0 22px;
+  color: #23262f;
+  font-family: "DM Serif Text", Georgia, serif;
+  font-size: 26px;
+  font-weight: 400;
+}
+
+.lesson-plan ol {
+  display: grid;
+  gap: 14px;
+  margin: 0 0 22px;
+  padding: 0;
+  counter-reset: chapter;
+  list-style: none;
+  font-size: 17px;
+}
+
+.lesson-plan li {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  counter-increment: chapter;
+}
+
+.lesson-plan li::before {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 50%;
+  background: #f1f2f6;
+  color: #444a59;
+  content: counter(chapter);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.lesson-plan p {
+  margin: 0;
+  color: #7b8090;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.lesson-plan p strong {
+  color: #5c6170;
+}
+
+.lesson-plan .lesson-plan-note {
+  margin-top: auto;
+  padding-top: 20px;
+  font-size: 13px;
+}
+
+/* Edda speaks: while she talks only her bubble is shown, and the text appears when she is done */
+
+.edda-speaking {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  text-align: left;
+}
+
+.edda-speaking .edda-bubble-wrap {
+  display: block;
+}
+
+.edda-dots {
+  display: inline-flex;
+  gap: 7px;
+  padding: 16px 20px;
+  border-color: #c9c0ee;
+}
+
+.edda-dots i {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #8f79e0;
+  animation: edda-dot 1.2s ease-in-out infinite;
+}
+
+.edda-dots i:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.edda-dots i:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes edda-dot {
+  0%,
+  60%,
+  100% {
+    opacity: 0.35;
+  }
+
+  30% {
+    opacity: 1;
+  }
+}
+
+.sound-toggle {
+  padding: 7px 14px;
+  border: 1px solid var(--surface-line);
+  border-radius: 10px;
+  background: #fff;
+  color: #2d3140;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.sound-toggle[aria-pressed="true"] {
+  border-color: #b8c8f5;
+  background: #eef3fe;
+  color: var(--action);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .edda-dots i {
+    animation: none;
+  }
 }

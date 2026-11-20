@@ -30,6 +30,10 @@ type ReviewRequest = {
   phase: string;
   goal: string;
   criteria: string[];
+  /** The writing task the student has just done, when Edda reads the text as part of that task. */
+  task?: string;
+  /** The advice the student got after the task and has now tried, when Edda looks at the text again. */
+  followUp?: string;
 };
 
 type CheckInRequest = {

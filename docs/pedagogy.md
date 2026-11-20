@@ -16,6 +16,22 @@ Varje moment på whiteboarden följer Gagnés nio steg, i den här ordningen:
 
 De elevnära målen och öppningsraderna är författade för prototypen och ska granskas av en lärare. De är inte kursplans- eller betygskriterier.
 
+## Eleven gör tankearbetet
+
+Edda ska inte göra jobbet åt eleven. Fyra regler gäller i hela lektionen:
+
+- **Leta först.** I genomgången ställer whiteboarden en fråga om varje del av exempeltexten innan delen visas, och eleven letar själv upp stället genom att klicka i texten. Först när eleven har hittat det förklarar Edda. Efter två försök, eller om AI-tjänsten inte svarar, visar Edda stället, så att ingen fastnar.
+- **Hitta skillnaden.** I jämförelserna lyser en del i det första exemplet, och eleven letar upp vad den har blivit i det andra innan Edda förklarar ändringen.
+- **Pröva och se.** Efter skrivuppgiften ger Edda en sak att pröva. Eleven ändrar i sin text och ber Edda titta igen, och Edda säger då vad som blev bättre. En omgång räcker; eleven kan också gå vidare utan att pröva.
+- **Visa i din egen text.** I egenkontrollen bockar eleven inte av påståenden utan markerar det ställe i sin egen text som visar dem. Inget skickas till AI.
+
+## Hänsyn till kognitiv belastning
+
+- **En sak i taget, som eleven själv arbetar med.** Varje del av genomgången är en egen fråga som eleven besvarar i texten, så det finns inga långa sträckor där eleven bara läser.
+- **Inga lösa trådar.** Edda avslutar med en fråga bara när eleven kan svara på den, alltså när svaret behöver ett nytt försök. Efter ett svar på rätt spår avslutar hon med ett påstående.
+- **Kort avslutning.** Exit ticketen har två frågor: en om det eleven har lärt sig och en om den egna texten.
+- **Ingen onödig väntan.** Bara rubrikerna på tavlan skrivs för hand; resten visas direkt.
+
 ## Kontrollfrågorna följer kapitlets innehåll
 
 Allt eleven får frågor om efter skrivuppgiften (återkallning, självkontroll och exit ticket) ska gälla antingen det Edda har gått igenom i kapitlets exempeltext eller det eleven just har skrivit. Frågor om delar av texten som eleven ännu inte har skrivit, eller om begrepp som inte har tagits upp, hör inte hemma i kapitlet. Exit ticketens sista fråga får peka framåt mot nästa kapitels skrivuppgift.

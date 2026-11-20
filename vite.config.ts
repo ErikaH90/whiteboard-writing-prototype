@@ -23,6 +23,8 @@ export default defineConfig({
     environment: "jsdom",
     include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
     setupFiles: ["./src/test/setup.ts"],
+    // Some tests walk a whole guided chapter, typing and clicking through every step.
+    testTimeout: 20_000,
     restoreMocks: true,
     clearMocks: true,
   },

@@ -12,7 +12,12 @@ export type ExemplarHighlight = {
   /** Exact wording from the exemplar. Must occur exactly once in the text. */
   quote: string;
   label: string;
-  /** The teacher's think-aloud on the whiteboard when this part is in focus (utmärkt text). */
+  /**
+   * The question the whiteboard asks before the part is shown (utmärkt text): the student first
+   * tries to find the part in the text themselves.
+   */
+  ask?: string;
+  /** The teacher's explanation on the whiteboard once the part has been found or shown. */
   explain?: string;
   /** Other words of the same kind, shown under the explanation (for example more linking words). */
   related?: { label: string; words: string[] };
@@ -49,19 +54,21 @@ export type ErrorHunt = {
   areas: { name: string; fix: string }[];
 };
 
+/** One step of the modelling: a comparison or a part of the exemplar text. */
+export type FlowStep = { compare: number } | { part: number };
+
 export type ExemplarFocus = {
   /** How the whiteboard introduces the walk-through of the exemplar. */
   boardNote: string;
-  /**
-   * The checks after the walk-through: the student answers each one by clicking the right part or
-   * parts among the lesson's highlighted parts in the utmärkt text. `targets` are indexes into
-   * the lesson's highlights; with several targets the student has to find them all.
-   */
-  checks: { prompt: string; targets: number[] }[];
   /** Comparisons shown before the walk-through, in order. */
   comparisons?: ExemplarComparison[];
   /** An error hunt on the whiteboard, after the walk-through. */
   hunt?: ErrorHunt;
+  /**
+   * The order of comparisons and parts, so that related things come together.
+   * Without a flow: all comparisons, then all parts.
+   */
+  flow?: FlowStep[];
   highlights: Record<ExemplarId, ExemplarHighlight[]>;
 };
 
@@ -75,20 +82,14 @@ export const exemplarLabels: Record<ExemplarId, string> = {
 export const exemplarFocus: Record<SkillId, ExemplarFocus> = {
   structure: {
     boardNote: "Vi går igenom hur exempeltexten är uppbyggd, en del i taget. Följ det som lyser gult till höger.",
-    checks: [
-      { prompt: "Klicka på tesen.", targets: [1] },
-      { prompt: "Klicka på argumenten. Det finns två.", targets: [2, 3] },
-      { prompt: "Klicka på motargumentet.", targets: [4] },
-      { prompt: "Klicka på avslutningen.", targets: [5] },
-    ],
     highlights: {
       strong: [
-        { quote: "Tallrikens tysta offer – dags att duka av köttet", label: "Rubrik som visar ämnet och ståndpunkten", explain: "Rubriken säger både vad texten handlar om och vad skribenten tycker: köttet ska bort från tallriken." },
-        { quote: "Det är hög tid att vi ifrågasätter vår köttnorm", label: "Tes: skribentens ståndpunkt", explain: "Här står tesen. Efter den här meningen vet läsaren precis vad skribenten vill." },
-        { quote: "För det första står köttindustrin för en massiv belastning på miljön.", label: "Första argumentet", explain: "”För det första” visar att nu kommer det första argumentet. Hela stycket handlar om en sak: miljön." },
-        { quote: "Utöver miljöaspekten väcker den industriella djurhållningen en djupt etisk fråga.", label: "Andra argumentet", explain: "Nytt stycke, nytt argument. Nu handlar det om djuren." },
-        { quote: "Visst hävdas det ofta att kött är en oumbärlig källa till protein och järn", label: "Motargument som skribenten bemöter", explain: "Skribenten tar upp vad andra brukar säga och svarar sedan på det. Då blir texten mer övertygande." },
-        { quote: "Sammanfattningsvis är köttnormen ett systemfel som vi måste börja montera ned.", label: "Avslutning som knyter tillbaka till tesen", explain: "”Sammanfattningsvis” visar att texten avslutas. Skribenten knyter ihop argumenten och går tillbaka till tesen." },
+        { quote: "Tallrikens tysta offer – dags att duka av köttet", ask: "Klicka på rubriken.", label: "Rubrik som visar ämnet och ståndpunkten", explain: "Rubriken säger både vad texten handlar om och vad skribenten tycker: köttet ska bort från tallriken." },
+        { quote: "Det är hög tid att vi ifrågasätter vår köttnorm", ask: "Var står tesen, alltså det skribenten vill övertyga dig om?", label: "Tes: skribentens ståndpunkt", explain: "Här står tesen. Efter den här meningen vet läsaren precis vad skribenten vill." },
+        { quote: "För det första står köttindustrin för en massiv belastning på miljön.", ask: "Var börjar det första argumentet?", label: "Första argumentet", explain: "”För det första” visar att nu kommer det första argumentet. Hela stycket handlar om en sak: miljön." },
+        { quote: "Utöver miljöaspekten väcker den industriella djurhållningen en djupt etisk fråga.", ask: "Var börjar det andra argumentet?", label: "Andra argumentet", explain: "Nytt stycke, nytt argument. Nu handlar det om djuren." },
+        { quote: "Visst hävdas det ofta att kött är en oumbärlig källa till protein och järn", ask: "Var tar skribenten upp vad andra tycker, alltså ett motargument?", label: "Motargument som skribenten bemöter", explain: "Skribenten tar upp vad andra brukar säga och svarar sedan på det. Då blir texten mer övertygande." },
+        { quote: "Sammanfattningsvis är köttnormen ett systemfel som vi måste börja montera ned.", ask: "Var börjar avslutningen?", label: "Avslutning som knyter tillbaka till tesen", explain: "”Sammanfattningsvis” visar att texten avslutas. Skribenten knyter ihop argumenten och går tillbaka till tesen." },
       ],
       basic: [
         { quote: "Alla borde äta vegetarisk mat!", label: "Rubrik som visar ståndpunkten" },
@@ -134,20 +135,19 @@ export const exemplarFocus: Record<SkillId, ExemplarFocus> = {
         ],
       },
     ],
-    checks: [
-      { prompt: "Klicka på sakargumentet.", targets: [1] },
-      { prompt: "Klicka på motargumentet.", targets: [4] },
-      { prompt: "Klicka på bemötandet, alltså svaret på motargumentet.", targets: [5] },
+    flow: [
+      { compare: 0 },
+      { part: 0 }, { part: 1 }, { part: 2 }, { part: 3 }, { part: 6 }, { part: 4 }, { part: 5 },
     ],
     highlights: {
       strong: [
-        { quote: "För det första står köttindustrin för en massiv belastning på miljön.", label: "Argument", explain: "Ett argument är ett skäl som stödjer tesen. Här är skälet miljön." },
-        { quote: "Att föda upp djur för slakt kräver enorma mängder mark, vatten och foder, vilket i sin tur genererar orimligt höga koldioxidutsläpp.", label: "Sakargument", explain: "Ett sakargument bygger på fakta som går att kontrollera, inte bara på vad skribenten tycker. Det gör argumentet utvecklat." },
-        { quote: "När vi väljer biffen bidrar vi direkt till en accelererad klimatförsämring.", label: "Följd: vad det leder till", explain: "Skribenten visar vad valet leder till. Läsaren får se varför argumentet spelar roll." },
-        { quote: "Att betrakta levande, kännande varelser som blotta råvaror på ett löpande band är inhumant.", label: "Pathos: argument som väcker känslor", explain: "Här vill skribenten att läsaren ska känna något. Det kallas pathos. Sakargumentet nyss talade till förnuftet; det kallas logos." },
-        { quote: "Visst hävdas det ofta att kött är en oumbärlig källa till protein och järn", label: "Motargument", explain: "Skribenten tar upp vad andra brukar säga. Det visar att hen har tänkt igenom frågan." },
-        { quote: "en väl sammansatt vegetarisk kost både täcker näringsbehovet och minskar risken för välfärdssjukdomar", label: "Bemötande: svar på motargumentet", explain: "Motargumentet får ett svar med ett skäl. Då står skribentens tes kvar, starkare än förut." },
-        { quote: "klimatet, djuren och vår egen hälsa", label: "Triad: tre saker i rad", explain: "Tre saker i rad ger rytm och gör att läsaren minns dem. Det kallas en triad." },
+        { quote: "För det första står köttindustrin för en massiv belastning på miljön.", ask: "Klicka på meningen där skribenten ger sitt första skäl.", label: "Argument", explain: "Ett argument är ett skäl som stödjer tesen. Här är skälet miljön." },
+        { quote: "Att föda upp djur för slakt kräver enorma mängder mark, vatten och foder, vilket i sin tur genererar orimligt höga koldioxidutsläpp.", ask: "Var stöder skribenten sitt skäl med fakta?", label: "Sakargument", explain: "Ett sakargument bygger på fakta som går att kontrollera, inte bara på vad skribenten tycker. Det gör argumentet utvecklat." },
+        { quote: "När vi väljer biffen bidrar vi direkt till en accelererad klimatförsämring.", ask: "Var visar skribenten vad vårt val leder till?", label: "Följd: vad det leder till", explain: "Skribenten visar vad valet leder till. Läsaren får se varför argumentet spelar roll." },
+        { quote: "Att betrakta levande, kännande varelser som blotta råvaror på ett löpande band är inhumant.", ask: "Vilken mening vill väcka känslor hos läsaren?", label: "Pathos: argument som väcker känslor", explain: "Här vill skribenten att läsaren ska känna något. Det kallas pathos. Sakargumentet nyss talade till förnuftet; det kallas logos." },
+        { quote: "Visst hävdas det ofta att kött är en oumbärlig källa till protein och järn", ask: "Var tar skribenten upp vad andra brukar säga?", label: "Motargument", explain: "Skribenten tar upp vad andra brukar säga. Det visar att hen har tänkt igenom frågan." },
+        { quote: "en väl sammansatt vegetarisk kost både täcker näringsbehovet och minskar risken för välfärdssjukdomar", ask: "Var svarar skribenten på motargumentet?", label: "Bemötande: svar på motargumentet", explain: "Motargumentet får ett svar med ett skäl. Då står skribentens tes kvar, starkare än förut." },
+        { quote: "klimatet, djuren och vår egen hälsa", ask: "Var räknar skribenten upp tre saker i rad?", label: "Triad: tre saker i rad", explain: "Tre saker i rad ger rytm och gör att läsaren minns dem. Det kallas en triad." },
       ],
       basic: [
         { quote: "Det kostar många onödiga koldioxidutsläpp att föda upp ett djur till slakt.", label: "Kort förklaring – jämför med den utmärkta texten" },
@@ -190,20 +190,16 @@ export const exemplarFocus: Record<SkillId, ExemplarFocus> = {
         ],
       },
     ],
-    checks: [
-      { prompt: "Klicka på de två ställen som visar kontrast, alltså en motsats.", targets: [0, 5] },
-      { prompt: "Klicka på orden som visar en konsekvens.", targets: [3] },
-      { prompt: "Klicka på ordet som visar att texten avslutas.", targets: [6] },
-    ],
+
     highlights: {
       strong: [
-        { quote: "Ändå", label: "Kontrast", explain: "”Ändå” ställer två saker mot varandra: vi vet att grönt är bra, men butikerna är fulla av kött.", related: { label: "Fler ord för kontrast", words: ["däremot", "dock", "trots att", "å andra sidan", "medan"] } },
-        { quote: "för konsekvenserna av vår kosthållning", label: "Orsak", explain: "Det lilla ordet ”för” visar varför vi ska ifrågasätta köttnormen. Efter ordet kommer skälet.", related: { label: "Fler ord för orsak", words: ["eftersom", "därför att", "på grund av"] } },
-        { quote: "För det första", label: "Struktur: ordning", explain: "Orden visar ordningen. Läsaren förstår att fler argument kommer.", related: { label: "Fler ord för struktur och exempel", words: ["för det andra", "exempelvis", "framför allt", "sammanfattningsvis"] } },
-        { quote: "vilket i sin tur", label: "Konsekvens", explain: "Orden visar vad något leder till: uppfödningen kräver resurser, och följden blir utsläpp.", related: { label: "Fler ord för konsekvens", words: ["därför", "följaktligen", "vilket innebär att"] } },
-        { quote: "Utöver miljöaspekten", label: "Tillägg", explain: "Orden pekar tillbaka på förra stycket och lägger till något nytt. Så hänger styckena ihop.", related: { label: "Fler ord för tillägg", words: ["dessutom", "även", "också", "ytterligare"] } },
-        { quote: "men detta bemöts", label: "Kontrast: svaret på motargumentet", explain: "”Men” vänder från motargumentet till skribentens svar." },
-        { quote: "Sammanfattningsvis", label: "Struktur: avslutning", explain: "Ordet säger till läsaren att nu knyts allt ihop." },
+        { quote: "Ändå", ask: "Vilket ord i inledningen visar en kontrast, alltså en motsats?", label: "Kontrast", explain: "”Ändå” ställer två saker mot varandra: vi vet att grönt är bra, men butikerna är fulla av kött.", related: { label: "Fler ord för kontrast", words: ["däremot", "dock", "trots att", "å andra sidan", "medan"] } },
+        { quote: "för konsekvenserna av vår kosthållning", ask: "Vilka ord i inledningen visar en orsak?", label: "Orsak", explain: "Det lilla ordet ”för” visar varför vi ska ifrågasätta köttnormen. Efter ordet kommer skälet.", related: { label: "Fler ord för orsak", words: ["eftersom", "därför att", "på grund av"] } },
+        { quote: "För det första", ask: "Vilka ord visar att det första argumentet börjar?", label: "Struktur: ordning", explain: "Orden visar ordningen. Läsaren förstår att fler argument kommer.", related: { label: "Fler ord för struktur och exempel", words: ["för det andra", "exempelvis", "framför allt", "sammanfattningsvis"] } },
+        { quote: "vilket i sin tur", ask: "Vilka ord visar en följd, alltså vad något leder till?", label: "Konsekvens", explain: "Orden visar vad något leder till: uppfödningen kräver resurser, och följden blir utsläpp.", related: { label: "Fler ord för konsekvens", words: ["därför", "följaktligen", "vilket innebär att"] } },
+        { quote: "Utöver miljöaspekten", ask: "Vilka ord knyter an till förra stycket och lägger till något nytt?", label: "Tillägg", explain: "Orden pekar tillbaka på förra stycket och lägger till något nytt. Så hänger styckena ihop.", related: { label: "Fler ord för tillägg", words: ["dessutom", "även", "också", "ytterligare"] } },
+        { quote: "men detta bemöts", ask: "Vilka ord vänder från motargumentet till skribentens svar?", label: "Kontrast: svaret på motargumentet", explain: "”Men” vänder från motargumentet till skribentens svar." },
+        { quote: "Sammanfattningsvis", ask: "Vilket ord visar att texten avslutas?", label: "Struktur: avslutning", explain: "Ordet säger till läsaren att nu knyts allt ihop." },
       ],
       basic: [
         { quote: "Ändå", label: "Motsats" },
@@ -303,15 +299,18 @@ export const exemplarFocus: Record<SkillId, ExemplarFocus> = {
         ],
       },
     ],
-    checks: [
-      { prompt: "Klicka på stället där en mening börjar med en bisats.", targets: [1] },
+    flow: [
+      { compare: 0 }, { part: 4 },
+      { compare: 1 }, { part: 1 }, { part: 3 },
+      { compare: 2 }, { part: 0 }, { part: 2 },
     ],
     highlights: {
       strong: [
-        { quote: "Att blunda för köttets baksidor är inte bara kortsiktigt; det är ohållbart.", label: "Kort mening efter en lång", explain: "En lång mening följs av en kort och bestämd. Växlingen ger texten rytm." },
-        { quote: "När vi väljer biffen", label: "Meningen börjar med en bisats", explain: "Meningen börjar med en bisats, inte med ”vi”. Det ger variation." },
-        { quote: "Det handlar inte längre om en personlig preferens, utan om en överlevnadsfråga", label: "Två led ställs mot varandra", explain: "Två led ställs mot varandra: inte det ena, utan det andra. Det gör tanken tydlig." },
-        { quote: "Genom att ställa om till en växtbaserad kost", label: "Meningen börjar med hur något görs", explain: "Meningen börjar med hur vi kan göra, i stället för med vem som gör det." },
+        { quote: "Att blunda för köttets baksidor är inte bara kortsiktigt; det är ohållbart.", ask: "Var följs en längre sats av en kort och bestämd?", label: "Kort mening efter en lång", explain: "En lång mening följs av en kort och bestämd. Växlingen ger texten rytm." },
+        { quote: "När vi väljer biffen", ask: "Vilken mening börjar med en bisats?", label: "Meningen börjar med en bisats", explain: "Meningen börjar med en bisats, inte med ”vi”. Det ger variation." },
+        { quote: "Det handlar inte längre om en personlig preferens, utan om en överlevnadsfråga", ask: "Var ställs två saker mot varandra: inte det ena, utan det andra?", label: "Två led ställs mot varandra", explain: "Två led ställs mot varandra: inte det ena, utan det andra. Det gör tanken tydlig." },
+        { quote: "Genom att ställa om till en växtbaserad kost", ask: "Vilken mening börjar med hur vi kan göra något?", label: "Meningen börjar med hur något görs", explain: "Meningen börjar med hur vi kan göra, i stället för med vem som gör det." },
+        { quote: "accelererad klimatförsämring", ask: "Var har skribenten valt ett precist uttryck?", label: "Precist ordval", explain: "I stället för ”sämre klimat” står ett exaktare uttryck. Det är samma grepp som i exemplet nyss." },
       ],
       basic: [
         { quote: "Jag tycker att det är helt fel. Det finns många anledningar till att jag tycker det.", label: "Två korta meningar med samma uppbyggnad" },
@@ -322,7 +321,6 @@ export const exemplarFocus: Record<SkillId, ExemplarFocus> = {
   },
   language: {
     boardNote: "Först tittar vi på hur exempeltexten till höger använder skiljetecken och ordval. Sedan får du leta språkfel i en annan text, här på tavlan.",
-    checks: [],
     hunt: {
       intro: "Här är en påhittad elevtext med flera språkfel. Kan du hitta dem?",
       segments: [
@@ -352,10 +350,10 @@ export const exemplarFocus: Record<SkillId, ExemplarFocus> = {
     },
     highlights: {
       strong: [
-        { quote: "kortsiktigt; det är ohållbart", label: "Semikolon binder ihop två påståenden som hör ihop", explain: "Semikolon binder ihop två påståenden som hör nära ihop, utan att en ny mening börjar." },
-        { quote: "mark, vatten och foder", label: "Komma i uppräkning", explain: "Komma mellan orden i en uppräkning, och ”och” före det sista." },
-        { quote: "inhumant", label: "Ordval som passar en argumenterande text", explain: "Ett precist ord som passar en argumenterande text." },
-        { quote: "oumbärlig källa", label: "Precist ordval", explain: "”Oumbärlig” betyder att man inte klarar sig utan något. Ordvalet är exakt." },
+        { quote: "kortsiktigt; det är ohållbart", ask: "Var binder ett semikolon ihop två påståenden?", label: "Semikolon binder ihop två påståenden som hör ihop", explain: "Semikolon binder ihop två påståenden som hör nära ihop, utan att en ny mening börjar." },
+        { quote: "mark, vatten och foder", ask: "Var står ett komma mellan orden i en uppräkning?", label: "Komma i uppräkning", explain: "Komma mellan orden i en uppräkning, och ”och” före det sista." },
+        { quote: "inhumant", ask: "Klicka på ett ord som passar en formell text bättre än ”elakt”.", label: "Ordval som passar en argumenterande text", explain: "Ett precist ord som passar en argumenterande text." },
+        { quote: "oumbärlig källa", ask: "Vilka ord betyder ”något man inte klarar sig utan”?", label: "Precist ordval", explain: "”Oumbärlig” betyder att man inte klarar sig utan något. Ordvalet är exakt." },
       ],
       basic: [
         { quote: "helt fel", label: "Vardagligt ordval" },
@@ -411,4 +409,12 @@ export function markExemplar(text: ExemplarText, highlights: ExemplarHighlight[]
   });
 
   return { blocks, legend };
+}
+
+/** The modelling steps of a chapter in order. */
+export function modellingFlow(focus: ExemplarFocus): FlowStep[] {
+  return focus.flow ?? [
+    ...(focus.comparisons ?? []).map((_, index) => ({ compare: index })),
+    ...focus.highlights.strong.map((_, index) => ({ part: index })),
+  ];
 }

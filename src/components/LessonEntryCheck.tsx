@@ -82,20 +82,20 @@ export default function LessonEntryCheck({
       {/* The lesson opens by catching attention and stating the goal, before prior knowledge is recalled. */}
       <BoardStep pause>
         <p className="board-kicker">{lesson.shortTitle.toUpperCase()}</p>
-        <p className="board-hook"><Written>{lesson.hook}</Written></p>
+        <p className="board-hook"><Written byHand>{lesson.hook}</Written></p>
       </BoardStep>
       <BoardStep pause>
         <p className="board-kicker">{lesson.shortTitle.toUpperCase()}</p>
-        <h2 className="board-prompt"><Written>Målet med lektionen</Written></h2>
-        <p className="activity-instruction"><Written>{lesson.learnerGoal}</Written></p>
+        <h2 className="board-prompt"><Written byHand>Målet med lektionen</Written></h2>
+        <p className="activity-instruction"><Written spoken>{lesson.learnerGoal}</Written></p>
         <p className="board-small-note curriculum-reference">Ur kursplanen: <Written>{lesson.goal}</Written></p>
       </BoardStep>
       <BoardStep>
       <p className="board-kicker"><Written>{lesson.entryCheck.previousTopic}</Written></p>
       <h2 className="board-prompt" id="entry-check-title">
-        <Written>{lesson.entryCheck.previousTopic === "Dina förkunskaper" ? "Hämta fram det du redan vet" : "Börja med att återkalla"}</Written>
+        <Written byHand>{lesson.entryCheck.previousTopic === "Dina förkunskaper" ? "Hämta fram det du redan vet" : "Börja med att återkalla"}</Written>
       </h2>
-      <p className="entry-check-question"><Written>{question}</Written></p>
+      <p className="entry-check-question"><Written spoken>{question}</Written></p>
       <AfterWriting>
 
       <form className="entry-check-form" onSubmit={submitAnswer}>

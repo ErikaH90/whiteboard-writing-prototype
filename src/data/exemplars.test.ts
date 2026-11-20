@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { exemplarFocus, exemplarTexts, markExemplar, type ExemplarId } from "./exemplars";
+import { exemplarFocus, exemplarTexts, markExemplar, modellingFlow, type ExemplarId } from "./exemplars";
 
 function countOccurrences(text: string, quote: string) {
   return text.split(quote).length - 1;
@@ -31,19 +31,20 @@ describe("exemplar highlights", () => {
     }
   });
 
-  it("points every text check at parts the whiteboard has walked through", () => {
+  it("gives every part of the walk-through a question to answer first and an explanation for afterwards", () => {
     for (const [skillId, focus] of Object.entries(exemplarFocus)) {
-      // A chapter checks understanding either in the exemplar text or with an error hunt on the board.
-      expect(focus.checks.length + (focus.hunt ? 1 : 0), skillId).toBeGreaterThan(0);
-      for (const check of focus.checks) {
-        expect(check.prompt.trim(), skillId).not.toBe("");
-        expect(check.targets.length, check.prompt).toBeGreaterThan(0);
-        expect(new Set(check.targets).size, check.prompt).toBe(check.targets.length);
-        for (const target of check.targets) {
-          expect(focus.highlights.strong[target], check.prompt).toBeDefined();
-        }
+      for (const part of focus.highlights.strong) {
+        expect(part.ask?.trim(), `${skillId}: ${part.quote}`).toBeTruthy();
+        expect(part.ask, `${skillId}: ${part.quote}`).toMatch(/[.?]$/);
+        // The question must not give the answer away by quoting it.
+        expect(part.ask, `${skillId}: ${part.quote}`).not.toContain(part.quote);
+        expect(part.explain?.trim(), `${skillId}: ${part.quote}`).toBeTruthy();
       }
     }
+  });
+
+  it("has an error hunt on the whiteboard in the language chapter", () => {
+    expect(exemplarFocus.language.hunt).toBeDefined();
   });
 
   it("has an error hunt in the language chapter whose questions point at real errors", () => {
@@ -62,13 +63,14 @@ describe("exemplar highlights", () => {
     expect(hunt.segments.some((segment) => segment.label === "Inget fel")).toBe(true);
   });
 
-  it("asks the first chapter for thesis, arguments, counter-argument and conclusion", () => {
-    const parts = exemplarFocus.structure.highlights.strong;
-    expect(exemplarFocus.structure.checks.map((check) => check.targets.map((target) => parts[target].label))).toEqual([
-      ["Tes: skribentens ståndpunkt"],
-      ["Första argumentet", "Andra argumentet"],
-      ["Motargument som skribenten bemöter"],
-      ["Avslutning som knyter tillbaka till tesen"],
+  it("asks the first chapter for heading, thesis, arguments, counter-argument and conclusion", () => {
+    expect(exemplarFocus.structure.highlights.strong.map((part) => part.label)).toEqual([
+      "Rubrik som visar ämnet och ståndpunkten",
+      "Tes: skribentens ståndpunkt",
+      "Första argumentet",
+      "Andra argumentet",
+      "Motargument som skribenten bemöter",
+      "Avslutning som knyter tillbaka till tesen",
     ]);
   });
 
@@ -139,6 +141,16 @@ describe("exemplar highlights", () => {
     const labels = exemplarFocus.reasoning.highlights.strong.map((part) => part.label).join(" | ");
     for (const term of ["Argument", "Sakargument", "Motargument", "Bemötande", "Pathos", "Triad"]) {
       expect(labels).toContain(term);
+    }
+  });
+
+  it("uses every comparison and every part exactly once in each chapter", () => {
+    for (const [skillId, focus] of Object.entries(exemplarFocus)) {
+      const flow = modellingFlow(focus);
+      const partsInFlow = flow.flatMap((step) => "part" in step ? [step.part] : []);
+      const comparisonsInFlow = flow.flatMap((step) => "compare" in step ? [step.compare] : []);
+      expect([...partsInFlow].sort((a, b) => a - b), skillId).toEqual(focus.highlights.strong.map((_, index) => index));
+      expect([...comparisonsInFlow].sort((a, b) => a - b), skillId).toEqual((focus.comparisons ?? []).map((_, index) => index));
     }
   });
 });

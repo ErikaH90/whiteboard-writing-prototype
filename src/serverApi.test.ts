@@ -501,4 +501,112 @@ describe("server AI API", () => {
     });
     expect(retry.body).toEqual({ kind: "retry", feedback: "Vad vill skribenten?" });
   });
+
+  it("tells the model about the writing task when Edda reads the text after it", async () => {
+    const client = mockClient(reviewModelResult("Skoldagen"));
+    const result = await post(createApiApp({ client }), "/api/review", {
+      draft: "Skoldagen borde börja senare.",
+      lessonTitle: "Bygg upp en argumenterande text",
+      phase: "Träna själv",
+      goal: "Mål",
+      criteria: ["Textens struktur och innehåll"],
+      task: "Börja med att skriva din inledning med tes.",
+    });
+
+    expect(result.status).toBe(200);
+    const call = client.chat.completions.create.mock.calls[0] as unknown as [{ messages: { role: string; content: string }[] }];
+    const [system, user] = call[0].messages;
+    expect(system.content).toContain("Ge högst en förbättringspunkt.");
+    expect(system.content).toContain("aldrig som ett fel");
+    expect(JSON.parse(user.content)).toMatchObject({ task: "Börja med att skriva din inledning med tes." });
+
+    // When the student has tried the advice, Edda is asked what got better and gives no new points.
+    const followUpClient = mockClient(reviewModelResult("Skoldagen"));
+    await post(createApiApp({ client: followUpClient }), "/api/review", {
+      draft: "Skoldagen borde börja senare, eftersom man lär sig bättre utvilad.",
+      lessonTitle: "Bygg upp en argumenterande text",
+      phase: "Träna själv",
+      goal: "Mål",
+      criteria: [],
+      task: "Börja med att skriva din inledning med tes.",
+      followUp: "Pröva att lägga till ett skäl efter tesen.",
+    });
+    const followUpCall = followUpClient.chat.completions.create.mock.calls[0] as unknown as [{ messages: { role: string; content: string }[] }];
+    expect(followUpCall[0].messages[0].content).toContain("findings ska vara en tom lista");
+    expect(JSON.parse(followUpCall[0].messages[1].content)).toMatchObject({ followUp: "Pröva att lägga till ett skäl efter tesen." });
+
+    const tooLong = await post(createApiApp({ client }), "/api/review", {
+      draft: "Skoldagen borde börja senare.",
+      lessonTitle: "Bygg upp en argumenterande text",
+      phase: "Träna själv",
+      goal: "Mål",
+      criteria: [],
+      task: "x".repeat(301),
+    });
+    expect(tooLong.status).toBe(400);
+  });
+
+  it("lets Edda end with a statement when the answer is on track, but requires a question for a new try", async () => {
+    const onTrack = await post(createApiApp({ client: mockClient({ kind: "on_track", level: 2, feedback: "Du förklarar vad en tes gör i texten." }) }), "/api/check-in", {
+      mode: "text",
+      question: "Vad är en tes?",
+      answer: "Det skribenten vill övertyga läsaren om.",
+      focus: "tesens funktion",
+    });
+    expect(onTrack.body).toEqual({ kind: "on_track", feedback: "Du förklarar vad en tes gör i texten.", level: 2 });
+
+    const retry = await post(createApiApp({ client: mockClient({ kind: "retry", level: 1, feedback: "Titta en gång till." }) }), "/api/check-in", {
+      mode: "text",
+      question: "Vad är en tes?",
+      answer: "Vet inte.",
+      focus: "tesens funktion",
+    });
+    expect(retry.status).toBe(502);
+  });
+
+  it("reads Edda's guidance aloud and reuses the audio for the same text", async () => {
+    const speech = vi.fn(async (_text: string) => Buffer.from("ljud"));
+    const app = createApiApp({ client: null, speech });
+    const request = async (body: unknown) => {
+      const server = createServer(app);
+      await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+      const address = server.address() as AddressInfo;
+      try {
+        const response = await fetch(`http://127.0.0.1:${address.port}/api/speech`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        return { status: response.status, type: response.headers.get("content-type") };
+      } finally {
+        await new Promise<void>((resolve, reject) => {
+          server.close((error) => error ? reject(error) : resolve());
+        });
+      }
+    };
+
+    expect(await request({ text: "Här står tesen." })).toMatchObject({ status: 200, type: expect.stringContaining("audio/mpeg") });
+    expect(await request({ text: "Här står tesen." })).toMatchObject({ status: 200 });
+    expect(speech).toHaveBeenCalledTimes(1);
+    expect(speech).toHaveBeenCalledWith("Här står tesen.");
+
+    // Long or missing texts are refused before the speech service is called.
+    expect((await request({ text: "x".repeat(601) })).status).toBe(400);
+    expect((await request({})).status).toBe(400);
+    expect(speech).toHaveBeenCalledTimes(1);
+
+    const withoutVoice = createApiApp({ client: null, speech: null });
+    const server = createServer(withoutVoice);
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    const address = server.address() as AddressInfo;
+    const response = await fetch(`http://127.0.0.1:${address.port}/api/speech`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: "Här står tesen." }),
+    });
+    await new Promise<void>((resolve, reject) => {
+      server.close((error) => error ? reject(error) : resolve());
+    });
+    expect(response.status).toBe(503);
+  });
 });
