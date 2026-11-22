@@ -72,6 +72,7 @@ Testerna ska skydda elevens självständiga skrivande, lektionsprogressionen, se
 - **EX-04:** exempeltexten visas bara under kapitlets öppning och modellering; från skrivuppgiften och framåt, i återkallningsrundan och i slutdiagnosen visas den inte. Eleven har ingen kontroll för att växla mellan exempeltext och egen text, och utkastet ändras inte när ytan byter innehåll.
 - **PED-20:** felsökningen i kapitel 5 görs på whiteboarden: varje del av den påhittade texten går att klicka på, frågor med två fel kräver båda, fel val ger en knuff utan förklaring, och efter sista frågan visas den rättade texten. Två försök eller ett fel från AI-tjänsten räcker för att få gå vidare.
 - **VOICE-02:** när en pratbubbla med Eddas text syns på tavlan läser hon inget högt; texten visas direkt och inget röstanrop görs.
+- **VOICE-03:** en genomgång av varje steg i alla sex kapitel och slutrepetitionen med rösten på (`tests/e2e/edda-voice-audit.spec.ts`): medan Edda pratar syns bara rubrik och bubblan med punkter på tavlan.
 - **VOICE-01:** medan Edda läser upp sin vägledning visas bara bubblan **Edda berättar**; texten, knapparna och svarsfälten visas först när uppläsningen är klar. Hela texten finns för hjälpmedel under tiden.
 - **VOICE-02:** med ljudet avstängt, utan röst på servern eller om uppspelningen blockeras visas texten direkt och lektionen fortsätter som vanligt. Automatiska tester använder aldrig den riktiga rösttjänsten.
 - **START-01:** lektionen öppnar med en välkomstsida där eleven väljer ett av tre ämnen att skriva om; valet blir skrivuppgiften och sparas lokalt, och skrivytan visar kapitlen och arbetsgången. Inget AI-anrop görs.
@@ -79,7 +80,7 @@ Testerna ska skydda elevens självständiga skrivande, lektionsprogressionen, se
 - **NAV-02:** ett fel från AI-tjänsten i en kontroll öppnar **Nästa steg** så att eleven inte fastnar.
 - **PED-21:** i genomgången visas varken citat eller förklaring för en del förrän eleven har hittat den i texten eller Edda har visat den efter två försök; alla kapitlets delar är klickbara medan eleven letar. I jämförelserna gäller samma sak för de ändrade ställena i det andra exemplet. Ett fel från AI-tjänsten gör att Edda visar stället.
 - **PED-22:** efter Eddas råd på skrivuppgiften kan eleven ändra i texten och be Edda titta igen; förfrågan innehåller rådet, Edda ger inga nya punkter och loopen har högst en omgång.
-- **PED-23:** egenkontrollen kräver att eleven markerar ett ställe i sin egen text för varje påstående; inget AI-anrop görs och texten ändras inte.
+- **PED-23:** i egenkontrollen visar Edda på elevens begäran stället i elevens text med gult; saknas stället sägs det och inget markeras; texten ändras aldrig.
 - **CHECK-10:** Eddas svar slutar med en fråga endast när eleven ska försöka igen; servern kräver frågetecken för sådana svar men inte för svar på rätt spår.
 - **PED-19:** i kapitel 1–5 föregås skrivuppgiften av två exempel på den del som ska skrivas; eleven väljer det bästa genom att klicka, etiketterna avslöjar inte svaret i förväg, och i guidat läge visas uppgiften först när valet är gjort (rätt, två försök eller fel från AI-tjänsten).
 - **NAV-03:** skrivuppgiften kan lämnas till Edda först när elevens text inte är tom. Inget AI-anrop görs medan eleven skriver, bara när eleven väljer **Jag är klar – låt Edda läsa**. Ett fel från AI-tjänsten låser inte eleven.

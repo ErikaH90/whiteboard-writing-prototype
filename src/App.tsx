@@ -13,7 +13,7 @@ import { readSavedTopic, topicStorageKey, writingTopics, type WritingTopic } fro
 import { useFitToHeight } from "./lib/useFitToHeight";
 import { setSoundOn, useSoundOn } from "./lib/eddaVoice";
 import { useExemplarAudio } from "./lib/useExemplarAudio";
-import { AfterWriting, BoardSequence, BoardStep, Written } from "./components/BoardWriting";
+import { AfterWriting, BoardSequence, BoardStep, Written, WhenWritten } from "./components/BoardWriting";
 import { finalRecallQuestions, lessons, phases, type LearningEvidence, type SkillId } from "./data/lessons";
 import {
   reviewDraft,
@@ -21,6 +21,7 @@ import {
   submitCheckIn,
   type CheckInFeedback,
   type ReviewFeedback,
+  requestLocate,
 } from "./lib/coachApi";
 import {
   clearLearnerProfile,
@@ -137,7 +138,12 @@ function App() {
   const [popoverPosition, setPopoverPosition] = useState({ left: 8, top: 8 });
   // Self-check: for each statement the student marks the place in their own text that shows it.
   const [selfMarks, setSelfMarks] = useState<Record<string, string>>({});
-  const [selfCheckHint, setSelfCheckHint] = useState(false);
+  const [selfCheck, setSelfCheck] = useState<
+    | { key: string; state: "loading" | "empty" | "missing" }
+    | { key: string; state: "error"; message: string }
+    | { key: string; state: "shown"; start: number; end: number; draft: string }
+    | null
+  >(null);
   // The advice Edda gave after a writing task, kept while the student tries it in the text.
   const [taskAdvice, setTaskAdvice] = useState<{ board: string; message: string; reviewedDraft: string; round: 1 | 2 } | null>(null);
   const [saveError, setSaveError] = useState(savedDraft.error);
@@ -165,10 +171,16 @@ function App() {
     && !findings?.some((finding) => finding.start < reviewFeedback.success.end && reviewFeedback.success.start < finding.end)
     ? reviewFeedback.success
     : null;
-  const textMarks = [
-    ...(findings ?? []).map((finding) => ({ kind: "finding" as const, start: finding.start, end: finding.end, finding })),
-    ...(strength ? [{ kind: "strength" as const, start: strength.start, end: strength.end }] : []),
-  ].sort((a, b) => a.start - b.start);
+  // Edda's yellow mark from the self-check belongs to the text version she read and to that step only.
+  const selfSpot = selfCheck?.state === "shown" && selfCheck.draft === activeDraft && selfCheck.key.startsWith(`${lessonIndex}-${phaseIndex}:`) && phaseIndex === 3
+    ? selfCheck
+    : null;
+  const textMarks = selfSpot
+    ? [{ kind: "self" as const, start: selfSpot.start, end: selfSpot.end }]
+    : [
+      ...(findings ?? []).map((finding) => ({ kind: "finding" as const, start: finding.start, end: finding.end, finding })),
+      ...(strength ? [{ kind: "strength" as const, start: strength.start, end: strength.end }] : []),
+    ].sort((a, b) => a.start - b.start);
   const wordCount = useMemo(() => activeDraft.trim().split(/\s+/).filter(Boolean).length, [activeDraft]);
   const recommendedLessonIndex = reviewFeedback?.findings.length
     ? lessons.findIndex((item) => item.skillIds.includes(reviewFeedback.findings[0].category))
@@ -219,7 +231,7 @@ function App() {
     setLessonIndex(index);
     setPhaseIndex(0);
     setShowHint(false);
-    setSelfCheckHint(false);
+    setSelfCheck(null);
     setReviewFeedback(null);
     setActiveFinding(null);
     setIsRevising(false);
@@ -249,7 +261,7 @@ function App() {
     reviewRequestId.current += 1;
     setPhaseIndex(index);
     setShowHint(false);
-    setSelfCheckHint(false);
+    setSelfCheck(null);
     setReviewFeedback(null);
     setActiveFinding(null);
     setIsRevising(false);
@@ -303,15 +315,31 @@ function App() {
   }
 
   /** Self-check: the student selects the place in their own text that shows the statement. */
-  function markInOwnText(item: string) {
-    const editor = editorRef.current;
-    const selected = editor ? draft.slice(editor.selectionStart, editor.selectionEnd).trim() : "";
-    if (!selected) {
-      setSelfCheckHint(true);
+  // The self-check: on the student's request Edda shows in yellow where the text shows the statement.
+  async function showInOwnText(item: string) {
+    const key = `${boardKey}:${item}`;
+    const checkedDraft = draft;
+    if (!checkedDraft.trim()) {
+      setSelfCheck({ key, state: "empty" });
       return;
     }
-    setSelfCheckHint(false);
-    setSelfMarks((current) => ({ ...current, [`${boardKey}:${item}`]: selected.length > 160 ? `${selected.slice(0, 157)}…` : selected }));
+    setSelfCheck({ key, state: "loading" });
+    try {
+      const place = await requestLocate(checkedDraft, item);
+      if (!place.found) {
+        setSelfMarks((current) => {
+          const next = { ...current };
+          delete next[key];
+          return next;
+        });
+        setSelfCheck({ key, state: "missing" });
+        return;
+      }
+      setSelfMarks((current) => ({ ...current, [key]: place.quote.length > 160 ? `${place.quote.slice(0, 157)}…` : place.quote }));
+      setSelfCheck({ key, state: "shown", start: place.start, end: place.end, draft: checkedDraft });
+    } catch (error) {
+      setSelfCheck({ key, state: "error", message: error instanceof Error ? error.message : "Edda kunde inte läsa texten just nu." });
+    }
   }
 
   function startLesson(chosen: WritingTopic) {
@@ -832,7 +860,8 @@ function App() {
                           {showAnswer ? (
                             <>
                               <p className="board-prompt"><Written byHand>{pair.label}</Written></p>
-                              {eddaResponse}
+                              {/* Edda says her explanation first; her written bubble comes when she is quiet. */}
+                              <WhenWritten>{eddaResponse}</WhenWritten>
                               <p className="compare-quote"><span className="compare-label">{item.simpleTag}</span><Written>{`”${pair.simple}”`}</Written></p>
                               <p className="compare-quote is-developed"><span className="compare-label">{item.developedTag}</span><Written>{`”${pair.developed}”`}</Written></p>
                               <p className="activity-instruction"><Written spoken>{pair.explain}</Written></p>
@@ -858,7 +887,7 @@ function App() {
                         {showAnswer ? (
                           <>
                             <p className="board-prompt"><Written byHand>{part.label}</Written></p>
-                            {eddaResponse}
+                            <WhenWritten>{eddaResponse}</WhenWritten>
                             <p className="focus-quote"><Written>{`”${part.quote}”`}</Written></p>
                             <p className="activity-instruction"><Written spoken>{part.explain ?? ""}</Written></p>
                             {part.related && (
@@ -1004,24 +1033,35 @@ function App() {
                   <BoardStep pause>
                     <div className="board-activity">
                       <p className="board-prompt"><Written byHand>Din egenkontroll</Written></p>
-                      <p className="board-small-note"><Written>Markera stället i din text till höger och tryck sedan på knappen.</Written></p>
+                      <p className="board-small-note"><Written>Tryck på knappen, så visar Edda stället i din text med gult.</Written></p>
                       <ul className="self-check">
                         {lesson.checklist.map((item) => {
-                          const marked = selfMarks[`${boardKey}:${item}`];
+                          const key = `${boardKey}:${item}`;
+                          const marked = selfMarks[key];
+                          const state = selfCheck?.key === key ? selfCheck : null;
                           return (
                             <li className={`self-check-item board-hold ${marked ? "is-marked" : ""}`} key={item}>
                               <span className="self-check-statement"><Written>{item}</Written></span>
                               {marked && <q className="self-check-quote">{marked}</q>}
-                              <button className="quiet-button" onClick={() => markInOwnText(item)} type="button">
-                                {marked ? "Markera ett annat ställe" : "Visa var i din text"}
+                              {state?.state === "missing" && (
+                                <p className="self-check-note" role="status">Edda hittar inte det i din text än. Lägg till det och pröva igen.</p>
+                              )}
+                              {state?.state === "empty" && (
+                                <p className="self-check-note" role="status">Skriv i din text till höger först.</p>
+                              )}
+                              {state?.state === "error" && <p className="check-in-error" role="alert">{state.message}</p>}
+                              <button
+                                className="quiet-button"
+                                disabled={selfCheck?.state === "loading"}
+                                onClick={() => showInOwnText(item)}
+                                type="button"
+                              >
+                                {state?.state === "loading" ? "Edda letar i din text …" : "Visa var i din text"}
                               </button>
                             </li>
                           );
                         })}
                       </ul>
-                      {selfCheckHint && (
-                        <p className="example-pick-status" role="status">Markera först stället i din text till höger, och tryck sedan på knappen.</p>
-                      )}
                     </div>
                   </BoardStep>
                 )}
@@ -1238,11 +1278,11 @@ function App() {
                 <div className="text-highlight-content" style={{ transform: `translateY(-${editorScrollTop}px)` }}>
                   {textMarks.map((mark, index) => {
                     const previousEnd = index > 0 ? textMarks[index - 1].end : 0;
-                    if (mark.kind === "strength") {
+                    if (mark.kind !== "finding") {
                       return (
-                        <Fragment key="strength">
+                        <Fragment key={mark.kind}>
                           <span aria-hidden="true">{activeDraft.slice(previousEnd, mark.start)}</span>
-                          <span aria-hidden="true" className="strength-mark">{activeDraft.slice(mark.start, mark.end)}</span>
+                          <span aria-hidden="true" className={mark.kind === "self" ? "self-mark" : "strength-mark"}>{activeDraft.slice(mark.start, mark.end)}</span>
                         </Fragment>
                       );
                     }

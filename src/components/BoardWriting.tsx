@@ -50,6 +50,8 @@ type StepContextValue = {
   register: () => void;
   finish: (id: string) => void;
   settled: boolean;
+  /** True while nothing on the step is waiting to be written or said. */
+  written: boolean;
 };
 
 type InkEntry = { id: string; pause: boolean };
@@ -250,7 +252,8 @@ export function BoardStep({ children, className }: StepProps) {
     register,
     finish,
     settled,
-  }), [instant, done, activeId, register, finish, settled]);
+    written: instant || allWritten,
+  }), [instant, done, activeId, register, finish, settled, allWritten]);
 
   return (
     <div
@@ -396,4 +399,13 @@ export function useBoardSettled(): boolean {
 export function AfterWriting({ children }: { children: ReactNode }) {
   const step = useContext(StepContext);
   return !step || step.settled ? <>{children}</> : null;
+}
+
+/**
+ * Content that waits for its turn every time the step gets new text, not only the first time.
+ * Used for Edda's written speech bubble, which is shown when she has finished speaking.
+ */
+export function WhenWritten({ children }: { children: ReactNode }) {
+  const step = useContext(StepContext);
+  return !step || step.written ? <>{children}</> : null;
 }

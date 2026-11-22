@@ -639,23 +639,27 @@ describe("writing coach", () => {
     const items = screen.getAllByRole("listitem");
     expect(items.map((item) => within(item).getByText(/./, { selector: ".self-check-statement *, .self-check-statement" }).textContent)).toEqual(lesson.checklist);
 
-    // Without a marked place nothing is ticked off; the student is asked to mark first.
-    const requests = vi.mocked(fetch).mock.calls.length;
-    editor.setSelectionRange(0, 0);
+    // Edda points out the place on the student's request; she only points and the text is untouched.
+    vi.mocked(fetch).mockImplementation(async (input, init) => {
+      if (String(input) !== "/api/locate") return new Response(JSON.stringify({ error: "nej" }), { status: 500 });
+      const body = JSON.parse(String(init?.body)) as { draft: string; statement: string };
+      expect(body.statement).toBe(lesson.checklist[2]);
+      const start = body.draft.indexOf("Skoldagen");
+      return new Response(JSON.stringify({ found: true, start, end: body.draft.length, quote: body.draft.slice(start) }), { status: 200 });
+    });
     await user.click(within(items[2]).getByRole("button", { name: "Visa var i din text" }));
-    expect(screen.getByRole("status")).toHaveTextContent("Markera först stället i din text");
-    expect(items[2]).not.toHaveClass("is-marked");
-
-    const start = editor.value.indexOf("Skoldagen");
-    editor.setSelectionRange(start, editor.value.length);
-    await user.click(within(items[2]).getByRole("button", { name: "Visa var i din text" }));
-    expect(items[2]).toHaveClass("is-marked");
+    await waitFor(() => expect(items[2]).toHaveClass("is-marked"));
     expect(within(items[2]).getByText("Skoldagen borde börja senare.")).toBeVisible();
-    expect(within(items[2]).getByRole("button", { name: "Markera ett annat ställe" })).toBeInTheDocument();
+    expect(document.querySelector(".self-mark")).toHaveTextContent("Skoldagen borde börja senare.");
     expect(items[0]).not.toHaveClass("is-marked");
-    // Marking is the student's own work: nothing is sent anywhere and the text is untouched.
-    expect(fetch).toHaveBeenCalledTimes(requests);
     expect(editor).toHaveValue("Senare skolstart\n\nSkoldagen borde börja senare.");
+
+    // When the text does not show the statement, Edda says so instead of marking something.
+    vi.mocked(fetch).mockImplementation(async () => new Response(JSON.stringify({ found: false }), { status: 200 }));
+    await user.click(within(items[0]).getByRole("button", { name: "Visa var i din text" }));
+    expect(await within(items[0]).findByRole("status")).toHaveTextContent("Edda hittar inte det i din text än");
+    expect(items[0]).not.toHaveClass("is-marked");
+    expect(document.querySelector(".self-mark")).not.toBeInTheDocument();
   });
 
   it("opens with a welcome where the student chooses what to write about and sees how the lesson works", async () => {

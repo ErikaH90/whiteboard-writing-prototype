@@ -247,3 +247,23 @@ export async function generatePersonalizedExample(request: PersonalizedExampleRe
     question: result.question,
   };
 }
+
+export type LocatedPlace = { found: false } | { found: true; start: number; end: number; quote: string };
+
+/** Asks Edda to point out where in the student's own text a self-check statement is shown. */
+export async function requestLocate(draft: string, statement: string): Promise<LocatedPlace> {
+  const result = await postJson("/api/locate", { draft, statement });
+  if (!isRecord(result) || typeof result.found !== "boolean") {
+    throw new Error("AI-tjänsten gav ett svar som inte kunde visas.");
+  }
+  if (!result.found) return { found: false };
+  const { start, end } = result;
+  if (
+    typeof start !== "number" || typeof end !== "number" ||
+    !Number.isSafeInteger(start) || !Number.isSafeInteger(end) ||
+    start < 0 || end <= start || end > draft.length
+  ) {
+    throw new Error("AI-tjänsten gav ett svar som inte kunde visas.");
+  }
+  return { found: true, start, end, quote: draft.slice(start, end) };
+}

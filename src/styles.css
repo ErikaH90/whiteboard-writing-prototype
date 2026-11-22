@@ -3005,3 +3005,32 @@ input:focus-visible {
     animation: none;
   }
 }
+
+/* While Edda speaks nothing else on the whiteboard can be read: only the heading and her bubble stay. */
+
+.board-step:has(.board-ink.is-speaking) {
+  visibility: hidden;
+}
+
+.board-step:has(.board-ink.is-speaking) :is(.board-prompt, .board-hook, .edda-speaking) {
+  visibility: visible;
+}
+
+.board-sequence:has(.board-step:not([hidden]) .board-ink.is-speaking) .board-continue-row,
+.board-surface:has(.board-step:not([hidden]) .board-ink.is-speaking) .board-footer {
+  visibility: hidden;
+}
+
+/* The self-check: Edda's yellow mark in the student's own text */
+
+.self-mark {
+  border-radius: 3px;
+  background: #fdeeb0;
+  box-shadow: 0 0 0 2px #fdeeb0;
+}
+
+.self-check-note {
+  margin: 0;
+  color: #5c6170;
+  font-size: 0.9em;
+}

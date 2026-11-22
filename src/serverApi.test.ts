@@ -130,6 +130,26 @@ describe("exemplar read-aloud API", () => {
 });
 
 describe("server AI API", () => {
+  it("points out where the student's own text shows a self-check statement, bound to that text", async () => {
+    const draft = "Senare skolstart\n\nSkoldagen borde börja senare.";
+    const client = mockClient({ found: true, quote: "skoldagen borde börja senare", occurrence: 0 });
+    const result = await post(createApiApp({ client }), "/api/locate", { draft, statement: "Min tes visar tydligt vad jag tycker." });
+
+    expect(result.status).toBe(200);
+    expect(result.body).toEqual({ found: true, start: 18, end: 46, quote: "Skoldagen borde börja senare" });
+  });
+
+  it("marks nothing when the place is missing or cannot be found in the text", async () => {
+    const draft = "Senare skolstart";
+    const missing = await post(createApiApp({ client: mockClient({ found: false, quote: "", occurrence: 0 }) }), "/api/locate", { draft, statement: "Min text har ett motargument." });
+    const invented = await post(createApiApp({ client: mockClient({ found: true, quote: "Något som inte står där", occurrence: 0 }) }), "/api/locate", { draft, statement: "Min text har ett motargument." });
+    const invalid = await post(createApiApp({ client: mockClient({ found: true }) }), "/api/locate", { draft: "", statement: "x" });
+
+    expect(missing.body).toEqual({ found: false });
+    expect(invented.body).toEqual({ found: false });
+    expect(invalid.status).toBe(400);
+  });
+
   it("only returns review highlights that exactly match the student's text", async () => {
     const client = mockClient(reviewModelResult("tes", [{
         quote: "tes",

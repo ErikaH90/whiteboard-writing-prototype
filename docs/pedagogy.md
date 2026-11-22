@@ -23,7 +23,7 @@ Edda ska inte göra jobbet åt eleven. Fyra regler gäller i hela lektionen:
 - **Leta först.** I genomgången ställer whiteboarden en fråga om varje del av exempeltexten innan delen visas, och eleven letar själv upp stället genom att klicka i texten. Först när eleven har hittat det förklarar Edda. Efter två försök, eller om AI-tjänsten inte svarar, visar Edda stället, så att ingen fastnar.
 - **Hitta skillnaden.** I jämförelserna lyser en del i det första exemplet, och eleven letar upp vad den har blivit i det andra innan Edda förklarar ändringen.
 - **Pröva och se.** Efter skrivuppgiften ger Edda en sak att pröva. Eleven ändrar i sin text och ber Edda titta igen, och Edda säger då vad som blev bättre. En omgång räcker; eleven kan också gå vidare utan att pröva.
-- **Visa i din egen text.** I egenkontrollen bockar eleven inte av påståenden utan markerar det ställe i sin egen text som visar dem. Inget skickas till AI.
+- **Visa i din egen text.** I egenkontrollen bockar eleven inte av påståenden. Eleven ber Edda visa var i den egna texten påståendet syns, och Edda markerar stället med gult. Finns det inget sådant ställe får eleven veta det och kan lägga till det själv. Edda pekar bara; hon skriver eller ändrar ingenting.
 
 ## Hänsyn till kognitiv belastning
 

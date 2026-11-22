@@ -41,6 +41,7 @@ När texten ändras ska tidigare markeringar rensas eller räknas om. Ett modell
 - Varje återkoppling markeras direkt vid det exakta textspannet. Eleven kan klicka eller fokusera markeringen för att öppna en kort förklaring. **Fortsätt skriva** fokuserar skrivytan och markerar textspannet för elevens egen bearbetning; AI:n ändrar aldrig texten.
 - Sammanfattningen visar lektionsmålet, en textförankrad framgång, möjliga förbättringsområden via markeringar och ett konkret nästa steg.
 - Avstämnings- och exit-ticket-svar skickas endast när eleven väljer **Svara**.
+- I egenkontrollen skickas utkastet och det aktuella påståendet till serverns `/api/locate` när eleven trycker **Visa var i din text**. Modellen får bara peka ut ett ordagrant ställe; servern visar det bara om citatet går att binda till elevens aktuella text, annars svarar den att stället saknas. Ingen ny text, inga förslag och inga omdömen lämnas.
 - I slutdiagnosens sista steg döljs stöd och kriterier. Att markera texten som klar är lokalt; texten skickas inte förrän eleven separat väljer att få AI-återkoppling. Återkopplingen efteråt är frivillig och inte ett betyg.
 - Fel från servern eller AI-tjänsten visas tydligt. Appen faller inte tyst tillbaka till lokala regler.
 - Servern loggar inte elevtext. Utkastet sparas fortsatt separat i webbläsarens `localStorage`.
