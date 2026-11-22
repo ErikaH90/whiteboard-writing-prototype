@@ -757,6 +757,12 @@ describe("writing coach", () => {
     expect(editor).toHaveValue("");
     expect(screen.getByText("Ta ställning: Borde ungdomar få åka gratis med kollektivtrafiken i sin kommun?")).toBeInTheDocument();
     const requestsBeforeComplete = vi.mocked(fetch).mock.calls.length;
+    // The checklist comes back as the student's own check while the diagnosis can still be changed.
+    const checklist = screen.getByRole("region", { name: "Slutdiagnosens självkontroll" });
+    expect(checklist).toHaveTextContent("INFÖR INLÄMNING");
+    await user.click(screen.getByText("1. Struktur & Innehåll"));
+    await user.click(screen.getByLabelText("Jag har en tydlig rubrik som passar ämnet."));
+    expect(checklist).toHaveTextContent("1 av 28 markerade");
     await user.type(editor, "Jag tycker ungdomar borde få åka gratis med kollektivtrafiken. Jag tycker det kan göra fler aktiviteter möjliga.");
     const diagnosisText = editor.value;
     expect(window.localStorage.getItem("skrivcoach-argumenterande-draft")).toBe(trainingDraft);
@@ -764,7 +770,6 @@ describe("writing coach", () => {
 
     expect(fetch).toHaveBeenCalledTimes(requestsBeforeComplete);
     expect(screen.getByRole("status")).toHaveTextContent("AI-återkoppling är valfri.");
-    expect(screen.queryByRole("region", { name: "Slutdiagnosens självkontroll" })).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Få återkoppling" }));
     expect(await screen.findByRole("region", { name: "Återkoppling på ditt utkast" })).toBeInTheDocument();
@@ -780,11 +785,9 @@ describe("writing coach", () => {
     expect(inbox).toHaveTextContent("Du uttrycker en tydlig tanke.");
 
     await user.click(screen.getByRole("button", { name: "Stäng" }));
-    const checklist = screen.getByRole("region", { name: "Slutdiagnosens självkontroll" });
-    expect(checklist).toBeInTheDocument();
-    await user.click(screen.getByText("1. Struktur & Innehåll"));
-    await user.click(screen.getByLabelText("Jag har en tydlig rubrik som passar ämnet."));
-    expect(checklist).toHaveTextContent("1 av 28 markerade");
+    // On the locked original the points are put away; they return with the separate copy.
+    expect(checklist).toHaveTextContent("EFTER INLÄMNING");
+    expect(screen.queryByLabelText("Jag har en tydlig rubrik som passar ämnet.")).not.toBeInTheDocument();
     const lockedEditor = screen.getByRole("textbox", { name: "Din argumenterande text" }) as HTMLTextAreaElement;
     expect(lockedEditor).toHaveAttribute("readonly");
 

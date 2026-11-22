@@ -89,7 +89,7 @@ Slutdiagnosen använder en ny skrivkontext (ungdomars fria resor med kollektivtr
 
 Efter markering som klar kan eleven uttryckligen lämna in sluttexten och eventuell AI-återkoppling till lärarvyn. Den nuvarande lärarvyn är en lokal demofunktion i samma webbläsare, inte en verklig leverans; använd endast syntetiska texter. En faktisk lärarinlämning kräver elev-/lärarautentisering, säker koppling till rätt klass och ett godkänt beslut om lagring och gallring.
 
-Efter den uttryckliga inlämningen visas elevens slutliga självkontroll i fyra delar: struktur och innehåll, resonemang och argumentation, språk/stil/textbindning samt språkriktighet och korrektur. Checklistan visas inte under den stödfria diagnosen och ingår inte i underlaget som redan lämnats till läraren. Originaldiagnosen förblir låst; om eleven vill bearbeta texten öppnas en separat kopia som inte ändrar lärarens inlämning.
+Checklistan med 28 punkter i fyra delar (struktur och innehåll, resonemang och argumentation, språk/stil/textbindning samt språkriktighet och korrektur) återkommer två gånger. Först i kapitel 6, medan eleven bearbetar sin tränade text med stöd. Sedan i slutdiagnosen som elevens egen avstämning innan inlämning, medan diagnostexten fortfarande kan ändras; den är då hopfälld och utan Eddas förklaringar eller exempel. Det eleven bockar av skickas inte till AI och ingår inte i underlaget till läraren. När originaldiagnosen är inlämnad och låst läggs punkterna undan; de visas igen om eleven öppnar en separat kopia att bearbeta, som inte ändrar lärarens inlämning.
 
 ## Formativ skrivloop
 
@@ -119,3 +119,13 @@ Framgången ska vara specifik och belagd i ett citerat textspann. Förbättrings
 - Återkoppling ska rikta uppmärksamheten mot ett hanterbart nästa steg.
 - Språklig variation ska inte likställas med ett enda föredraget sätt att skriva.
 - Slutdiagnosens återkoppling är formativ och ersätter inte lärarens samlade bedömning.
+
+## Motivation: skrivkartan och självbestämmandeteorin
+
+Kapitlen slutar med elevens skrivkarta, ett synligt schema över vad eleven kan och vad som återstår. Den är tänkt att stödja de tre behoven i självbestämmandeteorin:
+
+- **Kompetens:** kartan visar vad eleven redan gör i sin egen text, med ett citat som belägg, och färgen ändras när eleven har bearbetat texten. Luckor visas som nästa steg att pröva, aldrig som fel, och rött används inte.
+- **Autonomi:** eleven väljer själv vilken del den vill titta på och arbeta med, och bestämmer när Edda ska läsa igen.
+- **Samhörighet:** Edda talar till eleven om elevens eget arbete. Att läraren och klassen ser arbetet kräver riktiga konton och finns inte i prototypen.
+
+Stegen grundläggande, utvecklad och välutvecklad beskriver hur långt en del av texten har kommit enligt det Edda har gått igenom. De är inte betyg och bygger inte på kursplanens betygskriterier; en koppling till betygskrav måste komma från läraren eller Skolverket.

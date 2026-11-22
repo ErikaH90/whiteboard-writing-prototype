@@ -130,6 +130,43 @@ describe("exemplar read-aloud API", () => {
 });
 
 describe("server AI API", () => {
+  it("reads how far each part of the student's text has come, with a quote from the text as evidence", async () => {
+    const draft = "Senare skolstart\n\nSkoldagen borde börja senare. För det första sover elever för lite.";
+    // Each part is read on its own; the answer follows the part that was asked for.
+    const create = vi.fn(async (request: { messages: { content: string }[] }) => {
+      const asked = JSON.parse(request.messages[1].content) as { part: string };
+      const answer = asked.part.startsWith("Struktur")
+        ? { level: 2, quote: "skoldagen borde börja senare.\n\nNågot annat", occurrence: 0, strength: "Din tes säger tydligt vad du tycker.", next: "Hur vill du avsluta texten?" }
+        : { level: 0, quote: "", occurrence: 0, strength: "", next: "Vad kan du förklara efter ditt argument?" };
+      return { choices: [{ message: { content: JSON.stringify(answer) } }] };
+    });
+    const result = await post(createApiApp({ client: { chat: { completions: { create } } } }), "/api/progress-map", { draft, skills: ["structure", "reasoning"] });
+
+    expect(result.status).toBe(200);
+    expect(result.body.parts).toEqual([
+      // A quote that runs past what is in the text is cut to the piece that is there.
+      { skill: "structure", level: 2, start: 18, end: 46, quote: "Skoldagen borde börja senare", strength: "Din tes säger tydligt vad du tycker.", next: "Hur vill du avsluta texten?" },
+      { skill: "reasoning", level: 0, strength: "", next: "Vad kan du förklara efter ditt argument?" },
+    ]);
+    expect(create).toHaveBeenCalledTimes(2);
+    expect(create.mock.calls[0][0].messages[0].content).toContain("aldrig betyg");
+  });
+
+  it("shows no map when a level lacks evidence in the student's text, also after asking again", async () => {
+    const client = mockClient({ level: 3, quote: "Något som inte står i texten", occurrence: 0, strength: "Du har en tydlig struktur.", next: "" });
+    const result = await post(createApiApp({ client }), "/api/progress-map", { draft: "Senare skolstart", skills: ["structure"] });
+
+    expect(result.status).toBe(502);
+    expect(client.chat.completions.create).toHaveBeenCalledTimes(2);
+  });
+
+  it("rejects a map request for unknown or repeated parts", async () => {
+    const app = createApiApp({ client: mockClient({}) });
+    expect((await post(app, "/api/progress-map", { draft: "Text", skills: ["grade"] })).status).toBe(400);
+    expect((await post(app, "/api/progress-map", { draft: "Text", skills: ["structure", "structure"] })).status).toBe(400);
+    expect((await post(app, "/api/progress-map", { draft: "", skills: ["structure"] })).status).toBe(400);
+  });
+
   it("points out where the student's own text shows a self-check statement, bound to that text", async () => {
     const draft = "Senare skolstart\n\nSkoldagen borde börja senare.";
     const client = mockClient({ found: true, quote: "skoldagen borde börja senare", occurrence: 0 });

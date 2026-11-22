@@ -2,11 +2,21 @@ import { useState } from "react";
 import { finalDiagnosisChecklist } from "../data/finalDiagnosisChecklist";
 
 type Props = {
-  isRevision: boolean;
+  /**
+   * `writing`: the diagnosis can still be changed, and the checklist is the student's own check before
+   * handing in. `locked`: the original is handed in. `revision`: a separate copy is being worked on.
+   */
+  stage: "writing" | "locked" | "revision";
   onStartRevision: () => void;
 };
 
-export default function FinalDiagnosisChecklist({ isRevision, onStartRevision }: Props) {
+const headings = {
+  writing: { kicker: "INFÖR INLÄMNING", note: "Stäm av din text mot punkterna innan du lämnar in. Det du bockar av stannar hos dig." },
+  locked: { kicker: "EFTER INLÄMNING", note: "Originaldiagnosen är låst och inlämnad." },
+  revision: { kicker: "SEPARAT BEARBETNING", note: "Checklistan ändrar inte den text läraren fått." },
+};
+
+export default function FinalDiagnosisChecklist({ stage, onStartRevision }: Props) {
   const [checked, setChecked] = useState<string[]>([]);
   const totalItems = finalDiagnosisChecklist.reduce((total, section) => total + section.items.length, 0);
 
@@ -20,15 +30,14 @@ export default function FinalDiagnosisChecklist({ isRevision, onStartRevision }:
     <section className="final-self-check" aria-label="Slutdiagnosens självkontroll">
       <div className="final-self-check-heading">
         <div>
-          <p className="board-kicker">EFTER INLÄMNING</p>
+          <p className="board-kicker">{headings[stage].kicker}</p>
           <h2>Självkontroll</h2>
         </div>
         <span>{checked.length} av {totalItems} markerade</span>
       </div>
-      <p className="final-self-check-note">
-        Originaldiagnosen är låst och inlämnad. Checklistan ändrar inte den text läraren fått.
-      </p>
-      <div className="final-self-check-sections">
+      <p className="final-self-check-note">{headings[stage].note}</p>
+      {/* The checklist is used while the text can still be changed, not on the locked original. */}
+      {stage !== "locked" && <div className="final-self-check-sections">
         {finalDiagnosisChecklist.map((section) => (
           <details className="final-self-check-section" key={section.title}>
             <summary>{section.title}</summary>
@@ -51,8 +60,8 @@ export default function FinalDiagnosisChecklist({ isRevision, onStartRevision }:
             </ul>
           </details>
         ))}
-      </div>
-      {!isRevision && (
+      </div>}
+      {stage === "locked" && (
         <button className="text-button" onClick={onStartRevision} type="button">
           Börja en separat bearbetad version
         </button>

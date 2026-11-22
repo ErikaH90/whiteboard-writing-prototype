@@ -54,6 +54,8 @@ Testerna ska skydda elevens självständiga skrivande, lektionsprogressionen, se
 - **PED-11:** slutdiagnosen har en ny sakfråga, ett separat tomt utkast och ingen kopiering från träningsutkastet. Diagnosutkastet sparas inte lokalt.
 - **PED-12:** efter diagnos kan ett textförankrat fynd rekommendera ett befintligt moment för fortsatt övning; inget officiellt betyg eller omskriven text visas.
 - **PED-14:** den avslutande checklistan visas först efter uttrycklig inlämning och omfattar de fyra specificerade områdena. Den är inte synlig eller tillgänglig under den stödfria diagnosen.
+- **PED-26:** skrivkartan ritas först på elevens begäran, läser bara de delar Edda har gått igenom, visar belägget som grön markering i elevens text, tänder **Redo för slutdiagnos** när alla delar är minst utvecklade och kan läsas om när texten har ändrats (`tests/e2e/writing-map.spec.ts`).
+- **PED-25:** slutdiagnosens checklista visas medan diagnostexten kan ändras (före inlämning), läggs undan på det låsta originalet och visas igen med samma bockar i den separata bearbetningskopian.
 - **PED-15:** efter inlämning är diagnosens originaltext låst. Checklistans separata bearbetningskopia börjar med samma text; ändringar i kopian ändrar inte den text eller återkoppling som lärarvyn redan tagit emot.
 - **UX-01, manuell:** eleven kan snabbt identifiera aktuellt mål och nästa handling; endast relevant aktivitet visas och samma progressionsinformation upprepas inte i flera ytor.
 - **UX-02, manuell:** granska på dator och surfplatta att färger, animationer och statusmeddelanden inte konkurrerar med elevens text och aktuella uppgift.

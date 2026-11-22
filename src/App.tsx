@@ -3,6 +3,7 @@ import FinalRecall from "./components/FinalRecall";
 import DemoTeacherInbox from "./components/DemoTeacherInbox";
 import FinalDiagnosisChecklist from "./components/FinalDiagnosisChecklist";
 import SubmissionChecklist from "./components/SubmissionChecklist";
+import ProgressMap, { mapSkills } from "./components/ProgressMap";
 import LessonEntryCheck from "./components/LessonEntryCheck";
 import LessonCheckIn from "./components/LessonCheckIn";
 import ExamplePick from "./components/ExamplePick";
@@ -23,6 +24,9 @@ import {
   type CheckInFeedback,
   type ReviewFeedback,
   requestLocate,
+  requestProgressMap,
+  type MapPart,
+  type MapSkill,
 } from "./lib/coachApi";
 import {
   clearLearnerProfile,
@@ -139,6 +143,11 @@ function App() {
   const [popoverPosition, setPopoverPosition] = useState({ left: 8, top: 8 });
   // Self-check: for each statement the student marks the place in their own text that shows it.
   const [selfMarks, setSelfMarks] = useState<Record<string, string>>({});
+  // The writing map: Edda's latest reading of the student's own text, bound to the text she read.
+  const [progressMap, setProgressMap] = useState<{ draft: string; parts: MapPart[] } | null>(null);
+  const [mapSelected, setMapSelected] = useState<MapSkill | null>(null);
+  const [mapLoading, setMapLoading] = useState(false);
+  const [mapError, setMapError] = useState<string | null>(null);
   const [selfCheck, setSelfCheck] = useState<
     | { key: string; state: "loading" | "empty" | "missing" }
     | { key: string; state: "error"; message: string }
@@ -176,8 +185,16 @@ function App() {
   const selfSpot = selfCheck?.state === "shown" && selfCheck.draft === activeDraft && selfCheck.key.startsWith(`${lessonIndex}-${phaseIndex}:`) && phaseIndex === 3
     ? selfCheck
     : null;
+  // At the end of a chapter the writing map is on the board. The chosen part's evidence is then
+  // shown in green in the text, as long as the text is the one Edda read.
+  const hasProgressMap = !isFinalDiagnosis && !isFinalRecall && (lessonIndex < lessons.length - 1 ? phaseIndex === 4 : phaseIndex === 3);
+  const mapPart = hasProgressMap && progressMap?.draft === activeDraft
+    ? progressMap.parts.find((part) => part.skill === mapSelected && part.start !== undefined) ?? null
+    : null;
   const textMarks = selfSpot
     ? [{ kind: "self" as const, start: selfSpot.start, end: selfSpot.end }]
+    : mapPart
+      ? [{ kind: "strength" as const, start: mapPart.start ?? 0, end: mapPart.end ?? 0 }]
     : [
       ...(findings ?? []).map((finding) => ({ kind: "finding" as const, start: finding.start, end: finding.end, finding })),
       ...(strength ? [{ kind: "strength" as const, start: strength.start, end: strength.end }] : []),
@@ -316,6 +333,26 @@ function App() {
   }
 
   /** Self-check: the student selects the place in their own text that shows the statement. */
+  // The writing map: on the student's request Edda reads the text and says how far each part has come.
+  async function assessProgress() {
+    const assessedDraft = draft;
+    const taught = mapSkills.map(({ skill }) => skill).filter((skill) =>
+      lessons.slice(0, lessonIndex + 1).some((item) => item.skillIds.includes(skill)));
+    if (!assessedDraft.trim() || taught.length === 0) return;
+    setMapLoading(true);
+    setMapError(null);
+    try {
+      const parts = await requestProgressMap(assessedDraft, taught);
+      setProgressMap({ draft: assessedDraft, parts });
+      // Start with the chapter's own part, so the student sees what the work just done has led to.
+      setMapSelected((current) => current && taught.includes(current) ? current : lesson.skillIds.length === 1 ? lesson.skillIds[0] : taught[0]);
+    } catch (error) {
+      setMapError(error instanceof Error ? error.message : "Edda kunde inte läsa texten just nu.");
+    } finally {
+      setMapLoading(false);
+    }
+  }
+
   // The self-check: on the student's request Edda shows in yellow where the text shows the statement.
   async function showInOwnText(item: string) {
     const key = `${boardKey}:${item}`;
@@ -1094,7 +1131,10 @@ function App() {
                   </BoardStep>
                 )}
                 {phaseIndex > 1 && (phaseIndex < 4 || lesson.exitTicket) && (
-                  <BoardStep>
+                  <BoardStep
+                    locked={hasProgressMap && !freeNavigation && !attemptedBoards.includes(boardKey)}
+                    pause={hasProgressMap}
+                  >
                     <LessonCheckIn
                       key={`${lessonIndex}-${phaseIndex}`}
                       lesson={lesson}
@@ -1106,6 +1146,23 @@ function App() {
                       firstAnswer={lesson.entryCheck.skillIds.every((skillId) => lesson.skillIds.includes(skillId))
                         ? entryAnswers[lessonIndex] ?? null
                         : null}
+                    />
+                  </BoardStep>
+                )}
+                {hasProgressMap && (
+                  // The chapter ends with the student's writing map: how far each part of their own text has come.
+                  <BoardStep>
+                    <ProgressMap
+                      taught={mapSkills.map(({ skill }) => skill).filter((skill) =>
+                        lessons.slice(0, lessonIndex + 1).some((item) => item.skillIds.includes(skill)))}
+                      parts={progressMap?.parts ?? null}
+                      selected={mapSelected}
+                      onSelect={setMapSelected}
+                      onAssess={assessProgress}
+                      loading={mapLoading}
+                      error={mapError}
+                      isEmpty={!draft.trim()}
+                      isOutdated={progressMap !== null && progressMap.draft !== draft}
                     />
                   </BoardStep>
                 )}
@@ -1235,9 +1292,9 @@ function App() {
               Den tidigare demoprofilen kunde inte läsas. Anpassning från tidigare besök är pausad.
             </p>
           )}
-          {isFinalDiagnosis && teacherSubmissionId && (
+          {isFinalDiagnosis && (
             <FinalDiagnosisChecklist
-              isRevision={isSeparateRevision}
+              stage={isSeparateRevision ? "revision" : teacherSubmissionId ? "locked" : "writing"}
               onStartRevision={startSeparateRevision}
             />
           )}

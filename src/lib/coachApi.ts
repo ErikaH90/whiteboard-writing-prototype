@@ -267,3 +267,46 @@ export async function requestLocate(draft: string, statement: string): Promise<L
   }
   return { found: true, start, end, quote: draft.slice(start, end) };
 }
+
+export type MapSkill = "structure" | "reasoning" | "cohesion" | "sentence" | "language";
+
+/** How far one part of the student's text has come, with a quote from the text as evidence. */
+export type MapPart = {
+  skill: MapSkill;
+  level: 0 | 1 | 2 | 3;
+  start?: number;
+  end?: number;
+  quote?: string;
+  strength: string;
+  next: string;
+};
+
+/** Asks Edda to read the student's own text and say how far each part has come. */
+export async function requestProgressMap(draft: string, skills: MapSkill[]): Promise<MapPart[]> {
+  const result = await postJson("/api/progress-map", { draft, skills });
+  const parts = isRecord(result) && Array.isArray(result.parts) ? result.parts : null;
+  if (!parts || parts.length !== skills.length) throw new Error("AI-tjänsten gav ett svar som inte kunde visas.");
+
+  return parts.map((part, index) => {
+    if (
+      !isRecord(part) ||
+      part.skill !== skills[index] ||
+      ![0, 1, 2, 3].includes(part.level as number) ||
+      typeof part.strength !== "string" ||
+      typeof part.next !== "string"
+    ) {
+      throw new Error("AI-tjänsten gav ett svar som inte kunde visas.");
+    }
+    const level = part.level as MapPart["level"];
+    if (level === 0) return { skill: skills[index], level, strength: "", next: part.next };
+    const { start, end } = part;
+    if (
+      typeof start !== "number" || typeof end !== "number" ||
+      !Number.isSafeInteger(start) || !Number.isSafeInteger(end) ||
+      start < 0 || end <= start || end > draft.length
+    ) {
+      throw new Error("AI-tjänsten gav ett svar som inte kunde visas.");
+    }
+    return { skill: skills[index], level, start, end, quote: draft.slice(start, end), strength: part.strength, next: part.next };
+  });
+}

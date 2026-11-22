@@ -85,7 +85,7 @@ test("while Edda speaks the whiteboard shows only the heading and her dots, in e
   const board = page.locator(".board-surface");
   const idle = async () => {
     await expect(board.locator(".board-ink.is-speaking, .board-ink.is-writing")).toHaveCount(0, { timeout: 30_000 });
-    await expect(board.getByText(/Edda läser/)).toHaveCount(0);
+    await expect(board.getByText(/Edda läser .*…/)).toHaveCount(0);
     await page.waitForTimeout(120);
   };
   const click = async (name: string | RegExp, exact = true) => {

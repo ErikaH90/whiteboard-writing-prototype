@@ -3167,3 +3167,190 @@ input:focus-visible {
   outline: 3px solid #8fbfe0;
   outline-offset: 2px;
 }
+
+/* The writing map: a wheel that shows how far each part of the student's own text has come */
+
+.progress-map {
+  display: grid;
+  gap: 8px;
+}
+
+.progress-map > * {
+  margin: 0;
+}
+
+.progress-map > .primary-button,
+.progress-map > .board-small-note {
+  justify-self: start;
+}
+
+.map-row {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+}
+
+.map-wheel {
+  width: 100%;
+  max-width: 350px;
+  height: auto;
+  font-family: "Patrick Hand", cursive;
+}
+
+.map-wheel text {
+  fill: var(--board-ink);
+  font-size: 20px;
+}
+
+.map-slice {
+  cursor: pointer;
+  outline: none;
+}
+
+.map-slice.is-later {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.map-ring {
+  fill: #fff;
+  stroke: #c9cdd6;
+  stroke-width: 1.5;
+}
+
+.map-ring.is-filled {
+  fill: #f4cf58;
+  stroke: #f4cf58;
+}
+
+.map-slice.is-ready .map-ring.is-filled {
+  fill: #58b368;
+  stroke: #58b368;
+}
+
+.map-selection {
+  fill: none;
+  stroke: #5b46c4;
+  stroke-linejoin: round;
+  stroke-width: 4;
+}
+
+.map-slice:focus-visible .map-ring {
+  stroke: #5b46c4;
+  stroke-width: 2.5;
+}
+
+.map-slice.is-selected text {
+  fill: #5b46c4;
+}
+
+.map-ready path {
+  fill: #f3f4f7;
+  stroke: #c9cdd6;
+  stroke-dasharray: 5 5;
+  stroke-width: 1.5;
+}
+
+.map-ready text {
+  fill: #8a909c;
+  font-size: 16px;
+}
+
+.map-ready.is-ready path {
+  fill: #58b368;
+  stroke: #58b368;
+  stroke-dasharray: none;
+}
+
+.map-ready.is-ready text {
+  fill: #fff;
+}
+
+.map-centre {
+  fill: #6a4fd0;
+}
+
+.map-eye {
+  fill: #fff;
+}
+
+.map-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 2px 14px;
+  color: #4a4f5a;
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+.map-legend p {
+  margin: 0;
+  color: var(--board-ink);
+}
+
+.map-legend ol {
+  display: flex;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.map-key {
+  display: inline-block;
+  width: 26px;
+  height: 12px;
+  margin-right: 8px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #f4cf58 0 33%, #e9ebf0 33%);
+}
+
+.map-key.is-level-2 {
+  background: linear-gradient(90deg, #58b368 0 66%, #e9ebf0 66%);
+}
+
+.map-key.is-level-3 {
+  background: #58b368;
+}
+
+.map-legend .map-legend-note {
+  width: 100%;
+  color: #7b818c;
+  font-size: 14px;
+  text-align: center;
+}
+
+.map-ready-note {
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: #e9f6ec;
+  color: #2f6b47;
+  font-size: 18px;
+}
+
+.map-detail .edda-says {
+  margin: 0 0 8px;
+}
+
+.map-detail .edda-bubble q {
+  color: #2f6b47;
+  font-style: italic;
+}
+
+.map-detail .develop-note {
+  margin: 0;
+  font-size: 17px;
+}
+
+.map-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.map-actions .assessment-note {
+  margin: 0;
+}
