@@ -22,7 +22,7 @@ export const mapFeatures = {
   structure: [
     { id: "heading", by: "rule", praise: "Du har en rubrik som visar vad texten handlar om.", hint: "Vilken rubrik kan visa både ämnet och vad du tycker?" },
     { id: "thesis", by: "model", look: "En mening i inledningen där skribenten tydligt säger sin ståndpunkt (tesen).", praise: "Du har en tes som säger tydligt vad du tycker.", hint: "Var i inledningen kan du säga tydligt vad du tycker?" },
-    { id: "arguments", by: "model", look: "Minst två olika argument (skäl) för tesen. Citera början av det andra argumentet. Finns bara ett argument är found false.", praise: "Du har flera argument som stöder din tes.", hint: "Vilket skäl till kan du ge för din åsikt?" },
+    { id: "arguments", by: "model", pair: true, look: "Minst två olika argument (skäl) för tesen, i olika meningar. Räkna först argumenten. Finns bara ett argument är found false. När det finns två: citera det första argumentet, skriv sedan tecknet | och citera det andra argumentet.", praise: "Du har flera argument som stöder din tes.", hint: "Vilket skäl till kan du ge för din åsikt?" },
     { id: "counter", by: "model", look: "Ett motargument, alltså något som den som tycker annorlunda skulle säga.", praise: "Du tar upp vad andra kan tycka, ett motargument.", hint: "Vad skulle någon som inte håller med dig säga?" },
     { id: "conclusion", by: "model", look: "En avslutning sist i texten som sammanfattar eller upprepar ståndpunkten. Ett vanligt argument eller ett motargument sist i texten räknas inte.", praise: "Du har en avslutning som knyter ihop texten.", hint: "Hur kan du avsluta så att läsaren minns vad du tycker?" },
   ],
@@ -138,7 +138,7 @@ export function readByRule(draft, skill, text = readText(draft)) {
 
 /** The things in a part that the model is asked to point out, with what to look for. */
 export function modelFeatures(skill) {
-  return mapFeatures[skill].filter((feature) => feature.by !== "rule").map(({ id, look }) => ({ id, look }));
+  return mapFeatures[skill].filter((feature) => feature.by !== "rule").map(({ id, look, pair }) => ({ id, look, pair: Boolean(pair) }));
 }
 
 /**

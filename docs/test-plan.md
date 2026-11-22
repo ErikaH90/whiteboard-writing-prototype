@@ -54,6 +54,13 @@ Testerna ska skydda elevens självständiga skrivande, lektionsprogressionen, se
 - **PED-11:** slutdiagnosen har en ny sakfråga, ett separat tomt utkast och ingen kopiering från träningsutkastet. Diagnosutkastet sparas inte lokalt.
 - **PED-12:** efter diagnos kan ett textförankrat fynd rekommendera ett befintligt moment för fortsatt övning; inget officiellt betyg eller omskriven text visas.
 - **PED-14:** den avslutande checklistan visas först efter uttrycklig inlämning och omfattar de fyra specificerade områdena. Den är inte synlig eller tillgänglig under den stödfria diagnosen.
+- **PED-41:** ett hittat ställe visar bara rubriken och Eddas egen förklaring i pratbubblan; citatet upprepas inte på tavlan och inget AI-anrop görs för ett rätt klick.
+- **PED-37:** Edda förklarar kortare av sig själv medan eleven hittar ställena på första försöket, säger det en gång och återgår till fullt stöd efter en miss; inga erbjudanden eller val visas.
+- **PED-38:** ledtråd och visat ställe kommer av sig själva efter egen ansträngning eller lång stillhet, aldrig efter snabba klick; i skrivuppgiften kommer ett första steg när texten står stilla.
+- **PED-39:** inlämning av skrivuppgiften uppdaterar skrivkartan utan eget klick; kartan visas sedan direkt vid kapitelslut och i toppraden (`tests/e2e/writing-map.spec.ts`).
+- **PED-40:** en elev som hittade ställena själv går direkt till skrivuppgiften utan exempel, med en rad om varför; övriga får exemplet utan kommentar.
+- **PED-35:** skrivkartan räknar bara det som två oberoende läsningar båda pekar ut, kräver två olika citat för flera argument och faller tillbaka på den vanliga modellen om den starkare inte går att nå.
+- **PED-36:** från skrivkartan kan eleven välja att träna mer på en del; rundan börjar med exempel och repetition när delen saknas eller bara är påbörjad och går direkt till elevens text när grunden finns, och slutar med att Edda läser igen.
 - **PED-33:** ledtråd och **Visa stället** kommer fram först när eleven har prövat och arbetat med frågan en stund; snabba klick tar inte fram dem.
 - **PED-34:** Edda läser skrivuppgiften först när eleven har skrivit något nytt i texten.
 - **PED-32:** efter två försök visar Edda inte stället själv; eleven får frågan och väljer **Visa stället** eller prövar igen.

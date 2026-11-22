@@ -15,7 +15,7 @@ function part(skill: MapSkill, level: MapPart["level"]): MapPart {
 }
 
 function renderMap(props: Partial<Parameters<typeof ProgressMap>[0]> = {}) {
-  const handlers = { onSelect: vi.fn(), onAssess: vi.fn(), onShare: vi.fn(), onOpenTeacherView: vi.fn() };
+  const handlers = { onSelect: vi.fn(), onAssess: vi.fn(), onShare: vi.fn(), onOpenTeacherView: vi.fn(), onPractice: vi.fn() };
   render(
     <ProgressMap
       taught={["structure", "reasoning"]}
@@ -53,7 +53,7 @@ describe("the student's writing map", () => {
 
   it("shows each part's level, lets the student choose a part and shows Edda's evidence for it", async () => {
     const user = userEvent.setup();
-    const { onSelect } = renderMap({
+    const handlers = renderMap({
       parts: [part("structure", 3), part("reasoning", 1)],
       selected: "reasoning",
     });
@@ -76,9 +76,12 @@ describe("the student's writing map", () => {
     expect(screen.getByText(/inte ett betyg/)).toBeInTheDocument();
 
     await user.click(within(wheel).getByRole("button", { name: "Struktur: välutvecklad" }));
-    expect(onSelect).toHaveBeenCalledWith("structure");
+    expect(handlers.onSelect).toHaveBeenCalledWith("structure");
+    // The student chooses what to practise more on.
+    await user.click(screen.getByRole("button", { name: "Träna mer på resonemang" }));
+    expect(handlers.onPractice).toHaveBeenCalledWith("reasoning");
     await user.click(within(wheel).getByRole("button", { name: "Språk: kommer senare" }));
-    expect(onSelect).toHaveBeenCalledTimes(1);
+    expect(handlers.onSelect).toHaveBeenCalledTimes(1);
   });
 
   it("turns Redo för slutdiagnos green when every part is at least developed", () => {

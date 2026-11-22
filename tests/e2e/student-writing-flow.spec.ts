@@ -8,6 +8,11 @@ async function skipListening(page: import("@playwright/test").Page) {
 // Edda's voice is never fetched from the real speech service in tests: without it the text is
 // shown directly, which is what the other tests rely on.
 test.beforeEach(async ({ page }) => {
+  // Handing in a writing task also brings the writing map up to date. Tests never reach the real
+  // AI service: the map answers here that it has nothing to show, unless a test gives it a reading.
+  await page.route("**/api/progress-map", async (route) => {
+    await route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: "Inte konfigurerad." }) });
+  });
   await page.route("**/api/speech", async (route) => {
     await route.fulfill({
       status: 503,
@@ -173,10 +178,13 @@ test("whiteboard accepts a choice or a written answer and responds", async ({ pa
   await expect(page.getByRole("status")).toContainText("Precis.");
   await expect(page.getByRole("status").locator(".edda-mark")).toHaveCount(0);
   await text.getByRole("button", { name: structureParts[0], exact: true }).click();
-  // Only when the place is found does Edda explain it.
-  await expect(page.getByText(/^Rubriken säger både vad texten handlar om/)).toBeVisible();
-  await expect(page.getByRole("status")).toContainText("Precis.");
+  // Only when the place is found does Edda explain it. The board then holds just her own short
+  // words in her speech bubble: no longer answer from the AI and no copy of the quote.
+  await expect(page.getByRole("status")).toContainText("Rubriken säger både vad texten handlar om");
+  await expect(page.getByRole("status")).not.toContainText("Precis.");
   await expect(page.getByRole("status")).toContainText("Edda");
+  await expect(page.locator(".board-surface .focus-quote")).toHaveCount(0);
+  if (process.env.MAP_SHOT) await page.screenshot({ path: process.env.MAP_SHOT.replace(".png", "-clean.png") });
   await expect(page.getByRole("status").locator(".edda-mark")).toBeVisible();
   // A correct click gets a plain green check, in the colours of the writing map: no star and no step.
   await expect(page.getByRole("status").locator(".edda-mark")).toHaveCSS("fill", "rgb(88, 179, 104)");
@@ -383,7 +391,8 @@ test("exemplar text follows a retrieval question, is listened to and then shown 
   await expect(surface.locator("mark")).toHaveCount(1);
   await expect(surface.locator("mark")).toContainText("Tallrikens tysta offer");
   await expect(surface.locator("mark")).toHaveCSS("background-color", "rgb(255, 233, 122)");
-  await expect(page.getByText("”Tallrikens tysta offer – dags att duka av köttet”")).toBeVisible();
+  // The quote is lit in the text and is not repeated on the whiteboard.
+  await expect(page.getByText("”Tallrikens tysta offer – dags att duka av köttet”")).toHaveCount(0);
   await page.getByRole("button", { name: "Fortsätt", exact: true }).click();
   await findInText(page, structureParts[1]);
   await expect(surface.locator("mark")).toHaveCount(1);
@@ -463,9 +472,24 @@ test("the lesson is guided: chapters are locked and Edda decides what the writin
       }),
     });
   });
+  await page.unroute("**/api/progress-map");
+  await page.route("**/api/progress-map", async (route) => {
+    const request = route.request().postDataJSON() as { draft: string; skills: string[] };
+    const quote = "Skoldagen borde börja senare.";
+    const start = request.draft.indexOf(quote);
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ parts: request.skills.map((skill) => skill === "structure"
+        ? { skill, level: 1, start, end: start + quote.length, quote, strength: "Du har en tes som säger tydligt vad du tycker.", next: "Vilket skäl till kan du ge för din åsikt?", found: [] }
+        : { skill, level: 0, strength: "", next: "Vilket skäl har du för din åsikt?", found: [] }) }),
+    });
+  });
   await page.goto("/");
   await startLesson(page);
 
+  // The small writing map appears first when Edda has read the student's text.
+  await expect(page.getByRole("img", { name: "Din skrivkarta i litet format" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: /Resonemang/ })).toBeDisabled();
   await completeEntry(page);
   const next = page.getByRole("button", { name: /Nästa steg/ });
@@ -485,13 +509,9 @@ test("the lesson is guided: chapters are locked and Edda decides what the writin
   await expect(next).toBeEnabled();
 
   await next.click();
-  // Edda shows a better and a weaker thesis; the student picks the better one before writing.
-  await expect(page.getByText("Här är två sätt att skriva en tes. Klicka på den som är bäst.")).toBeVisible();
-  // This student found every place alone, so Edda steps back: the example is optional and she says why.
-  await expect(page.getByText(/Därför är exemplet här frivilligt/)).toBeVisible();
-  await expect(proceed).toBeVisible();
-  await page.getByRole("group", { name: "Välj ett exempel" }).getByRole("button", { name: /Det är hög tid att vi ifrågasätter vår köttnorm/ }).click();
-  await proceed.click();
+  // This student found every place alone, so Edda steps back by herself: no example first, and she says why.
+  await expect(page.getByText("Du hittade ställena i exempeltexten själv, så du går direkt till din uppgift.")).toBeVisible();
+  await expect(page.getByText("Här är två sätt att skriva en tes. Klicka på den som är bäst.")).toHaveCount(0);
   await expect(page.getByText("Börja med att skriva din inledning med tes.")).toBeVisible();
   await expect(page.getByRole("region", { name: "Exempeltext" })).toHaveCount(0);
   await expect(next).toBeDisabled();
@@ -501,6 +521,8 @@ test("the lesson is guided: chapters are locked and Edda decides what the writin
   await expect(page.locator(".strength-mark")).toHaveText("Skoldagen");
   await expect(page.getByRole("status")).toContainText("Du visar tydligt vad du tycker.");
   await expect(next).toBeEnabled();
+  // The same hand-in brought the writing map up to date: it is in the top bar without any click of its own.
+  await expect(page.getByRole("img", { name: "Din skrivkarta i litet format" })).toBeVisible();
 });
 
 test("Edda speaks her guidance and the text appears when she has finished", async ({ page }) => {

@@ -130,18 +130,24 @@ Kapitlen slutar med elevens skrivkarta, ett synligt schema över vad eleven kan 
 
 Stegen grundläggande, utvecklad och välutvecklad räknas fram av hur många av de saker Edda har gått igenom som går att peka ut i elevens text. Kartan ska vara tillförlitlig: samma text ger samma karta, och en del sjunker bara om eleven har tagit bort det som visade den. De är inte betyg och bygger inte på kursplanens betygskriterier; en koppling till betygskrav måste komma från läraren eller Skolverket.
 
-## Rätt avvägd ansträngning: Edda tar ett steg tillbaka
+## Repetition och övning efter behärskning
 
-Stödet ska ligga på elevens nivå utan att Edda styr eller påpekar brister. Därför erbjuder Edda, och eleven väljer:
+Från skrivkartan väljer eleven själv en del att träna mer på. Rundans innehåll följer hur väl eleven behärskar delen i sin egen text: ju mindre av delen som syns, desto mer repetition kommer först (exempel, sedan återkallning med egna ord), och den som har grunden går direkt till att pröva i sin text. Varje runda börjar med en mening om varför den ser ut som den gör och slutar med att Edda läser texten igen, så att eleven ser om övningen gav resultat. Eleven kan när som helst gå tillbaka till kartan.
 
-- **När det går bra:** efter två ställen i rad som eleven har hittat på första försöket frågar Edda om eleven vill leta själv i resten, utan hennes förklaringar. Väljer eleven det bekräftas varje fynd direkt, och förklaringen finns kvar bakom **Visa Eddas förklaring**. Eleven kan också välja att fortsätta som förut.
-- **När det tar emot:** hjälpen är till för stunden då egen ansträngning övergår i frustration, inte för att klicka sig förbi arbetet. En ledtråd (i vilken del av texten stället finns) kan eleven be om efter ett första försök och en stunds arbete med frågan (15 sekunder). Från andra försöket och efter längre arbete (40 sekunder) kan eleven välja **Visa stället**. Några snabba klick tar alltså inte fram hjälpen, och Edda tar aldrig över av sig själv. Tiderna står i `src/lib/effort.ts`.
+## Rätt avvägd ansträngning: Edda anpassar stödet själv
+
+Stödet ska ligga på elevens nivå utan att eleven behöver välja stödnivå eller trycka på knappar för att få hjälp. Eleven ska kunna hålla uppmärksamheten på texten; anpassningen sker bakom kulisserna.
+
+- **När det går bra:** ett hittat ställe får alltid bara Eddas egen korta förklaring, i hennes pratbubbla. Medan eleven hittar ställena på första försöket (två i rad eller fler) visas den direkt, utan uppläsning. Första gången säger Edda en rad om varför: ”Du hittar ställena själv, så jag förklarar kortare nu.” Efter en miss kommer det fulla stödet tillbaka av sig självt, utan kommentar.
+- **Det eleven redan kan upprepas inte:** visar elevens egen text redan det kapitlet handlar om (delen är minst utvecklad i skrivkartan) börjar genomgången direkt i det kortare läget. En elev som hittade ställena själv får heller inget exempel före skrivuppgiften, och Edda säger varför.
+- **När det tar emot:** hjälpen är till för stunden då egen ansträngning övergår i frustration, inte för att klicka sig förbi arbetet. En ledtråd (i vilken del av texten stället finns) kommer av sig själv när eleven har prövat och arbetat med frågan en stund (20 sekunder), eller när ingenting har hänt på länge (45 sekunder). Efter ett andra försök och längre arbete (60 sekunder) visar Edda stället. Några snabba klick tar alltså inte fram hjälpen. I skrivuppgiften ger Edda ett första steg när texten har stått stilla länge (90 sekunder). Tiderna står i `src/lib/effort.ts`.
 - **Elevens eget arbete:** Edda läser skrivuppgiften först när eleven har skrivit något nytt i sin text (minst fyra ord och en ändring sedan uppgiften gavs).
-- **Struktur med skäl:** ramarna är tydliga (ett steg i taget, pröva själv först, hjälp efter en stunds arbete) och förklaras kort där de möter eleven: på startsidan, vid ”Leta själv först” och vid återkallningen.
 - **Negativa känslor:** om elevens svar visar uppgivenhet eller motstånd (”vet inte”, ”orkar inte”, ”det här är tråkigt”) bekräftar Edda först känslan som rimlig, kort och utan värdering, och erbjuder sedan ett mindre första steg. Hon förmanar inte och uppmuntrar inte överdrivet.
-- **Stöd är också belastning:** varje nytt stöd ska vara en rad eller en knapp som bara syns när den behövs, och aldrig mer text att läsa för den som klarar sig utan.
-- **Synligt nedtrappat stöd:** en elev som har hittat ställena på egen hand får veta att exemplet före skrivuppgiften därför är frivilligt. För övriga elever ligger exemplet kvar som en vanlig del av lektionen, utan förklaring om varför.
+- **Självreglering:** skrivkartan fyller i sig själv. En liten karta i toppraden följer elevens text, så att eleven kan se sitt eget lärande utan att be om det; delarna Textbindning och Meningar följer texten medan eleven skriver, och de övriga uppdateras när eleven lämnar in en skrivuppgift.
+- **En rad när något ändras:** när Edda trappar ned stödet säger hon det i en mening, så att eleven ser sin egen utveckling och anpassningen inte känns godtycklig.
+- **Struktur med skäl:** ramarna är tydliga (ett steg i taget, pröva själv först, hjälp efter en stunds arbete) och förklaras kort där de möter eleven: på startsidan, vid ”Leta själv först” och vid återkallningen.
 - **Tonen:** Edda skriver aldrig att eleven har fel eller inte kan, ger inga order och jämför inte eleven med andra. Vid ett nytt försök utgår hon från det eleven valde och ställer en nyfiken fråga.
+- **Stöd är också belastning:** varje nytt stöd ska vara en rad som bara syns när den behövs, och aldrig mer text att läsa eller fler knappar för den som klarar sig utan.
 
 ## Inre motivation i hela appen
 

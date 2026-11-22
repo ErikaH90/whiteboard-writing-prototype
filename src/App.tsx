@@ -3,7 +3,9 @@ import FinalRecall from "./components/FinalRecall";
 import DemoTeacherInbox from "./components/DemoTeacherInbox";
 import FinalDiagnosisChecklist from "./components/FinalDiagnosisChecklist";
 import SubmissionChecklist from "./components/SubmissionChecklist";
-import ProgressMap, { mapSkills } from "./components/ProgressMap";
+import ProgressMap, { mapSkills, MapWheel } from "./components/ProgressMap";
+import { buildPart, readByRule, readText } from "../server/writingMap.mjs";
+import PracticeRound from "./components/PracticeRound";
 import { effortTimes, minTaskWords } from "./lib/effort";
 import LessonEntryCheck from "./components/LessonEntryCheck";
 import LessonCheckIn from "./components/LessonCheckIn";
@@ -28,7 +30,7 @@ import {
 import { useFitToHeight } from "./lib/useFitToHeight";
 import { setSoundOn, useSoundOn } from "./lib/eddaVoice";
 import { useExemplarAudio } from "./lib/useExemplarAudio";
-import { AfterWriting, BoardSequence, BoardStep, Written, WhenWritten } from "./components/BoardWriting";
+import { AfterWriting, BoardSequence, BoardStep, Written } from "./components/BoardWriting";
 import { finalRecallQuestions, lessons, phases, type LearningEvidence, type SkillId } from "./data/lessons";
 import {
   reviewDraft,
@@ -71,6 +73,9 @@ function readSavedDraft(): { draft: string; error: boolean } {
     return { draft: "", error: true };
   }
 }
+
+/** The parts of the writing map that follow plain rules and therefore follow the text as it is written. */
+const liveSkills: MapSkill[] = ["cohesion", "sentence"];
 
 /** Where in the exemplar a quote is, said the way a teacher would point: a hint, not the answer. */
 function placeInExemplar(quote: string): string {
@@ -116,21 +121,21 @@ function App() {
     submitting: boolean;
     feedback: CheckInFeedback | null;
     error: string | null;
+    /** The place was found while Edda explains briefly: her words are shown without being read aloud. */
+    brief?: boolean;
   } | null>(null);
-  // How the walk-through of the exemplar has gone in each chapter. Edda uses it to step back: she
-  // offers the student to search without her explanations, and makes the example before the
-  // writing task optional. She offers and the student chooses; nothing is taken away or imposed.
+  // How the walk-through of the exemplar has gone in each chapter. Edda follows it and adjusts the
+  // support herself, without asking: shorter explanations for the one who finds the places alone,
+  // and help that comes by itself for the one who is stuck.
   const [walks, setWalks] = useState<Record<number, {
+    /** Places found at the first try, in a row. */
     streak: number;
     found: number;
     misses: number;
     reveals: number;
-    /** The page where Edda offers the student to go on alone. */
-    offerAt: number | null;
-    solo: boolean;
+    /** The page where Edda says that she now explains more briefly. */
+    toldAt: number | null;
   }>>({});
-  const [hintedPage, setHintedPage] = useState<string | null>(null);
-  const [explainedPage, setExplainedPage] = useState<string | null>(null);
   const [completedEntryLessons, setCompletedEntryLessons] = useState<number[]>([]);
   const [seenBoards, setSeenBoards] = useState<string[]>([]);
   const [hasMetExemplar, setHasMetExemplar] = useState(false);
@@ -197,6 +202,8 @@ function App() {
   const [progressMap, setProgressMap] = useState<{ draft: string; parts: MapPart[] } | null>(null);
   const [mapSelected, setMapSelected] = useState<MapSkill | null>(null);
   const mapReadings = useRef(new Map<string, MapPart[]>());
+  // More practice on a part the student has chosen in the map, and the text when the practice began.
+  const [practice, setPractice] = useState<{ skill: MapSkill; level: number; hint: string; draft: string } | null>(null);
   // Maps the student has chosen to show the teacher (a local demo), and the text of the map last shown.
   const [sharedMaps, setSharedMaps] = useState<DemoSharedMap[]>([]);
   const [sharedMapDraft, setSharedMapDraft] = useState<string | null>(null);
@@ -243,8 +250,27 @@ function App() {
   // At the end of a chapter the writing map is on the board. The chosen part's evidence is then
   // shown in green in the text, as long as the text is the one Edda read.
   const hasProgressMap = !isFinalDiagnosis && !isFinalRecall && (lessonIndex < lessons.length - 1 ? phaseIndex === 4 : phaseIndex === 3);
-  const mapPart = hasProgressMap && progressMap?.draft === activeDraft
-    ? progressMap.parts.find((part) => part.skill === mapSelected && part.start !== undefined) ?? null
+  // The parts Edda has gone through so far. The map shows these; the part of the next chapter is
+  // read too, so that Edda knows what the student's text already shows before she teaches it.
+  const taughtSkills = mapSkills.map(({ skill }) => skill).filter((skill) =>
+    lessons.slice(0, lessonIndex + 1).some((item) => item.skillIds.includes(skill)));
+  // Linking words and sentence variation follow plain rules, so those parts of the map follow the
+  // text while the student writes. The other parts are from Edda's latest reading.
+  const liveParts = useMemo(() => {
+    if (!draft.trim()) return [];
+    const text = readText(draft);
+    return liveSkills.map((skill) => buildPart(draft, skill, readByRule(draft, skill, text), text) as MapPart);
+  }, [draft]);
+  const mapNow: MapPart[] = mapSkills.flatMap(({ skill }) => {
+    const part = liveParts.find((item) => item.skill === skill) ?? progressMap?.parts.find((item) => item.skill === skill);
+    return part ? [part] : [];
+  });
+  const mapLevels = Object.fromEntries(mapNow.map((part) => [part.skill, part.level])) as Partial<Record<MapSkill, number>>;
+  // The map is shown when Edda has read the text, which she does when the student hands in a writing task.
+  const shownMap = progressMap ? mapNow.filter((part) => taughtSkills.includes(part.skill)) : null;
+  const mapPart = hasProgressMap
+    ? shownMap?.find((part) => part.skill === mapSelected && part.start !== undefined
+      && (liveSkills.includes(part.skill) || progressMap?.draft === activeDraft)) ?? null
     : null;
   const textMarks = selfSpot
     ? [{ kind: "self" as const, start: selfSpot.start, end: selfSpot.end }]
@@ -378,6 +404,8 @@ function App() {
     // A failing service must not lock the student in the step.
     markAttempted();
     earnAchievement();
+    // The same hand-in lets Edda bring the writing map up to date, so that it needs no click of its own.
+    void assessProgress(true);
   }
 
   /** The student has tried Edda's advice in their text and asks her to look again. */
@@ -385,29 +413,32 @@ function App() {
     if (!taskAdvice) return;
     const result = await runReview(lesson.practice, taskAdvice.message);
     if (result) setTaskAdvice({ ...taskAdvice, reviewedDraft: draft, round: 2 });
+    void assessProgress(true);
   }
 
   /** Self-check: the student selects the place in their own text that shows the statement. */
   // The writing map: on the student's request Edda reads the text and says how far each part has come.
-  async function assessProgress() {
+  async function assessProgress(isQuiet = false) {
     const assessedDraft = draft;
-    const taught = mapSkills.map(({ skill }) => skill).filter((skill) =>
-      lessons.slice(0, lessonIndex + 1).some((item) => item.skillIds.includes(skill)));
-    if (!assessedDraft.trim() || taught.length === 0) return;
-    setMapLoading(true);
+    // The next chapter's part is read too: Edda then knows what the text already shows of it.
+    const upcoming = lessons[lessonIndex + 1]?.skillIds.length === 1 ? lessons[lessonIndex + 1].skillIds : [];
+    const skills = mapSkills.map(({ skill }) => skill).filter((skill) => taughtSkills.includes(skill) || upcoming.includes(skill));
+    if (!assessedDraft.trim() || skills.length === 0) return;
+    if (!isQuiet) setMapLoading(true);
     setMapError(null);
     try {
       // The same text always gives the same map: a text Edda has already read is not read again.
-      const key = `${taught.join(",")}\n${assessedDraft}`;
-      const parts = mapReadings.current.get(key) ?? await requestProgressMap(assessedDraft, taught, progressMap?.parts ?? []);
+      const key = `${skills.join(",")}\n${assessedDraft}`;
+      const parts = mapReadings.current.get(key) ?? await requestProgressMap(assessedDraft, skills, progressMap?.parts ?? []);
       mapReadings.current.set(key, parts);
       setProgressMap({ draft: assessedDraft, parts });
       // Only the map is shown at first. Edda says more about a part when the student chooses it.
       setMapSelected(null);
     } catch (error) {
-      setMapError(error instanceof Error ? error.message : "Edda kunde inte läsa texten just nu.");
+      // When Edda reads on her own after a writing task, a failure is not the student's concern.
+      if (!isQuiet) setMapError(error instanceof Error ? error.message : "Edda kunde inte läsa texten just nu.");
     } finally {
-      setMapLoading(false);
+      if (!isQuiet) setMapLoading(false);
     }
   }
 
@@ -415,7 +446,7 @@ function App() {
   function shareMapWithTeacher() {
     if (!progressMap) return;
     try {
-      const result = saveDemoMap(window.localStorage, `kapitel ${lessonIndex + 1}: ${lesson.shortTitle}`, progressMap.parts);
+      const result = saveDemoMap(window.localStorage, `kapitel ${lessonIndex + 1}: ${lesson.shortTitle}`, shownMap ?? progressMap.parts);
       if (result.error || !result.map) {
         setMapShareError("Skrivkartan kunde inte visas för läraren. Kontrollera webbläsarens lagring och försök igen.");
         return;
@@ -670,10 +701,14 @@ function App() {
   // In the last chapter the writing task ends with a checklist for the whole text, while the student's
   // own text is still shown beside the board and before the final recall and diagnosis begin.
   const hasSubmissionChecklist = phaseIndex === 1 && lessonIndex === lessons.length - 1;
-  const walk = walks[lessonIndex] ?? { streak: 0, found: 0, misses: 0, reveals: 0, offerAt: null, solo: false };
-  // The student found the places in the walk-through alone: chose to search without explanations,
-  // or found them all with at most one miss and without Edda showing any.
-  const foundAlone = walk.solo || (walk.found >= 2 && walk.reveals === 0 && walk.misses <= 1);
+  // What the student's own text already shows of this chapter's part (from the writing map).
+  const alreadyInText = lesson.skillIds.length === 1 && (mapLevels[lesson.skillIds[0]] ?? 0) >= 2;
+  const walk = walks[lessonIndex] ?? { streak: alreadyInText ? 2 : 0, found: 0, misses: 0, reveals: 0, toldAt: null };
+  // Edda explains more briefly while the student keeps finding the places at the first try.
+  const explainsBriefly = walk.streak >= 2;
+  // The student found the places in the walk-through alone: all of them with at most one miss and
+  // without Edda showing any. Then the example before the writing task is not needed.
+  const foundAlone = walk.found >= 2 && walk.reveals === 0 && walk.misses <= 1;
   const canAdvance = freeNavigation
     || (seenBoards.includes(boardKey) && (!hasBoardCheck || attemptedBoards.includes(boardKey)));
 
@@ -758,7 +793,6 @@ function App() {
     const reveal = false;
     const isLastPage = currentBoardPage === boardPages.length && !errorHunt;
     const before = walk;
-    const picksLeft = boardPages.slice(currentBoardPage).filter((page) => page.kind === "part").length;
     const streak = isCorrect && attempt === 1 ? before.streak + 1 : isCorrect ? before.streak : 0;
     setWalks((current) => ({
       ...current,
@@ -767,18 +801,17 @@ function App() {
         streak,
         found: before.found + (isCorrect ? 1 : 0),
         misses: before.misses + (isCorrect ? 0 : 1),
-        reveals: before.reveals + (reveal ? 1 : 0),
-        // Two places in a row found at the first try: Edda offers to step back, once.
-        offerAt: before.offerAt === null && !before.solo && streak >= 2 && picksLeft >= 2 ? currentBoardPage : before.offerAt,
+        // The first time Edda starts explaining more briefly she says so, on the next page.
+        toldAt: before.toldAt === null && before.streak < 2 && streak >= 2 ? currentBoardPage + 1 : before.toldAt,
       },
     }));
 
-    // The student has chosen to search without Edda's explanations: a place found at the first
-    // try is simply confirmed, without waiting for Edda.
-    if (before.solo && isCorrect && attempt === 1 && currentPage.kind === "part") {
-      setPagePick({ ...pick, selected: null, solved: true, attempt, submitting: false, feedback: null, error: null });
+    // A place that is found needs no reading by the AI: Edda's own short explanation is the answer.
+    // While the student keeps finding the places at the first try it is shown without being read aloud.
+    if (isCorrect) {
+      setPagePick({ ...pick, selected: null, solved: true, attempt, submitting: false, feedback: null, error: null, brief: before.streak >= 2 && attempt === 1 });
       if (isLastPage) markAttempted();
-      recordCheck(lesson.skillIds, "independent");
+      recordCheck(lesson.skillIds, attempt === 1 ? "independent" : "supported");
       return;
     }
 
@@ -820,11 +853,19 @@ function App() {
     }
   }
 
-  const canAskForHint = pick.attempt >= 1 && workedFor >= effortTimes.hint;
-  const canAskToBeShown = pick.attempt >= 2 && workedFor >= effortTimes.reveal;
+  // Help comes by itself when the student is stuck. A hint: after a try and a while on the question,
+  // or after a long while without any try. Then, after a second try and longer still, Edda shows the place.
+  const isStuck = !isPickResolved && !pick.submitting && (
+    (pick.attempt >= 1 && workedFor >= effortTimes.hint) || workedFor >= effortTimes.idle);
+  const shouldBeShown = !isPickResolved && !pick.submitting && pick.attempt >= 2 && workedFor >= effortTimes.reveal;
+  const isSearching = (currentPage?.kind === "part" || (currentPage?.kind === "compare" && currentPage.pairIndex !== null)) && !isPickResolved;
   useEffect(() => {
-    if (isPickResolved || pick.attempt === 0) return;
-    const waits = [effortTimes.hint - workedFor, effortTimes.reveal - workedFor].filter((wait) => wait > 0);
+    if (!isSearching) return;
+    if (shouldBeShown) {
+      showPlaceOnPage();
+      return;
+    }
+    const waits = [effortTimes.hint - workedFor, effortTimes.reveal - workedFor, effortTimes.idle - workedFor].filter((wait) => wait > 0);
     if (waits.length === 0) return;
     const timer = window.setTimeout(() => setEffortTick((tick) => tick + 1), Math.min(...waits) + 20);
     return () => window.clearTimeout(timer);
@@ -832,12 +873,26 @@ function App() {
 
   // The writing task is the student's own work: Edda reads when the student has written something
   // new in the text since the task was given.
-  const taskStart = useRef({ board: boardKey, draft });
-  if (taskStart.current.board !== boardKey) taskStart.current = { board: boardKey, draft };
+  const taskStart = useRef({ board: boardKey, draft, at: Date.now() });
+  if (taskStart.current.board !== boardKey) taskStart.current = { board: boardKey, draft, at: Date.now() };
+  // Edda notices when the text stands still in the writing task and then gives a first step, unasked.
+  const lastWrite = useRef({ draft, at: Date.now() });
+  if (lastWrite.current.draft !== draft) lastWrite.current = { draft, at: Date.now() };
+  const isWaitingToWrite = phaseIndex === 1 && !showHint && !attemptedBoards.includes(boardKey) && !isFinalDiagnosis && !isFinalRecall;
+  useEffect(() => {
+    if (!isWaitingToWrite) return;
+    const stillFor = Date.now() - Math.max(taskStart.current.at, lastWrite.current.at);
+    if (stillFor >= effortTimes.writingIdle) {
+      setShowHint(true);
+      return;
+    }
+    const timer = window.setTimeout(() => setEffortTick((tick) => tick + 1), effortTimes.writingIdle - stillFor + 20);
+    return () => window.clearTimeout(timer);
+  });
   const hasWrittenForTask = draft !== taskStart.current.draft
     && draft.trim().split(/\s+/).filter(Boolean).length >= minTaskWords;
 
-  /** The student asks Edda to show the place they have been looking for. */
+  /** Edda shows the place the student has been looking for. */
   function showPlaceOnPage() {
     if (!currentPage || pick.submitting || isPickResolved) return;
     setPagePick({ ...pick, selected: null, revealed: true });
@@ -877,6 +932,17 @@ function App() {
             ))}
           </nav>
           <span className="topbar-count">{lessonIndex + 1}/{lessons.length}</span>
+          {/* The student's writing map fills in by itself while the student works. */}
+          {shownMap && (
+            <span className="topbar-map" title="Din skrivkarta">
+              <MapWheel
+                compact
+                label="Din skrivkarta i litet format"
+                levelOf={(skill) => shownMap.find((part) => part.skill === skill)?.level ?? null}
+                taught={taughtSkills}
+              />
+            </span>
+          )}
           <button
             aria-pressed={soundOn}
             className="sound-toggle"
@@ -1073,40 +1139,26 @@ function App() {
                       {pick.submitting && <p className="example-pick-status" role="status">Edda läser ditt val …</p>}
                       {pick.error && <p className="check-in-error" role="alert">{pick.error}</p>}
                       {pick.feedback && <EddaFeedback feedback={pick.feedback} />}
-                      {pick.revealed && <p className="edda-shows">Edda visar stället i texten.</p>}
-                      {/* After two tries the student chooses: try again, or let Edda show the place. */}
-                      {!isPickResolved && canAskToBeShown && !pick.submitting && (
-                        <p className="show-offer">
-                          Pröva gärna igen. Vill du hellre att jag visar stället?
-                          <button className="quiet-button" onClick={showPlaceOnPage} type="button">Visa stället</button>
-                        </p>
-                      )}
                     </>
                   );
 
-                  // Found at the first try by a student who searches without Edda's explanations.
-                  const isQuietFind = isCurrent && walk.solo && pick.solved && pick.attempt === 1 && !pick.feedback;
-                  // When the student keeps finding the places, Edda offers to step back. The student chooses.
-                  const soloOffer = walk.offerAt === currentBoardPage && !walk.solo && (
-                    <div className="solo-offer" role="group" aria-label="Välj hur du vill fortsätta">
-                      <p>Du hittar ställena på egen hand. Vill du leta själv i resten, utan mina förklaringar? De finns kvar om du vill läsa dem.</p>
-                      <div className="solo-offer-actions">
-                        <button
-                          className="quiet-button"
-                          onClick={() => setWalks((current) => ({ ...current, [lessonIndex]: { ...walk, solo: true } }))}
-                          type="button"
-                        >
-                          Ja, jag letar själv
-                        </button>
-                        <button
-                          className="text-button"
-                          onClick={() => setWalks((current) => ({ ...current, [lessonIndex]: { ...walk, offerAt: -1 } }))}
-                          type="button"
-                        >
-                          Nej, fortsätt som nu
-                        </button>
+                  // When the place is found or shown, the board holds only what Edda says about it, in her
+                  // speech bubble. It appears when she has said it. The place itself is lit in the text.
+                  const eddaExplains = (text: string) => (
+                    <div className="edda-line" role="status">
+                      <span aria-hidden="true" className="edda-face" />
+                      <div className="edda-bubble-wrap">
+                        <strong className="edda-name">Edda</strong>
+                        <div className="edda-bubble">
+                          {pick.solved && <EddaMark className="is-earned" />}
+                          <span><Written spoken={!pick.brief}>{text}</Written></span>
+                        </div>
                       </div>
                     </div>
+                  );
+                  // Edda says it once when she starts explaining more briefly, so that the student sees why.
+                  const stepsBack = isCurrent && walk.toldAt === currentBoardPage && (
+                    <p aria-live="polite" className="edda-steps-back">Du hittar ställena själv, så jag förklarar kortare nu.</p>
                   );
 
                   if (page.kind === "compare") {
@@ -1132,18 +1184,13 @@ function App() {
                           {showAnswer ? (
                             <>
                               <p className="board-prompt"><Written byHand>{pair.label}</Written></p>
-                              {/* Edda says her explanation first; her written bubble comes when she is quiet. */}
-                              <WhenWritten>{eddaResponse}</WhenWritten>
-                              <p className="compare-quote"><span className="compare-label">{item.simpleTag}</span><Written>{`”${pair.simple}”`}</Written></p>
-                              <p className="compare-quote is-developed"><span className="compare-label">{item.developedTag}</span><Written>{`”${pair.developed}”`}</Written></p>
-                              <p className="activity-instruction"><Written spoken>{pair.explain}</Written></p>
-                              <WhenWritten>{isCurrent && soloOffer}</WhenWritten>
+                              {isCurrent && pick.error && <p className="check-in-error" role="alert">{pick.error}</p>}
+                              {eddaExplains(pair.explain)}
                             </>
                           ) : (
                             <>
                               <p className="board-prompt"><Written byHand>Hitta samma ställe i den andra texten</Written></p>
-                              <p className="compare-quote"><span className="compare-label">{item.simpleTag}</span><Written>{`”${pair.simple}”`}</Written></p>
-                              <p className="board-small-note"><Written>Det här lyser gult i den övre rutan. Klicka på det som motsvarar det i den nedre.</Written></p>
+                              <p className="board-small-note"><Written>Titta på det som lyser gult i den övre rutan. Klicka på det som motsvarar det i den nedre.</Written></p>
                               {eddaResponse}
                             </>
                           )}
@@ -1157,42 +1204,28 @@ function App() {
                     <BoardStep key={`page-${pageIndex}`} pause={!isLast} locked={!freeNavigation && !showAnswer}>
                       <div className="board-activity focus-walk">
                         <p className="board-kicker">{`${page.number} AV ${walkthrough.length}`}</p>
-                        {showAnswer && isQuietFind ? (
-                          // The student searches without Edda's explanations: the find is confirmed,
-                          // and the explanation is there for the one who wants it.
+                        {showAnswer ? (
                           <>
                             <p className="board-prompt"><Written byHand>{part.label}</Written></p>
-                            <p className="solo-found" role="status"><EddaMark /> Du hittade det på egen hand.</p>
-                            <p className="focus-quote"><Written>{`”${part.quote}”`}</Written></p>
-                            {explainedPage === pageKey
-                              ? <p className="activity-instruction">{part.explain}</p>
-                              : part.explain && (
-                                <button className="text-button" onClick={() => setExplainedPage(pageKey)} type="button">Visa Eddas förklaring</button>
-                              )}
-                          </>
-                        ) : showAnswer ? (
-                          <>
-                            <p className="board-prompt"><Written byHand>{part.label}</Written></p>
-                            <WhenWritten>{eddaResponse}</WhenWritten>
-                            <p className="focus-quote"><Written>{`”${part.quote}”`}</Written></p>
-                            <p className="activity-instruction"><Written spoken>{part.explain ?? ""}</Written></p>
+                            {isCurrent && pick.error && <p className="check-in-error" role="alert">{pick.error}</p>}
+                            {eddaExplains(part.explain ?? part.label)}
                             {part.related && (
                               <p className="related-words">
                                 <span className="compare-label">{part.related.label}</span>
                                 <Written>{part.related.words.join(" · ")}</Written>
                               </p>
                             )}
-                            <WhenWritten>{isCurrent && soloOffer}</WhenWritten>
                           </>
                         ) : (
                           <>
                             <p className="board-prompt"><Written byHand>{part.ask ?? part.label}</Written></p>
-                            <p className="board-small-note"><Written>{walk.solo ? "Svara genom att klicka i texten till höger." : "Leta själv först: det du hittar själv minns du bättre. Klicka i texten till höger."}</Written></p>
+                            {stepsBack}
+                            <p className="board-small-note"><Written>{explainsBriefly ? "Klicka i texten till höger." : "Leta själv först: det du hittar själv minns du bättre. Klicka i texten till höger."}</Written></p>
                             {eddaResponse}
-                            {/* A hint is there for the one who asks for it; Edda does not push it. */}
-                            {isCurrent && !pick.submitting && (hintedPage === pageKey || (canAskForHint && !canAskToBeShown)) && (hintedPage === pageKey
-                              ? <p className="hint-card"><span aria-hidden="true">✦</span> {`Titta i ${placeInExemplar(part.quote)}.`}</p>
-                              : <button className="text-button" onClick={() => setHintedPage(pageKey)} type="button">Jag vill ha en ledtråd</button>)}
+                            {/* The hint comes by itself when the student has tried and stood still for a while. */}
+                            {isCurrent && isStuck && (
+                              <p aria-live="polite" className="hint-card"><span aria-hidden="true">✦</span> {`Ett första steg: titta i ${placeInExemplar(part.quote)}.`}</p>
+                            )}
                           </>
                         )}
                       </div>
@@ -1224,15 +1257,10 @@ function App() {
                     />
                   </BoardStep>
                 )}
-                {phaseIndex === 1 && lessonIndex < lessons.length - 1 && (
-                  <BoardStep pause locked={!freeNavigation && !foundAlone && !pickedExamples.includes(boardKey)}>
+                {phaseIndex === 1 && lessonIndex < lessons.length - 1 && !foundAlone && (
+                  <BoardStep pause locked={!freeNavigation && !pickedExamples.includes(boardKey)}>
                     {/* Before the student writes, Edda shows a better and a weaker example of the same part. */}
-                    {/* For a student who found the places alone the example is optional, and Edda says why. */}
-                    {foundAlone && (
-                      <p className="activity-instruction support-fades">
-                        <Written spoken>Du hittade ställena i exempeltexten på egen hand. Därför är exemplet här frivilligt. Titta på det om du vill, eller gå direkt till din uppgift.</Written>
-                      </p>
-                    )}
+                    {/* A student who found the places alone goes straight to the task instead. */}
                     <ExamplePick
                       key={lessonIndex}
                       lesson={lesson}
@@ -1251,9 +1279,12 @@ function App() {
                   >
                     <div className="board-activity writing-task">
                       <p className="board-prompt"><Written byHand>Din uppgift</Written></p>
+                      {foundAlone && lessonIndex < lessons.length - 1 && (
+                        <p className="edda-steps-back">Du hittade ställena i exempeltexten själv, så du går direkt till din uppgift.</p>
+                      )}
                       <p className="activity-instruction"><Written spoken>{lesson.practice}</Written></p>
                       <p className="board-small-note"><Written>Skriv i din text till höger.</Written></p>
-                      {showHint && <p className="hint-card"><span aria-hidden="true">✦</span> <Written>{lesson.hint}</Written></p>}
+                      {showHint && <p aria-live="polite" className="hint-card"><span aria-hidden="true">✦</span> Ett första steg: {lesson.hint}</p>}
                       <AfterWriting>
                         <div className="task-actions">
                           {reviewLoading && reviewSource === "task" ? (
@@ -1311,9 +1342,6 @@ function App() {
                               {lesson.taskLink ? "Jag är klar – låt Edda läsa" : "Jag är klar med uppgiften"}
                             </button>
                           )}
-                          <button className="text-button" onClick={() => setShowHint((visible) => !visible)} type="button">
-                            {showHint ? "Dölj ledtråd" : "Visa en ledtråd"}
-                          </button>
                         </div>
                       </AfterWriting>
                     </div>
@@ -1407,10 +1435,29 @@ function App() {
                 {hasProgressMap && (
                   // The chapter ends with the student's writing map: how far each part of their own text has come.
                   <BoardStep>
+                    {practice ? (
+                      <PracticeRound
+                        key={practice.skill}
+                        lesson={lessons.find((item) => item.skillIds.length === 1 && item.skillIds[0] === practice.skill) ?? lesson}
+                        label={mapSkills.find(({ skill }) => skill === practice.skill)?.label ?? ""}
+                        level={practice.level}
+                        hint={practice.hint}
+                        priorEvidence={priorEvidence}
+                        onEvidence={recordEvidence}
+                        hasRevised={draft !== practice.draft && draft.trim().length > 0}
+                        loading={mapLoading}
+                        onReadAgain={async () => {
+                          const practised = practice.skill;
+                          await assessProgress();
+                          setPractice(null);
+                          setMapSelected(practised);
+                        }}
+                        onBack={() => setPractice(null)}
+                      />
+                    ) : (
                     <ProgressMap
-                      taught={mapSkills.map(({ skill }) => skill).filter((skill) =>
-                        lessons.slice(0, lessonIndex + 1).some((item) => item.skillIds.includes(skill)))}
-                      parts={progressMap?.parts ?? null}
+                      taught={taughtSkills}
+                      parts={shownMap}
                       selected={mapSelected}
                       onSelect={(skill) => setMapSelected((current) => current === skill ? null : skill)}
                       onAssess={assessProgress}
@@ -1422,7 +1469,12 @@ function App() {
                       isShared={progressMap !== null && sharedMapDraft === progressMap.draft}
                       shareError={mapShareError}
                       onOpenTeacherView={openTeacherInbox}
+                      onPractice={(skill) => {
+                        const part = shownMap?.find((item) => item.skill === skill);
+                        setPractice({ skill, level: part?.level ?? 0, hint: part?.next ?? "", draft });
+                      }}
                     />
+                    )}
                   </BoardStep>
                 )}
               </BoardSequence>

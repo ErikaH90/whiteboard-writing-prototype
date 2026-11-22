@@ -72,6 +72,7 @@ async function mockServer(page: Page, spokenRequests: string[]) {
 }
 
 test.beforeEach(async ({ page }) => {
+  await page.route("**/api/progress-map", (route) => route.fulfill({ status: 503, body: "{}" }));
   await page.route("**/api/speech", (route) => route.fulfill({ status: 503, body: "{}" }));
 });
 

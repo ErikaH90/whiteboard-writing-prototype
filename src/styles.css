@@ -3612,3 +3612,85 @@ input:focus-visible {
   color: var(--board-ink);
   font-size: 18px;
 }
+
+/* More practice on a part chosen in the writing map */
+
+.map-practice {
+  margin-top: 8px;
+}
+
+.practice-round {
+  display: grid;
+  gap: 10px;
+}
+
+.practice-round > * {
+  margin: 0;
+}
+
+.practice-reason {
+  color: var(--board-ink);
+  font-size: 19px;
+  line-height: 1.35;
+}
+
+.practice-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+}
+
+.practice-round > .primary-button {
+  justify-self: start;
+}
+
+/* The small writing map in the top bar, and Edda's one line when she changes her support */
+
+.topbar-map {
+  display: inline-flex;
+  flex: none;
+}
+
+.map-wheel.is-compact {
+  width: 38px;
+  max-width: none;
+  height: 38px;
+}
+
+.edda-steps-back {
+  margin: 6px 0;
+  color: #5b46c4;
+  font-size: 18px;
+  line-height: 1.35;
+}
+
+/* What Edda says about a found place, in her speech bubble once she has said it */
+
+.edda-line {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  margin: 14px 0;
+  text-align: left;
+}
+
+.edda-line .edda-bubble {
+  color: var(--board-ink);
+  font-family: "Patrick Hand", cursive;
+  font-size: 22px;
+  line-height: 1.35;
+}
+
+/* While she speaks only her dots are shown: the bubble's own face and frame step aside. */
+.edda-line:has(.board-ink.is-speaking) > .edda-face,
+.edda-line:has(.board-ink.is-speaking) .edda-name,
+.edda-line:has(.board-ink.is-speaking) .edda-mark {
+  display: none;
+}
+
+.edda-line:has(.board-ink.is-speaking) .edda-bubble {
+  padding: 0;
+  border-color: transparent;
+  background: none;
+}

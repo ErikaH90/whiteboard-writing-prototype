@@ -34,6 +34,8 @@ type Props = {
   isShared: boolean;
   shareError: string | null;
   onOpenTeacherView: () => void;
+  /** The student chooses to practise more on a part. */
+  onPractice: (skill: MapSkill) => void;
 };
 
 const rings: [number, number][] = [[26, 62], [62, 98], [98, 134]];
@@ -55,10 +57,12 @@ type WheelProps = {
   selected?: MapSkill | null;
   /** Without it the wheel is a picture only, as in the teacher's view. */
   onSelect?: (skill: MapSkill) => void;
+  /** A small wheel without words, for the top bar. */
+  compact?: boolean;
 };
 
 /** The wheel itself: one slice per part, filled from the centre outwards, and Edda in the middle. */
-export function MapWheel({ label, taught, levelOf, selected = null, onSelect }: WheelProps) {
+export function MapWheel({ label, taught, levelOf, selected = null, onSelect, compact = false }: WheelProps) {
   const isReady = mapSkills.every(({ skill }) => (levelOf(skill) ?? 0) >= readyLevel);
 
   function onKey(event: KeyboardEvent<SVGGElement>, skill: MapSkill) {
@@ -68,7 +72,7 @@ export function MapWheel({ label, taught, levelOf, selected = null, onSelect }: 
   }
 
   return (
-    <svg aria-label={label} className="map-wheel" role="group" viewBox="-240 -168 480 336">
+    <svg aria-label={label} className={`map-wheel ${compact ? "is-compact" : ""}`} role={compact ? "img" : "group"} viewBox={compact ? "-138 -138 276 276" : "-240 -168 480 336"}>
       {mapSkills.map(({ skill, label }, index) => {
         const from = index * 60 + gap;
         const to = (index + 1) * 60 - gap;
@@ -87,7 +91,7 @@ export function MapWheel({ label, taught, levelOf, selected = null, onSelect }: 
             key={skill}
             onClick={canChoose ? () => onSelect(skill) : undefined}
             onKeyDown={canChoose ? (event) => onKey(event, skill) : undefined}
-            role={onSelect ? "button" : "img"}
+            role={onSelect ? "button" : compact ? undefined : "img"}
             tabIndex={canChoose ? 0 : undefined}
           >
             {rings.map(([inner, outer], ring) => (
@@ -98,14 +102,14 @@ export function MapWheel({ label, taught, levelOf, selected = null, onSelect }: 
               />
             ))}
             {selected === skill && <path className="map-selection" d={sector(22, 139, from - 1, to + 1)} />}
-            <text textAnchor={anchor} x={labelX} y={labelY + 6}>{label}</text>
+            {!compact && <text textAnchor={anchor} x={labelX} y={labelY + 6}>{label}</text>}
           </g>
         );
       })}
       <g aria-label={isReady ? "Redo för slutdiagnos" : "Redo för slutdiagnos: inte än"} className={`map-ready ${isReady ? "is-ready" : ""}`} role="img">
         <path d={sector(27.5, 132.5, 300 + gap, 360 - gap)} />
-        <text textAnchor="middle" x={-76} y={-48}>Redo för</text>
-        <text textAnchor="middle" x={-76} y={-30}>slutdiagnos</text>
+        {!compact && <text textAnchor="middle" x={-76} y={-48}>Redo för</text>}
+        {!compact && <text textAnchor="middle" x={-76} y={-30}>slutdiagnos</text>}
       </g>
       <circle className="map-centre" r="22" />
       <rect className="map-eye" height="11" rx="2.5" width="5" x="-9" y="-6" />
@@ -119,7 +123,7 @@ export function MapWheel({ label, taught, levelOf, selected = null, onSelect }: 
  * Each slice fills from the centre outwards in three steps as that part of the student's own
  * text develops. The levels are guidance from Edda, never a grade.
  */
-export default function ProgressMap({ taught, parts, selected, onSelect, onAssess, loading, error, isEmpty, isOutdated, onShare, isShared, shareError, onOpenTeacherView }: Props) {
+export default function ProgressMap({ taught, parts, selected, onSelect, onAssess, loading, error, isEmpty, isOutdated, onShare, isShared, shareError, onOpenTeacherView, onPractice }: Props) {
   const levelOf = (skill: MapSkill) => parts?.find((part) => part.skill === skill)?.level ?? null;
   const isReady = parts !== null && mapSkills.every(({ skill }) => (levelOf(skill) ?? 0) >= readyLevel);
   const chosen = parts?.find((part) => part.skill === selected) ?? null;
@@ -175,6 +179,10 @@ export default function ProgressMap({ taught, parts, selected, onSelect, onAsses
                     {chosen.next}
                   </p>
                 )}
+                {/* The student decides what to practise more on; the practice follows how far the part has come. */}
+                <button className="quiet-button map-practice" onClick={() => onPractice(chosen.skill)} type="button">
+                  {`Träna mer på ${chosenLabel.toLocaleLowerCase("sv")}`}
+                </button>
                 <p className="assessment-note">Kartan är Eddas stöd för din bearbetning, inte ett betyg.</p>
               </div>
             )}

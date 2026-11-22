@@ -168,9 +168,52 @@ describe("server AI API", () => {
         found: [],
       },
     ]);
-    // Only structure needs the model; the same text is read the same way every time.
-    expect(create).toHaveBeenCalledTimes(1);
+    // Only structure needs the model. It is read twice, and only what both readings point out counts.
+    expect(create).toHaveBeenCalledTimes(2);
     expect(create.mock.calls[0][0].temperature).toBe(0);
+  });
+
+  it("counts several arguments only when two different places in the text are quoted", async () => {
+    const draft = "Senare skolstart\n\nSkoldagen borde börja senare. För det första sover elever för lite. För det andra lär man sig mer när man är pigg.";
+    const answer = (quote: string) => mockClient({ features: [{ id: "arguments", reason: "Två skäl.", found: true, quote }] });
+    const read = async (quote: string) => (await post(createApiApp({ client: answer(quote) }), "/api/progress-map", { draft, skills: ["structure"] })).body.parts[0];
+
+    // One quote, or the same place twice, is one argument.
+    expect((await read("För det första sover elever för lite.")).found).toEqual([]);
+    expect((await read("För det första sover elever för lite. | För det första sover elever för lite.")).found).toEqual([]);
+    const two = await read("För det första sover elever för lite. | För det andra lär man sig mer när man är pigg.");
+    expect(two.found).toEqual([{ id: "arguments", quote: "För det andra lär man sig mer när man är pigg." }]);
+    expect(two.strength).toBe("Du har flera argument som stöder din tes.");
+  });
+
+  it("reads the map with a stronger model and falls back to the usual one when it cannot be used", async () => {
+    const draft = "Senare skolstart\n\nSkoldagen borde börja senare.";
+    const unavailable = Object.assign(Object.create(OpenAI.APIError.prototype), { status: 404, message: "model not found" });
+    const create = vi.fn(async (request: { model: string }) => {
+      if (request.model === "gpt-4o") throw unavailable;
+      return { choices: [{ message: { content: JSON.stringify({ features: [] }) } }] };
+    });
+    const result = await post(createApiApp({ client: { chat: { completions: { create } } } }), "/api/progress-map", { draft, skills: ["structure"] });
+
+    expect(result.status).toBe(200);
+    expect(create.mock.calls.map(([request]) => request.model).sort()).toEqual(["gpt-4o", "gpt-4o", "gpt-4o-mini", "gpt-4o-mini"]);
+  });
+
+  it("counts only what two independent readings of the text both point out", async () => {
+    const draft = "Senare skolstart\n\nSkoldagen borde börja senare. Elever sover för lite.";
+    let reading = 0;
+    const create = vi.fn(async () => {
+      reading += 1;
+      // The thesis is pointed out in both readings; the counter-argument only in one of them.
+      const features = [
+        { id: "thesis", reason: "Tydlig ståndpunkt.", found: true, quote: "Skoldagen borde börja senare." },
+        { id: "counter", reason: "Osäkert.", found: reading === 1, quote: reading === 1 ? "Elever sover för lite." : "" },
+      ];
+      return { choices: [{ message: { content: JSON.stringify({ features }) } }] };
+    });
+    const result = await post(createApiApp({ client: { chat: { completions: { create } } } }), "/api/progress-map", { draft, skills: ["structure"] });
+
+    expect(result.body.parts[0].found).toEqual([{ id: "thesis", quote: "Skoldagen borde börja senare." }]);
   });
 
   it("keeps what Edda has pointed out before as long as that place is still in the text", async () => {
