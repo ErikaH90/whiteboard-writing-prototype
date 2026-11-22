@@ -281,6 +281,11 @@ export function Written({ children, byHand = false, spoken = false }: {
   return <Ink byHand={byHand} key={children} spoken={spoken} step={step} text={children} />;
 }
 
+/** True while a written speech bubble from Edda is visible, so that she is never heard and read at once. */
+function isEddaBubbleShown(): boolean {
+  return Array.from(document.querySelectorAll(".edda-says")).some((bubble) => !bubble.closest("[hidden]"));
+}
+
 function Ink({ step, text, byHand, spoken }: { step: StepContextValue; text: string; byHand: boolean; spoken: boolean }) {
   const id = useId();
   const { register, finish } = step;
@@ -293,6 +298,11 @@ function Ink({ step, text, byHand, spoken }: { step: StepContextValue; text: str
 
   useEffect(() => {
     if (status !== "writing" || !spoken || !isVoiceActive()) return;
+    // Edda never talks while one of her written speech bubbles is on the board: then the text is shown at once.
+    if (isEddaBubbleShown()) {
+      finish(id);
+      return;
+    }
     setIsSpeaking(true);
     const speech = speak(text);
     let active = true;
@@ -315,7 +325,7 @@ function Ink({ step, text, byHand, spoken }: { step: StepContextValue; text: str
 
   useEffect(() => {
     if (status !== "writing") return;
-    if (spoken && isVoiceActive()) return;
+    if (spoken && isVoiceActive() && !isEddaBubbleShown()) return;
     if (!animate || count >= text.length) {
       finish(id);
       return;

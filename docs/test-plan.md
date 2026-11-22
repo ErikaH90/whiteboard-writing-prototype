@@ -71,6 +71,7 @@ Testerna ska skydda elevens självständiga skrivande, lektionsprogressionen, se
 - **EX-07:** på en bred skärm syns hela exempeltexten utan rullning när eleven lyssnar och under genomgången.
 - **EX-04:** exempeltexten visas bara under kapitlets öppning och modellering; från skrivuppgiften och framåt, i återkallningsrundan och i slutdiagnosen visas den inte. Eleven har ingen kontroll för att växla mellan exempeltext och egen text, och utkastet ändras inte när ytan byter innehåll.
 - **PED-20:** felsökningen i kapitel 5 görs på whiteboarden: varje del av den påhittade texten går att klicka på, frågor med två fel kräver båda, fel val ger en knuff utan förklaring, och efter sista frågan visas den rättade texten. Två försök eller ett fel från AI-tjänsten räcker för att få gå vidare.
+- **VOICE-02:** när en pratbubbla med Eddas text syns på tavlan läser hon inget högt; texten visas direkt och inget röstanrop görs.
 - **VOICE-01:** medan Edda läser upp sin vägledning visas bara bubblan **Edda berättar**; texten, knapparna och svarsfälten visas först när uppläsningen är klar. Hela texten finns för hjälpmedel under tiden.
 - **VOICE-02:** med ljudet avstängt, utan röst på servern eller om uppspelningen blockeras visas texten direkt och lektionen fortsätter som vanligt. Automatiska tester använder aldrig den riktiga rösttjänsten.
 - **START-01:** lektionen öppnar med en välkomstsida där eleven väljer ett av tre ämnen att skriva om; valet blir skrivuppgiften och sparas lokalt, och skrivytan visar kapitlen och arbetsgången. Inget AI-anrop görs.

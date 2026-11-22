@@ -2,6 +2,7 @@ import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { resetVoice } from "../lib/eddaVoice";
+import EddaFeedback from "./EddaFeedback";
 import { AfterWriting, BoardPause, BoardSequence, BoardStep, Written } from "./BoardWriting";
 
 function allowMotion() {
@@ -172,6 +173,26 @@ describe("board writing", () => {
     expect(screen.getByText("Här står tesen.")).toHaveClass("board-ink");
     expect(screen.getByRole("button", { name: "Svara" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Fortsätt" })).toBeInTheDocument();
+  });
+
+  it("does not let Edda speak while one of her written speech bubbles is shown", async () => {
+    resetVoice();
+    allowMotion();
+    vi.stubGlobal("Audio", class extends EventTarget { play = vi.fn(async () => undefined); pause = vi.fn(); });
+    const fetchMock = vi.fn(async () => new Response("ljud", { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    render(
+      <BoardSequence>
+        <BoardStep>
+          <EddaFeedback feedback={{ kind: "on_track", feedback: "Du hittade tesen.", level: 2 }} />
+          <p><Written spoken>Här står tesen.</Written></p>
+        </BoardStep>
+      </BoardSequence>,
+    );
+
+    await waitFor(() => expect(screen.getByText("Här står tesen.")).toHaveClass("board-ink"));
+    expect(screen.queryByText("Edda berättar")).not.toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("shows the text at once when Edda's voice cannot be used", async () => {

@@ -1,4 +1,6 @@
+import { useEffect } from "react";
 import type { CheckInFeedback } from "../lib/coachApi";
+import { stopSpeaking } from "../lib/eddaVoice";
 
 /** A small hand-drawn star in colour: the reward when the student is on the right track. */
 export function EddaStar({ className = "" }: { className?: string }) {
@@ -17,6 +19,11 @@ export function EddaStar({ className = "" }: { className?: string }) {
 export default function EddaFeedback({ feedback }: { feedback: CheckInFeedback }) {
   const onTrack = feedback.kind === "on_track";
   const level = feedback.level ?? 1;
+
+  // A written bubble and Edda's voice are never used at once: if she is still talking, she stops.
+  useEffect(() => {
+    stopSpeaking();
+  }, []);
 
   return (
     <div className={`edda-says is-${onTrack ? "on-track" : "retry"}`} role="status">
