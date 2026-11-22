@@ -26,7 +26,13 @@
 - `npm run build && npm start` bygger och startar lokal server på `127.0.0.1:3000`.
 - Serverns grundläggande origin- och IP-begränsningar är inte tillräckligt skydd för offentlig drift. Lägg inte servern på ett publikt nät utan autentisering, missbruksskydd och dataskyddsgranskning.
 - Modellnamn kan ändras server-side med `OPENAI_MODEL`; standard är `gpt-4o-mini`.
-- ElevenLabs är inte anslutet.
+- ElevenLabs används server-side för uppläsning (`ELEVENLABS_API_KEY`).
+
+## Visningsversion på Netlify
+
+- `netlify.toml` bygger `dist` och kör samma Express-app som en Netlify-funktion (`netlify/functions/api.mjs`); `/api/*` skrivs om till funktionen.
+- Nycklarna läggs in som miljövariabler i Netlify (`OPENAI_API_KEY`, `ELEVENLABS_API_KEY`), aldrig i versionshanteringen.
+- Visningsversionen saknar inloggning. Alla som har länken kan använda AI och röst på kontonas bekostnad, och anropsgränsen gäller bara per funktionsinstans. Den är bara till för visning med påhittade texter, inte för elever. Sätt en utgiftsgräns hos OpenAI och ElevenLabs och ta ner sajten när den inte behövs.
 
 ## Testlager
 

@@ -14,6 +14,8 @@ npm run dev
 Bygg produktionsversionen med `npm run build`.
 Starta den lokala servern med `npm start` efter bygget.
 
+Visningsversionen på Netlify beskrivs i `docs/architecture.md`; nycklarna läggs in som miljövariabler i Netlify.
+
 Kör automatiserade tester med `npm test`. Kör webbläsartestet med `npm run test:e2e`.
 
 ## Prototypens omfattning
