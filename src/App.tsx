@@ -2,6 +2,7 @@ import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import FinalRecall from "./components/FinalRecall";
 import DemoTeacherInbox from "./components/DemoTeacherInbox";
 import FinalDiagnosisChecklist from "./components/FinalDiagnosisChecklist";
+import SubmissionChecklist from "./components/SubmissionChecklist";
 import LessonEntryCheck from "./components/LessonEntryCheck";
 import LessonCheckIn from "./components/LessonCheckIn";
 import ExamplePick from "./components/ExamplePick";
@@ -548,6 +549,9 @@ function App() {
   const hasBoardCheck = phaseIndex < 4 || lesson.exitTicket !== null;
   // In guided mode the next step opens when the whole board has been shown and the student has
   // answered its check or finished its task.
+  // In the last chapter the writing task ends with a checklist for the whole text, while the student's
+  // own text is still shown beside the board and before the final recall and diagnosis begin.
+  const hasSubmissionChecklist = phaseIndex === 1 && lessonIndex === lessons.length - 1;
   const canAdvance = freeNavigation
     || (seenBoards.includes(boardKey) && (!hasBoardCheck || attemptedBoards.includes(boardKey)));
 
@@ -948,7 +952,10 @@ function App() {
                   </BoardStep>
                 )}
                 {phaseIndex === 1 && (
-                  <BoardStep>
+                  <BoardStep
+                    locked={hasSubmissionChecklist && !freeNavigation && !attemptedBoards.includes(boardKey)}
+                    pause={hasSubmissionChecklist}
+                  >
                     <div className="board-activity writing-task">
                       <p className="board-prompt"><Written byHand>Din uppgift</Written></p>
                       <p className="activity-instruction"><Written spoken>{lesson.practice}</Written></p>
@@ -1018,6 +1025,12 @@ function App() {
                         </div>
                       </AfterWriting>
                     </div>
+                  </BoardStep>
+                )}
+                {hasSubmissionChecklist && (
+                  // Before the final diagnosis the student goes through the whole text with a checklist.
+                  <BoardStep>
+                    <SubmissionChecklist key={lessonIndex} />
                   </BoardStep>
                 )}
                 {phaseIndex === 2 && (

@@ -80,6 +80,7 @@ Testerna ska skydda elevens självständiga skrivande, lektionsprogressionen, se
 - **NAV-02:** ett fel från AI-tjänsten i en kontroll öppnar **Nästa steg** så att eleven inte fastnar.
 - **PED-21:** i genomgången visas varken citat eller förklaring för en del förrän eleven har hittat den i texten eller Edda har visat den efter två försök; alla kapitlets delar är klickbara medan eleven letar. I jämförelserna gäller samma sak för de ändrade ställena i det andra exemplet. Ett fel från AI-tjänsten gör att Edda visar stället.
 - **PED-22:** efter Eddas råd på skrivuppgiften kan eleven ändra i texten och be Edda titta igen; förfrågan innehåller rådet, Edda ger inga nya punkter och loopen har högst en omgång.
+- **PED-24:** checklistan inför inlämning i kapitel 6 (före slutrepetitionen, med elevens text synlig) låter eleven bocka av och ångra punkter, en del i taget, och räknar avklarade punkter; den visas först när skrivuppgiften är gjord.
 - **PED-23:** i egenkontrollen visar Edda på elevens begäran stället i elevens text med gult; saknas stället sägs det och inget markeras; texten ändras aldrig.
 - **CHECK-10:** Eddas svar slutar med en fråga endast när eleven ska försöka igen; servern kräver frågetecken för sådana svar men inte för svar på rätt spår.
 - **PED-19:** i kapitel 1–5 föregås skrivuppgiften av två exempel på den del som ska skrivas; eleven väljer det bästa genom att klicka, etiketterna avslöjar inte svaret i förväg, och i guidat läge visas uppgiften först när valet är gjort (rätt, två försök eller fel från AI-tjänsten).
