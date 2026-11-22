@@ -575,13 +575,33 @@ describe("server AI API", () => {
     });
     expect(onTrack.body).toEqual({ kind: "on_track", feedback: "Du förklarar vad en tes gör i texten.", level: 2 });
 
-    const retry = await post(createApiApp({ client: mockClient({ kind: "retry", level: 1, feedback: "Titta en gång till." }) }), "/api/check-in", {
+    // A new try without a question is asked for once more; after that Edda's answer is shown anyway.
+    const client = mockClient({ kind: "retry", level: 1, feedback: "Titta en gång till." });
+    const retry = await post(createApiApp({ client }), "/api/check-in", {
       mode: "text",
       question: "Vad är en tes?",
       answer: "Vet inte.",
       focus: "tesens funktion",
     });
-    expect(retry.status).toBe(502);
+    expect(retry.body).toEqual({ kind: "retry", feedback: "Titta en gång till." });
+    expect(client.chat.completions.create).toHaveBeenCalledTimes(2);
+  });
+
+  it("asks the model again when its answer cannot be read, and shortens an answer that is too long", async () => {
+    const create = vi.fn()
+      .mockResolvedValueOnce({ choices: [{ message: { content: "{\"kind\": \"on_tr" } }] })
+      .mockResolvedValueOnce({ choices: [{ message: { content: JSON.stringify({ kind: "on_track", level: 2, feedback: `${"Du förklarar vad en tes gör i texten. ".repeat(14)}` }) } }] });
+    const result = await post(createApiApp({ client: { chat: { completions: { create } } } }), "/api/check-in", {
+      mode: "text",
+      question: "Vad är en tes?",
+      answer: "Det skribenten vill övertyga läsaren om.",
+      focus: "tesens funktion",
+    });
+
+    expect(result.status).toBe(200);
+    expect(create).toHaveBeenCalledTimes(2);
+    expect(result.body.feedback.length).toBeLessThanOrEqual(420);
+    expect(result.body.feedback.endsWith("texten.")).toBe(true);
   });
 
   it("reads Edda's guidance aloud and reuses the audio for the same text", async () => {

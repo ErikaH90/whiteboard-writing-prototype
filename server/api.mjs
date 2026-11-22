@@ -277,6 +277,13 @@ function parseModelJson(content) {
   }
 }
 
+function shortenToSentence(text, maxLength) {
+  if (text.length <= maxLength) return text;
+  const cut = text.slice(0, maxLength);
+  const end = Math.max(cut.lastIndexOf(". "), cut.lastIndexOf("? "), cut.lastIndexOf("! "));
+  return end > 60 ? cut.slice(0, end + 1) : `${cut.slice(0, maxLength - 1).trimEnd()}…`;
+}
+
 function validateText(value, maxLength) {
   return typeof value === "string" && value.trim().length > 0 && value.length <= maxLength;
 }
@@ -644,9 +651,9 @@ export function createApiApp(options = {}) {
     if (!client) return res.status(503).json({ error: "AI-tjänsten är inte konfigurerad på servern." });
 
     try {
-      const completion = await client.chat.completions.create({
+      const ask = () => client.chat.completions.create({
         model: process.env.OPENAI_MODEL || "gpt-4o-mini",
-        max_completion_tokens: 250,
+        max_completion_tokens: 500,
         messages: [
           {
             role: "system",
@@ -686,18 +693,32 @@ export function createApiApp(options = {}) {
         },
       });
 
-      const result = readModelText(completion);
-      const expectedKind = mode === "choice" ? (isCorrect ? "on_track" : "retry") : result.kind;
-      if (
-        !["on_track", "retry"].includes(result.kind) ||
-        typeof result.feedback !== "string" ||
-        result.feedback.trim().length === 0 ||
-        result.feedback.length > 420 ||
-        (expectedKind === "retry" && !result.feedback.includes("?")) ||
-        result.kind !== expectedKind
-      ) {
-        throw new ModelOutputError("invalid_check_in");
+
+      // The model sometimes answers in a form that cannot be shown. One more try usually helps,
+      // so the student is not stopped by an occasional bad answer.
+      let result;
+      let expectedKind;
+      for (let attempt = 0; ; attempt += 1) {
+        try {
+          result = readModelText(await ask());
+          expectedKind = mode === "choice" ? (isCorrect ? "on_track" : "retry") : result.kind;
+          if (
+            !["on_track", "retry"].includes(result.kind) ||
+            typeof result.feedback !== "string" ||
+            result.feedback.trim().length === 0 ||
+            result.kind !== expectedKind ||
+            // A new try should end in a leading question: ask once more, then accept what Edda says.
+            (expectedKind === "retry" && !result.feedback.includes("?") && attempt === 0)
+          ) {
+            throw new ModelOutputError("invalid_check_in");
+          }
+          break;
+        } catch (error) {
+          if (!(error instanceof ModelOutputError) || attempt >= 1) throw error;
+        }
       }
+      // A little too long is shortened at a sentence end instead of being thrown away.
+      result.feedback = shortenToSentence(result.feedback.trim(), 420);
 
       // The level decides how big Edda's star is. A click on the right option shows less than an
       // answer in the student's own words, so only written answers can reach the highest level.
