@@ -36,7 +36,7 @@ describe("lesson check-in", () => {
 
     expect(screen.getByRole("status")).toHaveTextContent("Precis.");
     expect(screen.getByRole("status")).toHaveTextContent("Edda");
-    expect(screen.getByRole("status").querySelector(".edda-star")).toBeInTheDocument();
+    expect(screen.getByRole("status").querySelector(".edda-mark")).toBeInTheDocument();
     // A correct answer needs no further button press here.
     expect(screen.queryByRole("button", { name: "Försök igen" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Svara" })).not.toBeInTheDocument();

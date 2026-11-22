@@ -1,5 +1,5 @@
 import { useId, useState, type FormEvent } from "react";
-import EddaFeedback, { EddaStar } from "./EddaFeedback";
+import EddaFeedback, { EddaMark } from "./EddaFeedback";
 import type { ExitTicketStep, LearningEvidence, Lesson, SkillId } from "../data/lessons";
 import { AfterWriting, Written } from "./BoardWriting";
 import { submitCheckIn, type CheckInFeedback, type LearningContext } from "../lib/coachApi";
@@ -96,7 +96,7 @@ export default function ChapterExitTicket({ lesson, exitTicket, priorEvidence, o
         {achievements.length > 0 && (
           <ul className="can-do-list">
             {achievements.map((skill) => (
-              <li key={skill}><EddaStar />{skill}</li>
+              <li key={skill}><EddaMark />{skill}</li>
             ))}
           </ul>
         )}

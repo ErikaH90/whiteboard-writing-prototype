@@ -4,14 +4,27 @@ import DemoTeacherInbox from "./components/DemoTeacherInbox";
 import FinalDiagnosisChecklist from "./components/FinalDiagnosisChecklist";
 import SubmissionChecklist from "./components/SubmissionChecklist";
 import ProgressMap, { mapSkills } from "./components/ProgressMap";
+import { effortTimes, minTaskWords } from "./lib/effort";
 import LessonEntryCheck from "./components/LessonEntryCheck";
 import LessonCheckIn from "./components/LessonCheckIn";
 import ExamplePick from "./components/ExamplePick";
 import ErrorHunt from "./components/ErrorHunt";
-import EddaFeedback, { EddaStar } from "./components/EddaFeedback";
+import EddaFeedback, { EddaMark } from "./components/EddaFeedback";
 import ExemplarPanel, { type ExemplarMode } from "./components/ExemplarPanel";
-import { exemplarFocus, modellingFlow } from "./data/exemplars";
-import { readSavedTopic, topicStorageKey, writingTopics, type WritingTopic } from "./data/topics";
+import { exemplarFocus, exemplarTexts, modellingFlow } from "./data/exemplars";
+import {
+  maxOwnTopicLength,
+  maxRecipientLength,
+  ownTopic,
+  readSavedRecipient,
+  readSavedTopic,
+  recipientStorageKey,
+  recipients,
+  topicStorageKey,
+  topicToSave,
+  writingTopics,
+  type WritingTopic,
+} from "./data/topics";
 import { useFitToHeight } from "./lib/useFitToHeight";
 import { setSoundOn, useSoundOn } from "./lib/eddaVoice";
 import { useExemplarAudio } from "./lib/useExemplarAudio";
@@ -43,6 +56,9 @@ import {
   readDemoSubmissions,
   saveDemoSubmission,
   type DemoSubmission,
+  readDemoMaps,
+  saveDemoMap,
+  type DemoSharedMap,
 } from "./lib/demoSubmissions";
 
 const storageKey = "skrivcoach-argumenterande-draft";
@@ -54,6 +70,15 @@ function readSavedDraft(): { draft: string; error: boolean } {
   } catch {
     return { draft: "", error: true };
   }
+}
+
+/** Where in the exemplar a quote is, said the way a teacher would point: a hint, not the answer. */
+function placeInExemplar(quote: string): string {
+  const text = exemplarTexts.strong;
+  if (text.title.includes(quote)) return "rubriken";
+  const index = text.paragraphs.findIndex((paragraph) => paragraph.includes(quote));
+  if (index <= 0) return index === 0 ? "inledningen" : "texten en gång till";
+  return index === text.paragraphs.length - 1 ? "avslutningen" : `stycke ${index + 1}`;
 }
 
 function App() {
@@ -92,6 +117,20 @@ function App() {
     feedback: CheckInFeedback | null;
     error: string | null;
   } | null>(null);
+  // How the walk-through of the exemplar has gone in each chapter. Edda uses it to step back: she
+  // offers the student to search without her explanations, and makes the example before the
+  // writing task optional. She offers and the student chooses; nothing is taken away or imposed.
+  const [walks, setWalks] = useState<Record<number, {
+    streak: number;
+    found: number;
+    misses: number;
+    reveals: number;
+    /** The page where Edda offers the student to go on alone. */
+    offerAt: number | null;
+    solo: boolean;
+  }>>({});
+  const [hintedPage, setHintedPage] = useState<string | null>(null);
+  const [explainedPage, setExplainedPage] = useState<string | null>(null);
   const [completedEntryLessons, setCompletedEntryLessons] = useState<number[]>([]);
   const [seenBoards, setSeenBoards] = useState<string[]>([]);
   const [hasMetExemplar, setHasMetExemplar] = useState(false);
@@ -106,6 +145,17 @@ function App() {
       return writingTopics[0];
     }
   });
+  // Who the student wants to convince, and the choices on the welcome board before the lesson starts.
+  const [recipient, setRecipient] = useState(() => {
+    try {
+      return readSavedRecipient(window.localStorage);
+    } catch {
+      return recipients[0];
+    }
+  });
+  const [chosenTopic, setChosenTopic] = useState<WritingTopic | null>(null);
+  const [ownTopicText, setOwnTopicText] = useState("");
+  const [ownRecipientText, setOwnRecipientText] = useState("");
   // The read-aloud is started from the whiteboard; when it ends the lesson begins.
   const exemplarAudio = useExemplarAudio(() => setHasMetExemplar(true));
   // What the student has shown they can do, per lesson (index into lesson.canDo), and their first
@@ -146,6 +196,11 @@ function App() {
   // The writing map: Edda's latest reading of the student's own text, bound to the text she read.
   const [progressMap, setProgressMap] = useState<{ draft: string; parts: MapPart[] } | null>(null);
   const [mapSelected, setMapSelected] = useState<MapSkill | null>(null);
+  const mapReadings = useRef(new Map<string, MapPart[]>());
+  // Maps the student has chosen to show the teacher (a local demo), and the text of the map last shown.
+  const [sharedMaps, setSharedMaps] = useState<DemoSharedMap[]>([]);
+  const [sharedMapDraft, setSharedMapDraft] = useState<string | null>(null);
+  const [mapShareError, setMapShareError] = useState<string | null>(null);
   const [mapLoading, setMapLoading] = useState(false);
   const [mapError, setMapError] = useState<string | null>(null);
   const [selfCheck, setSelfCheck] = useState<
@@ -342,7 +397,10 @@ function App() {
     setMapLoading(true);
     setMapError(null);
     try {
-      const parts = await requestProgressMap(assessedDraft, taught);
+      // The same text always gives the same map: a text Edda has already read is not read again.
+      const key = `${taught.join(",")}\n${assessedDraft}`;
+      const parts = mapReadings.current.get(key) ?? await requestProgressMap(assessedDraft, taught, progressMap?.parts ?? []);
+      mapReadings.current.set(key, parts);
       setProgressMap({ draft: assessedDraft, parts });
       // Only the map is shown at first. Edda says more about a part when the student chooses it.
       setMapSelected(null);
@@ -350,6 +408,24 @@ function App() {
       setMapError(error instanceof Error ? error.message : "Edda kunde inte läsa texten just nu.");
     } finally {
       setMapLoading(false);
+    }
+  }
+
+  // The student chooses to show the map to the teacher. In the prototype it is saved in this browser only.
+  function shareMapWithTeacher() {
+    if (!progressMap) return;
+    try {
+      const result = saveDemoMap(window.localStorage, `kapitel ${lessonIndex + 1}: ${lesson.shortTitle}`, progressMap.parts);
+      if (result.error || !result.map) {
+        setMapShareError("Skrivkartan kunde inte visas för läraren. Kontrollera webbläsarens lagring och försök igen.");
+        return;
+      }
+      const shared = result.map;
+      setSharedMaps((current) => [...current, shared]);
+      setSharedMapDraft(progressMap.draft);
+      setMapShareError(null);
+    } catch {
+      setMapShareError("Skrivkartan kunde inte visas för läraren. Kontrollera webbläsarens lagring och försök igen.");
     }
   }
 
@@ -380,13 +456,15 @@ function App() {
     }
   }
 
-  function startLesson(chosen: WritingTopic) {
+  function startLesson(chosen: WritingTopic, reader: string) {
     setTopic(chosen);
+    setRecipient(reader);
     setHasStarted(true);
     try {
-      window.localStorage.setItem(topicStorageKey, chosen.id);
+      window.localStorage.setItem(topicStorageKey, topicToSave(chosen));
+      window.localStorage.setItem(recipientStorageKey, reader);
     } catch {
-      // The choice still applies for this visit.
+      // The choices still apply for this visit.
     }
   }
 
@@ -458,6 +536,7 @@ function App() {
         return;
       }
       setDemoSubmissions(result.submissions);
+      setSharedMaps(readDemoMaps(window.localStorage).maps);
       setShowTeacherInbox(true);
       setSubmissionError(null);
     } catch {
@@ -476,6 +555,8 @@ function App() {
       return;
     }
     setDemoSubmissions([]);
+    setSharedMaps([]);
+    setSharedMapDraft(null);
     setTeacherSubmissionId(null);
     setSubmissionError(null);
   }
@@ -589,6 +670,10 @@ function App() {
   // In the last chapter the writing task ends with a checklist for the whole text, while the student's
   // own text is still shown beside the board and before the final recall and diagnosis begin.
   const hasSubmissionChecklist = phaseIndex === 1 && lessonIndex === lessons.length - 1;
+  const walk = walks[lessonIndex] ?? { streak: 0, found: 0, misses: 0, reveals: 0, offerAt: null, solo: false };
+  // The student found the places in the walk-through alone: chose to search without explanations,
+  // or found them all with at most one miss and without Edda showing any.
+  const foundAlone = walk.solo || (walk.found >= 2 && walk.reveals === 0 && walk.misses <= 1);
   const canAdvance = freeNavigation
     || (seenBoards.includes(boardKey) && (!hasBoardCheck || attemptedBoards.includes(boardKey)));
 
@@ -631,6 +716,12 @@ function App() {
   const pick = pagePick?.board === boardKey && pagePick.page === currentBoardPage
     ? pagePick
     : { board: boardKey, page: currentBoardPage, selected: null, solved: false, revealed: false, attempt: 0, submitting: false, feedback: null, error: null };
+  const pageKey = `${boardKey}:${currentBoardPage}`;
+  // Help comes out when the student has tried for a while, not after a few quick clicks.
+  const pageStarted = useRef({ key: pageKey, at: Date.now() });
+  if (pageStarted.current.key !== pageKey) pageStarted.current = { key: pageKey, at: Date.now() };
+  const [, setEffortTick] = useState(0);
+  const workedFor = Date.now() - pageStarted.current.at;
   // The page is done when the student found the place, or Edda has shown it.
   const isPickResolved = pick.solved || pick.revealed;
   const isSearchingPart = currentPage?.kind === "part" && !isPickResolved;
@@ -662,9 +753,35 @@ function App() {
 
     const isCorrect = index === target;
     const attempt = pick.attempt + 1;
-    // After two tries Edda shows the place, so that nobody gets stuck.
-    const reveal = !isCorrect && attempt >= 2;
+    // Edda does not take over after a miss. From the second try the student can ask her to show
+    // the place, so that nobody gets stuck and nobody is hurried.
+    const reveal = false;
     const isLastPage = currentBoardPage === boardPages.length && !errorHunt;
+    const before = walk;
+    const picksLeft = boardPages.slice(currentBoardPage).filter((page) => page.kind === "part").length;
+    const streak = isCorrect && attempt === 1 ? before.streak + 1 : isCorrect ? before.streak : 0;
+    setWalks((current) => ({
+      ...current,
+      [lessonIndex]: {
+        ...before,
+        streak,
+        found: before.found + (isCorrect ? 1 : 0),
+        misses: before.misses + (isCorrect ? 0 : 1),
+        reveals: before.reveals + (reveal ? 1 : 0),
+        // Two places in a row found at the first try: Edda offers to step back, once.
+        offerAt: before.offerAt === null && !before.solo && streak >= 2 && picksLeft >= 2 ? currentBoardPage : before.offerAt,
+      },
+    }));
+
+    // The student has chosen to search without Edda's explanations: a place found at the first
+    // try is simply confirmed, without waiting for Edda.
+    if (before.solo && isCorrect && attempt === 1 && currentPage.kind === "part") {
+      setPagePick({ ...pick, selected: null, solved: true, attempt, submitting: false, feedback: null, error: null });
+      if (isLastPage) markAttempted();
+      recordCheck(lesson.skillIds, "independent");
+      return;
+    }
+
     setPagePick({ ...pick, selected: isCorrect ? null : index, submitting: true, feedback: null, error: null });
 
     try {
@@ -701,6 +818,31 @@ function App() {
       });
       if (isLastPage) markAttempted();
     }
+  }
+
+  const canAskForHint = pick.attempt >= 1 && workedFor >= effortTimes.hint;
+  const canAskToBeShown = pick.attempt >= 2 && workedFor >= effortTimes.reveal;
+  useEffect(() => {
+    if (isPickResolved || pick.attempt === 0) return;
+    const waits = [effortTimes.hint - workedFor, effortTimes.reveal - workedFor].filter((wait) => wait > 0);
+    if (waits.length === 0) return;
+    const timer = window.setTimeout(() => setEffortTick((tick) => tick + 1), Math.min(...waits) + 20);
+    return () => window.clearTimeout(timer);
+  });
+
+  // The writing task is the student's own work: Edda reads when the student has written something
+  // new in the text since the task was given.
+  const taskStart = useRef({ board: boardKey, draft });
+  if (taskStart.current.board !== boardKey) taskStart.current = { board: boardKey, draft };
+  const hasWrittenForTask = draft !== taskStart.current.draft
+    && draft.trim().split(/\s+/).filter(Boolean).length >= minTaskWords;
+
+  /** The student asks Edda to show the place they have been looking for. */
+  function showPlaceOnPage() {
+    if (!currentPage || pick.submitting || isPickResolved) return;
+    setPagePick({ ...pick, selected: null, revealed: true });
+    setWalks((current) => ({ ...current, [lessonIndex]: { ...walk, streak: 0, reveals: walk.reveals + 1 } }));
+    if (currentBoardPage === boardPages.length && !errorHunt) markAttempted();
   }
 
   const currentAdvice = taskAdvice?.board === boardKey ? taskAdvice : null;
@@ -787,14 +929,71 @@ function App() {
                         <Written spoken>Hej! Jag heter Edda. Vi ska träna på att skriva argumenterande text tillsammans, steg för steg. Först vill jag veta: vad vill du skriva om? Det blir din skrivuppgift.</Written>
                       </p>
                       <AfterWriting>
-                        <div className="topic-choices" role="group" aria-label="Välj vad du vill skriva om">
-                          {writingTopics.map((item) => (
-                            <button className="topic-choice" key={item.id} onClick={() => startLesson(item)} type="button">
-                              <span aria-hidden="true" className="topic-icon">{item.icon}</span>
-                              {item.label}
-                            </button>
-                          ))}
-                        </div>
+                        {chosenTopic === null ? (
+                          <>
+                            <div className="topic-choices" role="group" aria-label="Välj vad du vill skriva om">
+                              {writingTopics.map((item) => (
+                                <button className="topic-choice" key={item.id} onClick={() => setChosenTopic(item)} type="button">
+                                  <span aria-hidden="true" className="topic-icon">{item.icon}</span>
+                                  {item.label}
+                                </button>
+                              ))}
+                            </div>
+                            {/* The student can also write about something of their own choice. */}
+                            <form
+                              className="own-choice"
+                              onSubmit={(event) => {
+                                event.preventDefault();
+                                if (ownTopicText.trim().length >= 5) setChosenTopic(ownTopic(ownTopicText));
+                              }}
+                            >
+                              <label htmlFor="own-topic">Eller välj helt själv. Vilken fråga vill du ta ställning i?</label>
+                              <div className="own-choice-row">
+                                <input
+                                  id="own-topic"
+                                  maxLength={maxOwnTopicLength}
+                                  onChange={(event) => setOwnTopicText(event.target.value)}
+                                  placeholder="Till exempel: Borde läxor avskaffas?"
+                                  type="text"
+                                  value={ownTopicText}
+                                />
+                                <button className="quiet-button" disabled={ownTopicText.trim().length < 5} type="submit">Välj mitt ämne</button>
+                              </div>
+                            </form>
+                          </>
+                        ) : (
+                          <>
+                            <p className="welcome-question">Vem vill du övertyga med din text?</p>
+                            <div className="topic-choices is-compact" role="group" aria-label="Välj vem du skriver till">
+                              {recipients.map((item) => (
+                                <button className="topic-choice" key={item} onClick={() => startLesson(chosenTopic, item)} type="button">
+                                  {item.charAt(0).toLocaleUpperCase("sv") + item.slice(1)}
+                                </button>
+                              ))}
+                            </div>
+                            <form
+                              className="own-choice"
+                              onSubmit={(event) => {
+                                event.preventDefault();
+                                if (ownRecipientText.trim().length >= 2) startLesson(chosenTopic, ownRecipientText.trim());
+                              }}
+                            >
+                              <label htmlFor="own-recipient">Eller någon annan. Vem?</label>
+                              <div className="own-choice-row">
+                                <input
+                                  id="own-recipient"
+                                  maxLength={maxRecipientLength}
+                                  onChange={(event) => setOwnRecipientText(event.target.value)}
+                                  placeholder="Till exempel: mina föräldrar"
+                                  type="text"
+                                  value={ownRecipientText}
+                                />
+                                <button className="quiet-button" disabled={ownRecipientText.trim().length < 2} type="submit">Välj min mottagare</button>
+                              </div>
+                            </form>
+                            <button className="text-button" onClick={() => setChosenTopic(null)} type="button">Byt ämne</button>
+                          </>
+                        )}
                       </AfterWriting>
                     </div>
                   </BoardStep>
@@ -875,7 +1074,39 @@ function App() {
                       {pick.error && <p className="check-in-error" role="alert">{pick.error}</p>}
                       {pick.feedback && <EddaFeedback feedback={pick.feedback} />}
                       {pick.revealed && <p className="edda-shows">Edda visar stället i texten.</p>}
+                      {/* After two tries the student chooses: try again, or let Edda show the place. */}
+                      {!isPickResolved && canAskToBeShown && !pick.submitting && (
+                        <p className="show-offer">
+                          Pröva gärna igen. Vill du hellre att jag visar stället?
+                          <button className="quiet-button" onClick={showPlaceOnPage} type="button">Visa stället</button>
+                        </p>
+                      )}
                     </>
+                  );
+
+                  // Found at the first try by a student who searches without Edda's explanations.
+                  const isQuietFind = isCurrent && walk.solo && pick.solved && pick.attempt === 1 && !pick.feedback;
+                  // When the student keeps finding the places, Edda offers to step back. The student chooses.
+                  const soloOffer = walk.offerAt === currentBoardPage && !walk.solo && (
+                    <div className="solo-offer" role="group" aria-label="Välj hur du vill fortsätta">
+                      <p>Du hittar ställena på egen hand. Vill du leta själv i resten, utan mina förklaringar? De finns kvar om du vill läsa dem.</p>
+                      <div className="solo-offer-actions">
+                        <button
+                          className="quiet-button"
+                          onClick={() => setWalks((current) => ({ ...current, [lessonIndex]: { ...walk, solo: true } }))}
+                          type="button"
+                        >
+                          Ja, jag letar själv
+                        </button>
+                        <button
+                          className="text-button"
+                          onClick={() => setWalks((current) => ({ ...current, [lessonIndex]: { ...walk, offerAt: -1 } }))}
+                          type="button"
+                        >
+                          Nej, fortsätt som nu
+                        </button>
+                      </div>
+                    </div>
                   );
 
                   if (page.kind === "compare") {
@@ -906,6 +1137,7 @@ function App() {
                               <p className="compare-quote"><span className="compare-label">{item.simpleTag}</span><Written>{`”${pair.simple}”`}</Written></p>
                               <p className="compare-quote is-developed"><span className="compare-label">{item.developedTag}</span><Written>{`”${pair.developed}”`}</Written></p>
                               <p className="activity-instruction"><Written spoken>{pair.explain}</Written></p>
+                              <WhenWritten>{isCurrent && soloOffer}</WhenWritten>
                             </>
                           ) : (
                             <>
@@ -925,7 +1157,20 @@ function App() {
                     <BoardStep key={`page-${pageIndex}`} pause={!isLast} locked={!freeNavigation && !showAnswer}>
                       <div className="board-activity focus-walk">
                         <p className="board-kicker">{`${page.number} AV ${walkthrough.length}`}</p>
-                        {showAnswer ? (
+                        {showAnswer && isQuietFind ? (
+                          // The student searches without Edda's explanations: the find is confirmed,
+                          // and the explanation is there for the one who wants it.
+                          <>
+                            <p className="board-prompt"><Written byHand>{part.label}</Written></p>
+                            <p className="solo-found" role="status"><EddaMark /> Du hittade det på egen hand.</p>
+                            <p className="focus-quote"><Written>{`”${part.quote}”`}</Written></p>
+                            {explainedPage === pageKey
+                              ? <p className="activity-instruction">{part.explain}</p>
+                              : part.explain && (
+                                <button className="text-button" onClick={() => setExplainedPage(pageKey)} type="button">Visa Eddas förklaring</button>
+                              )}
+                          </>
+                        ) : showAnswer ? (
                           <>
                             <p className="board-prompt"><Written byHand>{part.label}</Written></p>
                             <WhenWritten>{eddaResponse}</WhenWritten>
@@ -937,12 +1182,17 @@ function App() {
                                 <Written>{part.related.words.join(" · ")}</Written>
                               </p>
                             )}
+                            <WhenWritten>{isCurrent && soloOffer}</WhenWritten>
                           </>
                         ) : (
                           <>
                             <p className="board-prompt"><Written byHand>{part.ask ?? part.label}</Written></p>
-                            <p className="board-small-note"><Written>Leta själv först. Svara genom att klicka i texten till höger.</Written></p>
+                            <p className="board-small-note"><Written>{walk.solo ? "Svara genom att klicka i texten till höger." : "Leta själv först: det du hittar själv minns du bättre. Klicka i texten till höger."}</Written></p>
                             {eddaResponse}
+                            {/* A hint is there for the one who asks for it; Edda does not push it. */}
+                            {isCurrent && !pick.submitting && (hintedPage === pageKey || (canAskForHint && !canAskToBeShown)) && (hintedPage === pageKey
+                              ? <p className="hint-card"><span aria-hidden="true">✦</span> {`Titta i ${placeInExemplar(part.quote)}.`}</p>
+                              : <button className="text-button" onClick={() => setHintedPage(pageKey)} type="button">Jag vill ha en ledtråd</button>)}
                           </>
                         )}
                       </div>
@@ -975,8 +1225,14 @@ function App() {
                   </BoardStep>
                 )}
                 {phaseIndex === 1 && lessonIndex < lessons.length - 1 && (
-                  <BoardStep pause locked={!freeNavigation && !pickedExamples.includes(boardKey)}>
+                  <BoardStep pause locked={!freeNavigation && !foundAlone && !pickedExamples.includes(boardKey)}>
                     {/* Before the student writes, Edda shows a better and a weaker example of the same part. */}
+                    {/* For a student who found the places alone the example is optional, and Edda says why. */}
+                    {foundAlone && (
+                      <p className="activity-instruction support-fades">
+                        <Written spoken>Du hittade ställena i exempeltexten på egen hand. Därför är exemplet här frivilligt. Titta på det om du vill, eller gå direkt till din uppgift.</Written>
+                      </p>
+                    )}
                     <ExamplePick
                       key={lessonIndex}
                       lesson={lesson}
@@ -1008,7 +1264,6 @@ function App() {
                                 <EddaFeedback
                                   feedback={{
                                     kind: "on_track",
-                                    level: 2,
                                     feedback: `${reviewFeedback.success.message} Se det gröna i din text.`,
                                   }}
                                 />
@@ -1044,12 +1299,12 @@ function App() {
                                 </button>
                               </div>
                             ) : (
-                              <p className="task-done" role="status"><EddaStar /> Uppgiften är klar. Gå vidare med Nästa steg.</p>
+                              <p className="task-done" role="status"><EddaMark /> Uppgiften är klar. Gå vidare med Nästa steg.</p>
                             )
                           ) : (
                             <button
                               className="primary-button"
-                              disabled={!draft.trim()}
+                              disabled={!hasWrittenForTask}
                               onClick={finishWritingTask}
                               type="button"
                             >
@@ -1075,7 +1330,7 @@ function App() {
                     <div className="board-activity recall-activity">
                       <p className="board-prompt"><Written byHand>Försök utan stöd</Written></p>
                       <p className="activity-instruction"><Written spoken>{lesson.recall}</Written></p>
-                      <p className="board-small-note"><Written>Titta inte på exemplen medan du tänker efter.</Written></p>
+                      <p className="board-small-note"><Written>Pröva utan exemplen först. Att minnas själv gör att det fastnar.</Written></p>
                     </div>
                   </BoardStep>
                 )}
@@ -1163,6 +1418,10 @@ function App() {
                       error={mapError}
                       isEmpty={!draft.trim()}
                       isOutdated={progressMap !== null && progressMap.draft !== draft}
+                      onShare={shareMapWithTeacher}
+                      isShared={progressMap !== null && sharedMapDraft === progressMap.draft}
+                      shareError={mapShareError}
+                      onOpenTeacherView={openTeacherInbox}
                     />
                   </BoardStep>
                 )}
@@ -1210,6 +1469,10 @@ function App() {
                 {" → "}<strong>2. Din uppgift</strong> (du skriver i din egen text och Edda läser)
                 {" → "}<strong>3. Utan stöd</strong> (du visar vad du kan och kontrollerar din text).
               </p>
+              <p>
+                Du tar ett steg i taget, så att du kan tänka på en sak åt gången. Du prövar själv först, för det är så du lär dig.
+                Hjälp finns när du har prövat en stund.
+              </p>
               <p className="lesson-plan-note">Edda anpassar stödet efter hur det går för dig.</p>
             </div>
           )}
@@ -1220,6 +1483,7 @@ function App() {
               ? <h1 className="prompt-label">{isSeparateRevision ? "SEPARAT BEARBETNING" : "SLUTDIAGNOS"}</h1>
               : <span className="prompt-label">SKRIVUPPGIFT</span>}
             <p>{isFinalDiagnosis ? diagnosisPrompt : topic.prompt}</p>
+            {!isFinalDiagnosis && <p className="prompt-recipient">Du skriver för att övertyga {recipient}.</p>}
             {isFinalDiagnosis && (
               <p className="demo-teacher-warning">
                 {isSeparateRevision
@@ -1432,6 +1696,7 @@ function App() {
           )}
           {showTeacherInbox && (
             <DemoTeacherInbox
+              maps={sharedMaps}
               submissions={demoSubmissions}
               onClose={() => setShowTeacherInbox(false)}
               onClear={clearTeacherInbox}

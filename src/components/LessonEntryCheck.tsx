@@ -88,7 +88,8 @@ export default function LessonEntryCheck({
         <p className="board-kicker">{lesson.shortTitle.toUpperCase()}</p>
         <h2 className="board-prompt"><Written byHand>Målet med lektionen</Written></h2>
         <p className="activity-instruction"><Written spoken>{lesson.learnerGoal}</Written></p>
-        <p className="board-small-note curriculum-reference">Ur kursplanen: <Written>{lesson.goal}</Written></p>
+        {/* Why it is worth the effort: for the student's own text now, and for the grade in Swedish in the long run. */}
+        <p className="board-worth"><Written>{lesson.worth}</Written></p>
       </BoardStep>
       <BoardStep>
       <p className="board-kicker"><Written>{lesson.entryCheck.previousTopic}</Written></p>

@@ -2071,7 +2071,7 @@ input:focus-visible {
 
 /* Edda's star: a small reward in colour on an otherwise calm board */
 
-.edda-star {
+.edda-mark {
   width: 22px;
   height: 22px;
   flex: 0 0 auto;
@@ -2083,11 +2083,11 @@ input:focus-visible {
 
 /* The star grows with how developed the answer was. */
 
-.edda-star.is-earned {
-  animation: edda-star-pop 650ms cubic-bezier(0.2, 1.4, 0.4, 1) both;
+.edda-mark.is-earned {
+  animation: edda-mark-pop 650ms cubic-bezier(0.2, 1.4, 0.4, 1) both;
 }
 
-@keyframes edda-star-pop {
+@keyframes edda-mark-pop {
   0% {
     opacity: 0;
     transform: scale(0.2) rotate(-40deg);
@@ -2153,7 +2153,7 @@ input:focus-visible {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .edda-star.is-earned {
+  .edda-mark.is-earned {
     animation: none;
   }
 }
@@ -2515,19 +2515,19 @@ input:focus-visible {
 }
 
 /* The star grows with how developed the answer was. */
-.edda-bubble > .edda-star.is-level-1 {
+.edda-bubble > .edda-mark.is-level-1 {
   width: 20px;
   height: 20px;
   fill: #fbe39a;
   stroke: #e0b84a;
 }
 
-.edda-bubble > .edda-star.is-level-2 {
+.edda-bubble > .edda-mark.is-level-2 {
   width: 34px;
   height: 34px;
 }
 
-.edda-bubble > .edda-star.is-level-3 {
+.edda-bubble > .edda-mark.is-level-3 {
   width: 54px;
   height: 54px;
   filter: drop-shadow(0 0 7px rgba(248, 201, 58, 0.75));
@@ -3361,4 +3361,254 @@ input:focus-visible {
 
 .map-again {
   justify-self: start;
+}
+
+/* Welcome: the student's own topic and who the text is written for */
+
+.own-choice {
+  display: grid;
+  gap: 6px;
+  margin-top: 14px;
+  color: var(--board-ink);
+  font-size: 18px;
+}
+
+.own-choice-row {
+  display: flex;
+  gap: 8px;
+}
+
+.own-choice input {
+  flex: 1;
+  min-width: 0;
+  padding: 9px 12px;
+  border: 2px solid var(--surface-line);
+  border-radius: 12px;
+  color: var(--board-ink);
+  font: inherit;
+}
+
+.own-choice input:focus-visible {
+  border-color: var(--action);
+  outline: none;
+}
+
+.welcome-question {
+  margin: 18px 0 0;
+  color: var(--board-ink);
+  font-size: 26px;
+}
+
+.topic-choices.is-compact {
+  margin-top: 12px;
+}
+
+.welcome > .text-button {
+  margin-top: 12px;
+}
+
+.writing-prompt p.prompt-recipient {
+  margin-top: 4px;
+  color: #6c7280;
+  font-size: 0.9em;
+}
+
+/* Showing the writing map to the teacher */
+
+.map-share,
+.map-shared {
+  justify-self: center;
+}
+
+.map-shared {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 4px 10px;
+  color: #2f6b47;
+  font-size: 17px;
+}
+
+.demo-map-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.demo-map-row .map-wheel {
+  width: 260px;
+  flex: none;
+}
+
+.demo-map-row ul {
+  flex: 1;
+  min-width: 200px;
+  margin: 0;
+  padding-left: 18px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* During a lesson the teacher's demo view covers the writing surface until it is closed. */
+
+.app-shell.is-fitted .writing-card {
+  position: relative;
+}
+
+.app-shell.is-fitted .demo-teacher-inbox {
+  position: absolute;
+  z-index: 6;
+  inset: 0;
+  align-content: start;
+  margin: 0;
+  overflow-y: auto;
+  border: 0;
+  border-radius: 0;
+  background: #fff;
+}
+
+/* Edda steps back: she offers, the student chooses */
+
+.solo-offer {
+  margin-top: 12px;
+  padding: 10px 14px;
+  border: 1px solid #d9d0f7;
+  border-radius: 12px;
+  background: #f6f3fe;
+  color: var(--board-ink);
+  font-size: 18px;
+  line-height: 1.35;
+}
+
+.solo-offer p {
+  margin: 0 0 8px;
+}
+
+.solo-offer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.solo-found {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0;
+  color: #2f6b47;
+  font-size: 19px;
+}
+
+.focus-walk > .text-button {
+  margin-top: 8px;
+}
+
+/* Why the lesson is worth the effort, under the goal */
+
+.board-worth {
+  margin: 14px 0 0;
+  padding: 10px 14px;
+  border-left: 4px solid #cfc5f5;
+  border-radius: 0 10px 10px 0;
+  background: #f8f6fe;
+  color: var(--board-ink);
+  font-size: 19px;
+  line-height: 1.4;
+}
+
+/* Edda's mark follows the writing map: one slice, filled from the centre in three steps */
+
+.edda-mark {
+  width: 54px;
+  height: 48px;
+  flex: 0 0 auto;
+  fill: #fff;
+  stroke: #c9cdd6;
+  stroke-linejoin: round;
+  stroke-width: 1.2;
+  filter: none;
+}
+
+.edda-bubble > .edda-mark.is-done {
+  width: 26px;
+  height: 26px;
+  fill: #58b368;
+  stroke: none;
+  filter: none;
+}
+
+.edda-bubble > .edda-step > .edda-mark,
+.edda-bubble > .edda-mark.is-level-1,
+.edda-bubble > .edda-mark.is-level-2,
+.edda-bubble > .edda-mark.is-level-3 {
+  width: 54px;
+  height: 48px;
+  fill: #fff;
+  stroke: #c9cdd6;
+  filter: none;
+}
+
+.edda-mark path.is-filled {
+  fill: #f4cf58;
+  stroke: #f4cf58;
+}
+
+.edda-mark.is-level-2 path.is-filled,
+.edda-mark.is-level-3 path.is-filled {
+  fill: #58b368;
+  stroke: #58b368;
+}
+
+.edda-mark.is-done {
+  width: 22px;
+  height: 22px;
+  fill: #58b368;
+  stroke: none;
+}
+
+.edda-mark.is-done path {
+  fill: none;
+  stroke: #fff;
+  stroke-linecap: round;
+  stroke-width: 2.4;
+}
+
+.edda-step {
+  display: grid;
+  flex: none;
+  justify-items: center;
+  gap: 1px;
+}
+
+.edda-step-name {
+  color: #6c7280;
+  font-size: 11px;
+  line-height: 1.1;
+}
+
+@keyframes edda-mark-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* After two tries the student chooses whether Edda should show the place */
+
+.show-offer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin: 12px 0 0;
+  color: var(--board-ink);
+  font-size: 18px;
 }

@@ -53,7 +53,7 @@ describe("lesson entry check", () => {
     expect(screen.queryByText(lessons[1].learnerGoal)).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Fortsätt" }));
     expect(screen.getByText(lessons[1].learnerGoal)).toBeVisible();
-    expect(screen.getByText(lessons[1].goal)).toBeVisible();
+    expect(screen.getByText(lessons[1].worth)).toBeVisible();
     expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Fortsätt" }));
     expect(screen.getByText(lessons[1].entryCheck.extensionQuestion)).toBeVisible();

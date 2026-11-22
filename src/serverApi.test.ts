@@ -130,34 +130,69 @@ describe("exemplar read-aloud API", () => {
 });
 
 describe("server AI API", () => {
-  it("reads how far each part of the student's text has come, with a quote from the text as evidence", async () => {
-    const draft = "Senare skolstart\n\nSkoldagen borde börja senare. För det första sover elever för lite.";
-    // Each part is read on its own; the answer follows the part that was asked for.
-    const create = vi.fn(async (request: { messages: { content: string }[] }) => {
-      const asked = JSON.parse(request.messages[1].content) as { part: string };
-      const answer = asked.part.startsWith("Struktur")
-        ? { level: 2, quote: "skoldagen borde börja senare.\n\nNågot annat", occurrence: 0, strength: "Din tes säger tydligt vad du tycker.", next: "Hur vill du avsluta texten?" }
-        : { level: 0, quote: "", occurrence: 0, strength: "", next: "Vad kan du förklara efter ditt argument?" };
-      return { choices: [{ message: { content: JSON.stringify(answer) } }] };
+  it("counts each part's step from fixed things in the student's text, with the place as evidence", async () => {
+    const draft = "Senare skolstart\n\nSkoldagen borde börja senare. För det första sover elever för lite, eftersom lektionerna börjar tidigt.";
+    const create = vi.fn(async (request: { messages: { content: string }[]; temperature?: number }) => {
+      const asked = JSON.parse(request.messages[1].content) as { look: { id: string }[] };
+      // The model points out the thesis; one quote runs past what is in the text, one is not there at all.
+      const answers: Record<string, { found: boolean; quote: string }> = {
+        thesis: { found: true, quote: "skoldagen borde börja senare.\n\nNågot annat" },
+        arguments: { found: true, quote: "Något som inte står i texten" },
+      };
+      return { choices: [{ message: { content: JSON.stringify({ features: asked.look.map(({ id }) => ({ id, ...(answers[id] ?? { found: false, quote: "" }) })) }) } }] };
     });
-    const result = await post(createApiApp({ client: { chat: { completions: { create } } } }), "/api/progress-map", { draft, skills: ["structure", "reasoning"] });
+    const result = await post(createApiApp({ client: { chat: { completions: { create } } } }), "/api/progress-map", { draft, skills: ["structure", "cohesion"] });
 
     expect(result.status).toBe(200);
     expect(result.body.parts).toEqual([
-      // A quote that runs past what is in the text is cut to the piece that is there.
-      { skill: "structure", level: 2, start: 18, end: 46, quote: "Skoldagen borde börja senare", strength: "Din tes säger tydligt vad du tycker.", next: "Hur vill du avsluta texten?" },
-      { skill: "reasoning", level: 0, strength: "", next: "Vad kan du förklara efter ditt argument?" },
+      // Heading (found by rule) and thesis: two of five things, the first step. The quote that is not in the text does not count.
+      {
+        skill: "structure",
+        level: 1,
+        start: 18,
+        end: 46,
+        quote: "Skoldagen borde börja senare",
+        strength: "Du har en tes som säger tydligt vad du tycker.",
+        next: "Vilket skäl till kan du ge för din åsikt?",
+        found: [{ id: "thesis", quote: "Skoldagen borde börja senare" }],
+      },
+      // Linking words are found by rule: order and cause make the second step.
+      {
+        skill: "cohesion",
+        level: 2,
+        start: 86,
+        end: 94,
+        quote: "eftersom",
+        strength: "Du använder sambandsord som visar en orsak.",
+        next: "Vilket ord kan visa en följd, alltså vad något leder till?",
+        found: [],
+      },
     ]);
-    expect(create).toHaveBeenCalledTimes(2);
-    expect(create.mock.calls[0][0].messages[0].content).toContain("aldrig betyg");
+    // Only structure needs the model; the same text is read the same way every time.
+    expect(create).toHaveBeenCalledTimes(1);
+    expect(create.mock.calls[0][0].temperature).toBe(0);
   });
 
-  it("shows no map when a level lacks evidence in the student's text, also after asking again", async () => {
-    const client = mockClient({ level: 3, quote: "Något som inte står i texten", occurrence: 0, strength: "Du har en tydlig struktur.", next: "" });
-    const result = await post(createApiApp({ client }), "/api/progress-map", { draft: "Senare skolstart", skills: ["structure"] });
+  it("keeps what Edda has pointed out before as long as that place is still in the text", async () => {
+    const draft = "Senare skolstart\n\nSkoldagen borde börja senare. Elever sover för lite.";
+    const client = mockClient({ features: [] });
+    const body = { draft, skills: ["structure"], known: [{ skill: "structure", id: "thesis", quote: "Skoldagen borde börja senare." }] };
+    const kept = await post(createApiApp({ client }), "/api/progress-map", body);
+    const removed = await post(createApiApp({ client }), "/api/progress-map", { ...body, draft: "Senare skolstart\n\nElever sover för lite." });
 
-    expect(result.status).toBe(502);
-    expect(client.chat.completions.create).toHaveBeenCalledTimes(2);
+    expect(kept.body.parts[0].found).toEqual([{ id: "thesis", quote: "Skoldagen borde börja senare." }]);
+    expect(kept.body.parts[0].strength).toBe("Du har en tes som säger tydligt vad du tycker.");
+    expect(removed.body.parts[0].found).toEqual([]);
+    expect(removed.body.parts[0].strength).toBe("Du har en rubrik som visar vad texten handlar om.");
+  });
+
+  it("reads the parts that follow plain rules without the AI service", async () => {
+    const draft = "Senare skolstart\n\nSkoldagen borde börja senare. Dessutom sover elever för lite.";
+    const result = await post(createApiApp({ client: null }), "/api/progress-map", { draft, skills: ["cohesion"] });
+    const needsModel = await post(createApiApp({ client: null }), "/api/progress-map", { draft, skills: ["structure"] });
+
+    expect(result.body.parts[0]).toMatchObject({ skill: "cohesion", level: 1, quote: "Dessutom" });
+    expect(needsModel.status).toBe(503);
   });
 
   it("rejects a map request for unknown or repeated parts", async () => {
@@ -547,8 +582,9 @@ describe("server AI API", () => {
       isCorrect: true,
       learningContext: { attempt, supportLevel: 0, priorEvidence: [] },
     });
-    expect((await click(1)).body).toMatchObject({ kind: "on_track", level: 2 });
-    expect((await click(2)).body).toMatchObject({ kind: "on_track", level: 1 });
+    // A click on the right place is simply right: it is not given a step.
+    expect((await click(1)).body).toEqual({ kind: "on_track", feedback: "Du valde tesen. Vad visar den?" });
+    expect((await click(2)).body).toEqual({ kind: "on_track", feedback: "Du valde tesen. Vad visar den?" });
 
     const retry = await post(createApiApp({ client: mockClient({ kind: "retry", level: 2, feedback: "Vad vill skribenten?" }) }), "/api/check-in", {
       mode: "text",

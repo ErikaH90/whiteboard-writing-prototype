@@ -119,8 +119,11 @@ test("while Edda speaks the whiteboard shows only the heading and her dots, in e
       stillFor = 0; log(`klick i texten · ${place}`);
       continue;
     }
+    // After two tries the student can ask Edda to show the place.
+    if (await click("Visa stället")) { stillFor = 0; log(`visa stället · ${place}`); continue; }
     // 2. The topic on the welcome board.
     if (await click("Skoldagen")) { stillFor = 0; log("ämne"); continue; }
+    if (await click("Rektorn")) { stillFor = 0; log("mottagare"); continue; }
     // 3. The board's own way forward.
     if (await click("Fortsätt")) { stillFor = 0; log(`fortsätt · ${place}`); continue; }
     // 4. A question to answer in writing.

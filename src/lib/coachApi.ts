@@ -279,11 +279,20 @@ export type MapPart = {
   quote?: string;
   strength: string;
   next: string;
+  /** What Edda has pointed out in the text for this part, kept so that it stays found on the next reading. */
+  found: { id: string; quote: string }[];
 };
 
-/** Asks Edda to read the student's own text and say how far each part has come. */
-export async function requestProgressMap(draft: string, skills: MapSkill[]): Promise<MapPart[]> {
-  const result = await postJson("/api/progress-map", { draft, skills });
+/**
+ * Asks Edda to read the student's own text and say how far each part has come. `known` is what
+ * she pointed out last time: it stays found as long as that place is still in the text.
+ */
+export async function requestProgressMap(draft: string, skills: MapSkill[], known: MapPart[] = []): Promise<MapPart[]> {
+  const result = await postJson("/api/progress-map", {
+    draft,
+    skills,
+    known: known.flatMap((part) => part.found.map((entry) => ({ skill: part.skill, id: entry.id, quote: entry.quote }))),
+  });
   const parts = isRecord(result) && Array.isArray(result.parts) ? result.parts : null;
   if (!parts || parts.length !== skills.length) throw new Error("AI-tjänsten gav ett svar som inte kunde visas.");
 
@@ -298,7 +307,11 @@ export async function requestProgressMap(draft: string, skills: MapSkill[]): Pro
       throw new Error("AI-tjänsten gav ett svar som inte kunde visas.");
     }
     const level = part.level as MapPart["level"];
-    if (level === 0) return { skill: skills[index], level, strength: "", next: part.next };
+    const found = Array.isArray(part.found)
+      ? part.found.filter((entry): entry is { id: string; quote: string } =>
+        isRecord(entry) && typeof entry.id === "string" && typeof entry.quote === "string")
+      : [];
+    if (level === 0) return { skill: skills[index], level, strength: "", next: part.next, found };
     const { start, end } = part;
     if (
       typeof start !== "number" || typeof end !== "number" ||
@@ -307,6 +320,6 @@ export async function requestProgressMap(draft: string, skills: MapSkill[]): Pro
     ) {
       throw new Error("AI-tjänsten gav ett svar som inte kunde visas.");
     }
-    return { skill: skills[index], level, start, end, quote: draft.slice(start, end), strength: part.strength, next: part.next };
+    return { skill: skills[index], level, start, end, quote: draft.slice(start, end), strength: part.strength, next: part.next, found };
   });
 }

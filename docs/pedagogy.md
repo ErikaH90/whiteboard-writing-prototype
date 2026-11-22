@@ -125,7 +125,29 @@ Framgången ska vara specifik och belagd i ett citerat textspann. Förbättrings
 Kapitlen slutar med elevens skrivkarta, ett synligt schema över vad eleven kan och vad som återstår. Den är tänkt att stödja de tre behoven i självbestämmandeteorin:
 
 - **Kompetens:** kartan visar vad eleven redan gör i sin egen text, med ett citat som belägg, och färgen ändras när eleven har bearbetat texten. Luckor visas som nästa steg att pröva, aldrig som fel, och rött används inte.
-- **Autonomi:** eleven väljer själv vilken del den vill titta på och arbeta med, och bestämmer när Edda ska läsa igen.
-- **Samhörighet:** Edda talar till eleven om elevens eget arbete. Att läraren och klassen ser arbetet kräver riktiga konton och finns inte i prototypen.
+- **Autonomi:** eleven väljer ämne fritt och vem texten ska övertyga, väljer själv vilken del av kartan den vill ha tips om och arbeta med, och bestämmer när Edda ska läsa igen och om läraren ska få se kartan.
+- **Samhörighet:** texten har en verklig mottagare som eleven själv har valt, och eleven kan visa sin skrivkarta för läraren. I prototypen är lärarvyn ett lokalt demoläge i samma webbläsare; en riktig delning kräver konton och ett beslut om lagring.
 
-Stegen grundläggande, utvecklad och välutvecklad beskriver hur långt en del av texten har kommit enligt det Edda har gått igenom. De är inte betyg och bygger inte på kursplanens betygskriterier; en koppling till betygskrav måste komma från läraren eller Skolverket.
+Stegen grundläggande, utvecklad och välutvecklad räknas fram av hur många av de saker Edda har gått igenom som går att peka ut i elevens text. Kartan ska vara tillförlitlig: samma text ger samma karta, och en del sjunker bara om eleven har tagit bort det som visade den. De är inte betyg och bygger inte på kursplanens betygskriterier; en koppling till betygskrav måste komma från läraren eller Skolverket.
+
+## Rätt avvägd ansträngning: Edda tar ett steg tillbaka
+
+Stödet ska ligga på elevens nivå utan att Edda styr eller påpekar brister. Därför erbjuder Edda, och eleven väljer:
+
+- **När det går bra:** efter två ställen i rad som eleven har hittat på första försöket frågar Edda om eleven vill leta själv i resten, utan hennes förklaringar. Väljer eleven det bekräftas varje fynd direkt, och förklaringen finns kvar bakom **Visa Eddas förklaring**. Eleven kan också välja att fortsätta som förut.
+- **När det tar emot:** hjälpen är till för stunden då egen ansträngning övergår i frustration, inte för att klicka sig förbi arbetet. En ledtråd (i vilken del av texten stället finns) kan eleven be om efter ett första försök och en stunds arbete med frågan (15 sekunder). Från andra försöket och efter längre arbete (40 sekunder) kan eleven välja **Visa stället**. Några snabba klick tar alltså inte fram hjälpen, och Edda tar aldrig över av sig själv. Tiderna står i `src/lib/effort.ts`.
+- **Elevens eget arbete:** Edda läser skrivuppgiften först när eleven har skrivit något nytt i sin text (minst fyra ord och en ändring sedan uppgiften gavs).
+- **Struktur med skäl:** ramarna är tydliga (ett steg i taget, pröva själv först, hjälp efter en stunds arbete) och förklaras kort där de möter eleven: på startsidan, vid ”Leta själv först” och vid återkallningen.
+- **Negativa känslor:** om elevens svar visar uppgivenhet eller motstånd (”vet inte”, ”orkar inte”, ”det här är tråkigt”) bekräftar Edda först känslan som rimlig, kort och utan värdering, och erbjuder sedan ett mindre första steg. Hon förmanar inte och uppmuntrar inte överdrivet.
+- **Stöd är också belastning:** varje nytt stöd ska vara en rad eller en knapp som bara syns när den behövs, och aldrig mer text att läsa för den som klarar sig utan.
+- **Synligt nedtrappat stöd:** en elev som har hittat ställena på egen hand får veta att exemplet före skrivuppgiften därför är frivilligt. För övriga elever ligger exemplet kvar som en vanlig del av lektionen, utan förklaring om varför.
+- **Tonen:** Edda skriver aldrig att eleven har fel eller inte kan, ger inga order och jämför inte eleven med andra. Vid ett nytt försök utgår hon från det eleven valde och ställer en nyfiken fråga.
+
+## Inre motivation i hela appen
+
+Appen ska bygga elevens inre motivation enligt självbestämmandeteorin, inte styra med yttre belöningar:
+
+- **Återkopplingen gäller arbetet.** Edda riktar sitt beröm mot det eleven har gjort och hur väl det är utfört, aldrig mot eleven som person. Hon nämner inga stjärnor, poäng, belöningar eller betyg och säger inte att hon är nöjd eller stolt. Markeringen bredvid Eddas svar har samma tre steg och färger som skrivkartan och visar hur utvecklat svaret var; den är information om arbetet, inte ett pris att samla.
+- **Tilltro och handlingsutrymme.** Edda visar att hon tror att eleven klarar nästa steg och lämnar utrymme för elevens egna val: nästa steg formuleras som något eleven kan välja att pröva.
+- **Intresse i starten.** Varje kapitel öppnar med en rad som väcker nyfikenhet, och eleven skriver om ett eget valt ämne till en egen vald mottagare.
+- **Den långsiktiga nyttan.** Under målet står varför kapitlet lönar sig: vad det gör för elevens egen text nu, och att det är något som bedöms i svenska och därför kan höja betyget. Appen anger inga betygssteg eller betygskriterier.

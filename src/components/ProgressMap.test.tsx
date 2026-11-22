@@ -10,12 +10,12 @@ const all: MapSkill[] = ["structure", "reasoning", "cohesion", "sentence", "lang
 
 function part(skill: MapSkill, level: MapPart["level"]): MapPart {
   return level === 0
-    ? { skill, level, strength: "", next: "Vad kan du börja med?" }
-    : { skill, level, start: 0, end: 9, quote: "Skoldagen", strength: "Du visar vad du tycker.", next: level === 3 ? "" : "Vad leder det till?" };
+    ? { skill, level, strength: "", next: "Vad kan du börja med?", found: [] }
+    : { skill, level, start: 0, end: 9, quote: "Skoldagen", strength: "Du visar vad du tycker.", next: level === 3 ? "" : "Vad leder det till?", found: [] };
 }
 
 function renderMap(props: Partial<Parameters<typeof ProgressMap>[0]> = {}) {
-  const handlers = { onSelect: vi.fn(), onAssess: vi.fn() };
+  const handlers = { onSelect: vi.fn(), onAssess: vi.fn(), onShare: vi.fn(), onOpenTeacherView: vi.fn() };
   render(
     <ProgressMap
       taught={["structure", "reasoning"]}
@@ -25,6 +25,8 @@ function renderMap(props: Partial<Parameters<typeof ProgressMap>[0]> = {}) {
       error={null}
       isEmpty={false}
       isOutdated={false}
+      isShared={false}
+      shareError={null}
       {...handlers}
       {...props}
     />,
@@ -84,6 +86,21 @@ describe("the student's writing map", () => {
 
     expect(screen.getByRole("img", { name: "Redo för slutdiagnos" })).toHaveClass("is-ready");
     expect(screen.getByText("Alla delar är gröna. Du är redo för slutdiagnosen.")).toBeInTheDocument();
+  });
+
+  it("lets the student show the map to the teacher, and says when the teacher can see it", async () => {
+    const user = userEvent.setup();
+    const { onShare } = renderMap({ parts: [part("structure", 2), part("reasoning", 1)] });
+
+    await user.click(screen.getByRole("button", { name: "Visa min skrivkarta för läraren" }));
+    expect(onShare).toHaveBeenCalledTimes(1);
+    cleanup();
+
+    const { onOpenTeacherView } = renderMap({ parts: [part("structure", 2), part("reasoning", 1)], isShared: true });
+    expect(screen.getByRole("status")).toHaveTextContent("Din lärare kan nu se din skrivkarta.");
+    expect(screen.queryByRole("button", { name: "Visa min skrivkarta för läraren" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Öppna lärarvyn (demo)" }));
+    expect(onOpenTeacherView).toHaveBeenCalledTimes(1);
   });
 
   it("is not ready while a part is only basic or missing, and offers a new reading after changes", async () => {

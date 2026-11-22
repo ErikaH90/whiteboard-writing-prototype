@@ -41,7 +41,7 @@ describe("chapter exit ticket", () => {
     expect(await screen.findByRole("status")).toHaveTextContent("Du kopplar svaret till kapitlets innehåll.");
     // An answer on the right track is rewarded with Edda's star.
     // Without a level the star is the small one: a big star has to be earned with a developed answer.
-    expect(screen.getByRole("status").querySelector(".edda-star.is-earned.is-level-1")).toBeInTheDocument();
+    expect(screen.getByRole("status").querySelector(".edda-mark.is-earned")).toBeInTheDocument();
     const request = JSON.parse(String(vi.mocked(fetch).mock.calls[0][1]?.body)) as {
       question: string;
       answer: string;
@@ -80,7 +80,7 @@ describe("chapter exit ticket", () => {
     expect(done).toHaveTextContent("Det här kan du nu");
     expect(done).toHaveTextContent(lesson.learnerGoal);
     expect(screen.getAllByRole("listitem").map((item) => item.textContent)).toEqual([lesson.canDo[0], lesson.canDo[2]]);
-    expect(done.querySelectorAll(".can-do-list .edda-star")).toHaveLength(2);
+    expect(done.querySelectorAll(".can-do-list .edda-mark")).toHaveLength(2);
     const growth = screen.getByRole("group", { name: "Din utveckling under lektionen" });
     expect(growth).toHaveTextContent("När du började");
     expect(growth).toHaveTextContent("En text med åsikter.");

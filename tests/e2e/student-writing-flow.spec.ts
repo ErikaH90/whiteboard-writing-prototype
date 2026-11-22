@@ -20,6 +20,8 @@ test.beforeEach(async ({ page }) => {
 // The lesson opens with a welcome where the student chooses what to write about.
 async function startLesson(page: import("@playwright/test").Page) {
   await page.getByRole("button", { name: "Skoldagen" }).click();
+  // The student also chooses who the text is written for.
+  await page.getByRole("button", { name: "Rektorn" }).click();
 }
 
 async function completeEntry(
@@ -56,7 +58,7 @@ const structureParts = [
 // The student looks for a part and clicks it in the text beside the whiteboard.
 async function findInText(page: import("@playwright/test").Page, quote: string) {
   await page.getByRole("region", { name: "Exempeltext" }).getByRole("button", { name: quote, exact: true }).click();
-  await expect(page.getByRole("status").locator(".edda-star")).toBeVisible();
+  await expect(page.getByRole("status").locator(".edda-mark")).toBeVisible();
 }
 
 async function completeFinalRecall(page: import("@playwright/test").Page) {
@@ -149,8 +151,8 @@ test("whiteboard accepts a choice or a written answer and responds", async ({ pa
       contentType: "application/json",
       body: JSON.stringify({
         kind: request.mode === "text" || request.isCorrect ? "on_track" : "retry",
-        // As the server does: a correct click on the first try gives the middle-sized star.
-        ...(request.mode !== "text" && request.isCorrect && { level: 2 }),
+        // As the server does: a written answer has a step, a correct click is simply right.
+        ...(request.mode === "text" && { level: 2 }),
         feedback: request.mode === "text"
           ? "Du är inne på rätt spår. Kan du ge ett exempel?"
           : "Precis. Kan du koppla det till ett exempel?",
@@ -166,18 +168,19 @@ test("whiteboard accepts a choice or a written answer and responds", async ({ pa
   await expect(page.getByText("Klicka på rubriken.")).toBeVisible();
   await expect(page.getByText("Rubriken säger både vad texten handlar om")).toHaveCount(0);
   const text = page.getByRole("region", { name: "Exempeltext" });
-  // A wrong try gives a nudge without a star.
+  // A wrong try gives a nudge without a mark.
   await text.getByRole("button", { name: structureParts[5], exact: true }).click();
   await expect(page.getByRole("status")).toContainText("Precis.");
-  await expect(page.getByRole("status").locator(".edda-star")).toHaveCount(0);
+  await expect(page.getByRole("status").locator(".edda-mark")).toHaveCount(0);
   await text.getByRole("button", { name: structureParts[0], exact: true }).click();
   // Only when the place is found does Edda explain it.
   await expect(page.getByText(/^Rubriken säger både vad texten handlar om/)).toBeVisible();
   await expect(page.getByRole("status")).toContainText("Precis.");
   await expect(page.getByRole("status")).toContainText("Edda");
-  await expect(page.getByRole("status").locator(".edda-star")).toBeVisible();
-  await expect(page.getByRole("status").locator(".edda-star")).toHaveCSS("fill", "rgb(248, 201, 58)");
-  await expect(page.getByRole("status").locator(".edda-star")).toHaveClass(/is-level-2/);
+  await expect(page.getByRole("status").locator(".edda-mark")).toBeVisible();
+  // A correct click gets a plain green check, in the colours of the writing map: no star and no step.
+  await expect(page.getByRole("status").locator(".edda-mark")).toHaveCSS("fill", "rgb(88, 179, 104)");
+  await expect(page.getByRole("status").locator(".edda-mark")).toHaveClass(/is-done/);
   await expect(page.getByRole("button", { name: "Försök igen" })).toHaveCount(0);
 
   await expect(page.getByRole("textbox", { name: "Ditt svar" })).not.toBeVisible();
@@ -326,6 +329,7 @@ test("whiteboard writes its headings by hand and waits for the student between p
 
   // When the heading is written the choices appear; the choice starts the lesson.
   await page.getByRole("button", { name: "Skoldagen" }).click({ timeout: 15_000 });
+  await page.getByRole("button", { name: "Rektorn" }).click();
   await expect(page.locator(".board-ink.is-writing")).toHaveCount(1);
   const next = page.getByRole("button", { name: "Fortsätt", exact: true });
   await expect(next).toBeVisible({ timeout: 15_000 });
@@ -483,7 +487,9 @@ test("the lesson is guided: chapters are locked and Edda decides what the writin
   await next.click();
   // Edda shows a better and a weaker thesis; the student picks the better one before writing.
   await expect(page.getByText("Här är två sätt att skriva en tes. Klicka på den som är bäst.")).toBeVisible();
-  await expect(proceed).toHaveCount(0);
+  // This student found every place alone, so Edda steps back: the example is optional and she says why.
+  await expect(page.getByText(/Därför är exemplet här frivilligt/)).toBeVisible();
+  await expect(proceed).toBeVisible();
   await page.getByRole("group", { name: "Välj ett exempel" }).getByRole("button", { name: /Det är hög tid att vi ifrågasätter vår köttnorm/ }).click();
   await proceed.click();
   await expect(page.getByText("Börja med att skriva din inledning med tes.")).toBeVisible();

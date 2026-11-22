@@ -1,4 +1,4 @@
-import type { ReviewFeedback } from "./coachApi";
+import type { MapPart, MapSkill, ReviewFeedback } from "./coachApi";
 
 export const demoSubmissionsKey = "skrivcoach-demo-teacher-inbox-v1";
 const maxDemoSubmissions = 20;
@@ -86,9 +86,79 @@ export function saveDemoSubmission(
   }
 }
 
+export const demoMapsKey = "skrivcoach-demo-teacher-maps-v1";
+const maxDemoMaps = 20;
+const mapSkillIds = ["structure", "reasoning", "cohesion", "sentence", "language"];
+
+/** A writing map the student has chosen to show the teacher: the steps and Edda's evidence, not the whole text. */
+export type DemoSharedMap = {
+  id: string;
+  sharedAt: string;
+  studentLabel: "Demo-elev";
+  chapter: string;
+  parts: { skill: MapSkill; level: 0 | 1 | 2 | 3; quote: string }[];
+};
+
+function isSharedMap(value: unknown): value is DemoSharedMap {
+  return isRecord(value) &&
+    typeof value.id === "string" &&
+    value.id.length <= 80 &&
+    typeof value.sharedAt === "string" &&
+    Number.isFinite(Date.parse(value.sharedAt)) &&
+    value.studentLabel === "Demo-elev" &&
+    typeof value.chapter === "string" &&
+    value.chapter.length <= 120 &&
+    Array.isArray(value.parts) &&
+    value.parts.length >= 1 &&
+    value.parts.length <= mapSkillIds.length &&
+    value.parts.every((part) =>
+      isRecord(part) &&
+      mapSkillIds.includes(String(part.skill)) &&
+      [0, 1, 2, 3].includes(part.level as number) &&
+      typeof part.quote === "string" &&
+      part.quote.length <= 300);
+}
+
+export function readDemoMaps(storage: Pick<Storage, "getItem">): { maps: DemoSharedMap[]; error: boolean } {
+  try {
+    const saved = storage.getItem(demoMapsKey);
+    if (!saved) return { maps: [], error: false };
+    const parsed: unknown = JSON.parse(saved);
+    if (!Array.isArray(parsed) || parsed.length > maxDemoMaps || !parsed.every(isSharedMap)) return { maps: [], error: true };
+    return { maps: parsed, error: false };
+  } catch {
+    return { maps: [], error: true };
+  }
+}
+
+export function saveDemoMap(
+  storage: Pick<Storage, "getItem" | "setItem">,
+  chapter: string,
+  parts: MapPart[],
+  id: string = crypto.randomUUID(),
+  sharedAt = new Date().toISOString(),
+): { map: DemoSharedMap | null; error: boolean } {
+  const saved = readDemoMaps(storage);
+  if (saved.error || parts.length === 0 || !chapter.trim()) return { map: null, error: true };
+  const map: DemoSharedMap = {
+    id,
+    sharedAt,
+    studentLabel: "Demo-elev",
+    chapter,
+    parts: parts.map((part) => ({ skill: part.skill, level: part.level, quote: (part.quote ?? "").slice(0, 300) })),
+  };
+  try {
+    storage.setItem(demoMapsKey, JSON.stringify([...saved.maps, map].slice(-maxDemoMaps)));
+    return { map, error: false };
+  } catch {
+    return { map: null, error: true };
+  }
+}
+
 export function clearDemoSubmissions(storage: Pick<Storage, "removeItem">): boolean {
   try {
     storage.removeItem(demoSubmissionsKey);
+    storage.removeItem(demoMapsKey);
     return true;
   } catch {
     return false;

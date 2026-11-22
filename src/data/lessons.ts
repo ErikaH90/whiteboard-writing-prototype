@@ -51,6 +51,11 @@ export type Lesson = {
   canDo: [string, string, string, string];
   /** Opens the lesson: a short line that catches the student's attention. */
   hook: string;
+  /**
+   * Why the lesson is worth the effort: what it does for the student's own text now, and that it is
+   * part of what is assessed in Swedish. No grade levels or criteria are claimed.
+   */
+  worth: string;
   /** What the student will be able to do after the lesson, in the student's own language. */
   learnerGoal: string;
   /** The curriculum wording the lesson relates to. Shown as a reference, never invented. */
@@ -151,6 +156,7 @@ export const lessons: Lesson[] = [
     foundationExample: "Skoldagen borde börja senare. Då kan fler elever hinna vakna ordentligt.",
     canDo: ["Hitta tesen i en argumenterande text", "Skriva en inledning med tes", "Förklara vad en tes är med egna ord", "Veta vad du letar efter när du granskar strukturen"],
     hook: "Kan en text få dig att ändra åsikt? Det beror mycket på hur den är uppbyggd.",
+    worth: "En text som är lätt att följa övertygar fler. Uppbyggnaden är också något som bedöms när du skriver i svenska, så det du övar här kan höja ditt betyg.",
     learnerGoal: "När du är klar kan du peka ut tes, argument, motargument och avslutning i en argumenterande text, och bygga upp din egen text på samma sätt.",
     goal: writingCriterion,
     model: {
@@ -205,6 +211,7 @@ export const lessons: Lesson[] = [
     foundationExample: "En senare start kan göra elever piggare. Då kan det bli lättare att fokusera.",
     canDo: ["Känna igen sakargument, motargument och bemötande", "Skriva argument i din egen text", "Förklara vad som gör ett resonemang utvecklat", "Ställa rätt fråga när du granskar ett resonemang"],
     hook: "”Det är bättre för att det är bättre.” Blir du övertygad?",
+    worth: "Ett argument som du förklarar är svårt att säga emot. Hur du utvecklar dina tankar är också något som bedöms i svenska, så det kan höja ditt betyg.",
     learnerGoal: "När du är klar kan du utveckla ett argument genom att förklara varför det stämmer och vad det leder till.",
     goal: writingCriterion,
     model: {
@@ -259,6 +266,7 @@ export const lessons: Lesson[] = [
     foundationExample: "Många elever är trötta på morgonen. Därför kan en senare start hjälpa.",
     canDo: ["Känna igen sambandsord för kontrast, konsekvens och avslutning", "Bemöta ett motargument och använda sambandsord", "Nämna olika samband som sambandsord kan visa", "Granska om ett sambandsord säger det du menar"],
     hook: "”Därför” eller ”däremot”? Ett enda ord kan vända hela meningen.",
+    worth: "Med rätt sambandsord hänger dina tankar ihop, och läsaren följer med hela vägen. Textbindning är också något som bedöms i svenska, så det kan höja ditt betyg.",
     learnerGoal: "När du är klar kan du välja sambandsord som visar hur dina tankar hänger ihop.",
     goal: writingCriterion,
     model: {
@@ -313,6 +321,7 @@ export const lessons: Lesson[] = [
     foundationExample: "En senare start kan göra skillnad. Fler elever kanske orkar delta.",
     canDo: ["Se när en mening börjar med en bisats", "Skriva en avslutning och granska meningsbyggnaden", "Beskriva ett sätt att variera meningsbyggnaden", "Granska om upprepade starter gör texten enformig"],
     hook: "Jag tycker. Jag tycker. Jag tycker. Hur länge orkar du läsa?",
+    worth: "Variation gör att din text låter som du och inte som en lista. Språklig variation är också något som bedöms i svenska, så det kan höja ditt betyg.",
     learnerGoal: "När du är klar kan du variera dina ord, hur dina meningar börjar och hur långa de är, utan att texten blir svår att följa.",
     goal: languageCriterion,
     model: {
@@ -367,6 +376,7 @@ export const lessons: Lesson[] = [
     foundationExample: "En senare skolstart kan ge elever bättre möjlighet att möta dagen utvilade.",
     canDo: ["Hitta språkfel i en text", "Granska stavning och skiljetecken i din text", "Förklara hur språkliga normer hjälper läsaren", "Använda ett korrektursteg som fungerar"],
     hook: "En punkt eller ett ord på fel plats kan få läsaren att tappa tråden.",
+    worth: "En text utan småfel gör att läsaren litar på det du säger. Att följa skrivreglerna är också något som bedöms i svenska, så det kan höja ditt betyg.",
     learnerGoal: "När du är klar kan du granska stavning, skiljetecken och ordval så att din text blir lätt att följa.",
     goal: languageCriterion,
     model: {
@@ -421,6 +431,7 @@ export const lessons: Lesson[] = [
     foundationExample: "En tydlig mening hjälper läsaren att förstå en tanke.",
     canDo: ["Välja ett arbetssätt som hjälper dig att bearbeta", "Skriva klart din egen text", "Beskriva ett eget granskningssteg", "Sätta ett bra mål för självkontrollen"],
     hook: "Nu får du visa vad du har lärt dig, i en helt ny text.",
+    worth: "Nu använder du allt du har övat på, i en text som är helt din egen. Det är så du visar vad du kan i svenska.",
     learnerGoal: "När du är klar har du skrivit och granskat en egen argumenterande text med det du har övat på.",
     goal: `${writingCriterion}\n${languageCriterion}`,
     model: {

@@ -46,7 +46,7 @@ describe("error hunt on the whiteboard", () => {
     expect(screen.queryByRole("button", { name: "Nästa fel" })).not.toBeInTheDocument();
 
     await user.click(parts()[0]);
-    expect((await screen.findByRole("status")).querySelector(".edda-star")).toBeInTheDocument();
+    expect((await screen.findByRole("status")).querySelector(".edda-mark")).toBeInTheDocument();
     expect(parts()[0]).toHaveClass("is-found");
     expect(screen.getByText(hunt.segments[0].explain)).toBeInTheDocument();
     expect(onEvidence).toHaveBeenLastCalledWith(lesson.skillIds, "supported");

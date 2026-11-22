@@ -54,6 +54,14 @@ Testerna ska skydda elevens självständiga skrivande, lektionsprogressionen, se
 - **PED-11:** slutdiagnosen har en ny sakfråga, ett separat tomt utkast och ingen kopiering från träningsutkastet. Diagnosutkastet sparas inte lokalt.
 - **PED-12:** efter diagnos kan ett textförankrat fynd rekommendera ett befintligt moment för fortsatt övning; inget officiellt betyg eller omskriven text visas.
 - **PED-14:** den avslutande checklistan visas först efter uttrycklig inlämning och omfattar de fyra specificerade områdena. Den är inte synlig eller tillgänglig under den stödfria diagnosen.
+- **PED-33:** ledtråd och **Visa stället** kommer fram först när eleven har prövat och arbetat med frågan en stund; snabba klick tar inte fram dem.
+- **PED-34:** Edda läser skrivuppgiften först när eleven har skrivit något nytt i texten.
+- **PED-32:** efter två försök visar Edda inte stället själv; eleven får frågan och väljer **Visa stället** eller prövar igen.
+- **PED-30:** efter två fynd i rad på första försöket erbjuder Edda eleven att leta själv; eleven väljer, och i det läget bekräftas fynd utan AI-anrop och förklaringen visas på begäran.
+- **PED-31:** en ledtråd visas bara när eleven ber om den efter ett första försök; exemplet före skrivuppgiften är frivilligt bara för den som hittade ställena själv, och övriga får ingen kommentar om det.
+- **PED-27:** eleven kan välja ett eget ämne och en egen mottagare på startsidan; valen visas ovanför texten och inget skickas till AI.
+- **PED-28:** skrivkartans steg räknas från fasta saker i texten: citat som inte finns i texten räknas inte, det som redan är utpekat gäller så länge stället finns kvar, samma text skickas inte två gånger, och delar som följer fasta regler läses utan AI-tjänsten.
+- **PED-29:** eleven kan visa sin skrivkarta för läraren; lärarvyn (demo) visar hjulet, stegen och beläggen men inte hela texten.
 - **PED-26:** skrivkartan ritas först på elevens begäran, läser bara de delar Edda har gått igenom, visar belägget som grön markering i elevens text, tänder **Redo för slutdiagnos** när alla delar är minst utvecklade och kan läsas om när texten har ändrats (`tests/e2e/writing-map.spec.ts`).
 - **PED-25:** slutdiagnosens checklista visas medan diagnostexten kan ändras (före inlämning), läggs undan på det låsta originalet och visas igen med samma bockar i den separata bearbetningskopian.
 - **PED-15:** efter inlämning är diagnosens originaltext låst. Checklistans separata bearbetningskopia börjar med samma text; ändringar i kopian ändrar inte den text eller återkoppling som lärarvyn redan tagit emot.
@@ -94,7 +102,7 @@ Testerna ska skydda elevens självständiga skrivande, lektionsprogressionen, se
 - **CHECK-02:** svarsalternativ visas i modellering, träning och självkontroll; ett fritextfält visas vid återkallning och varje exit-ticket-steg.
 - **CHECK-03:** gränssnittet visar inte svarsalternativ och fritextfält samtidigt.
 - **CHECK-04:** ledtrådar finns i träningssteget men inte i återkallning utan stöd eller slutbedömning; i modelleringen kan eleven välja om efter Eddas återkoppling.
-- **CHECK-09:** ett svar på rätt spår visar Eddas stjärna i en storlek som följer svarets nivå (1–3); ett svar som behöver ett nytt försök visar ingen stjärna. Ett rätt klick kan inte ge den största stjärnan.
+- **CHECK-09:** ett fritextsvar på rätt spår visar Eddas markering i skrivkartans tre steg med stegets namn; ett rätt klick visar en grön bock utan steg; ett svar som behöver ett nytt försök visar ingen markering.
 - **PED-18:** efter exit ticketen visas vad eleven har visat att den kan (endast kontroller eleven klarat) och, i första momentet, elevens första svar bredvid det senaste. Svaren hålls bara i sessionens minne.
 - **AI-05, manuell:** granska att Eddas beröm är konkret, sant och knutet till elevens arbete.
 - **CHECK-08:** efter ett svar som är på rätt spår visas ingen **Försök igen**- eller **Svara**-knapp för den frågan.

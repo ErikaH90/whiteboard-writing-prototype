@@ -10,9 +10,9 @@ test("the chapter ends with the writing map, bound to the student's own text", a
     contentType: "application/json",
     body: JSON.stringify({ kind: "on_track", feedback: "Du visar vad du kan.", level: 2 }),
   }));
-  const requests: { draft: string; skills: string[] }[] = [];
+  const requests: { draft: string; skills: string[]; known: unknown[] }[] = [];
   await page.route("**/api/progress-map", async (route) => {
-    const request = route.request().postDataJSON() as { draft: string; skills: string[] };
+    const request = route.request().postDataJSON() as { draft: string; skills: string[]; known: unknown[] };
     requests.push(request);
     const part = (skill: string, level: number, quote: string, strength: string, next: string) => {
       const start = request.draft.indexOf(quote);
@@ -33,7 +33,10 @@ test("the chapter ends with the writing map, bound to the student's own text", a
   const draft = "Förbjud mobiler i skolan!\n\nJag tycker att vi borde förbjuda mobiltelefoner i skolan.\n\nFör det första skulle eleverna kunna koncentrera sig bättre utan störningar.";
 
   await page.goto("/?fri");
+  if (process.env.MAP_SHOT) await page.screenshot({ path: process.env.MAP_SHOT.replace(".png", "-start.png") });
   await page.getByRole("button", { name: "Skoldagen" }).click();
+  if (process.env.MAP_SHOT) await page.screenshot({ path: process.env.MAP_SHOT.replace(".png", "-reader.png") });
+  await page.getByRole("button", { name: "Rektorn" }).click();
   await page.getByRole("button", { name: /^Kapitel 3:/ }).click();
   await page.getByRole("button", { name: "Fortsätt", exact: true }).click();
   await page.getByRole("button", { name: "Fortsätt", exact: true }).click();
@@ -60,7 +63,7 @@ test("the chapter ends with the writing map, bound to the student's own text", a
   const wheel = page.getByRole("group", { name: "Din skrivkarta" });
   await expect(wheel.getByRole("button", { name: "Struktur: välutvecklad" })).toBeVisible();
   // Only the parts Edda has gone through so far are read.
-  expect(requests[0]).toEqual({ draft, skills: ["structure", "reasoning", "cohesion"] });
+  expect(requests[0]).toEqual({ draft, skills: ["structure", "reasoning", "cohesion"], known: [] });
   await expect(wheel.getByRole("button", { name: "Meningar: kommer senare" })).toBeVisible();
   await expect(wheel.getByRole("img", { name: "Redo för slutdiagnos: inte än" })).toBeVisible();
 
@@ -99,4 +102,20 @@ test("the chapter ends with the writing map, bound to the student's own text", a
   await expect(wheel.getByRole("button", { name: "Textbindning: utvecklad" })).toBeVisible();
   expect(requests).toHaveLength(2);
   await expect(editor).toHaveValue(`${draft} Det är viktigt eftersom lektionerna blir lugnare.`);
+
+  // The same text always gives the same map: a text Edda has already read is not sent again.
+  await editor.fill(draft);
+  await again.click();
+  await expect(wheel.getByRole("button", { name: "Textbindning: grundläggande" })).toBeVisible();
+  expect(requests).toHaveLength(2);
+
+  // The student chooses to show the map to the teacher, who then sees the same wheel.
+  await page.getByRole("button", { name: "Visa min skrivkarta för läraren" }).click();
+  await expect(page.getByText("Din lärare kan nu se din skrivkarta.")).toBeVisible();
+  await page.getByRole("button", { name: "Öppna lärarvyn (demo)" }).click();
+  const teacher = page.getByRole("region", { name: "Lärarvy i demoläge" });
+  await expect(teacher.getByRole("list", { name: "Delade skrivkartor" })).toContainText("Delad efter kapitel 3: Textbindning");
+  await expect(teacher.getByRole("img", { name: "Struktur: välutvecklad" })).toBeVisible();
+  await expect(teacher).toContainText("Resonemang: utvecklad");
+  if (process.env.MAP_SHOT) await page.screenshot({ path: process.env.MAP_SHOT.replace(".png", "-teacher.png") });
 });
