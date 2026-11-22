@@ -205,7 +205,8 @@ test("student completes the short chapter exit ticket", async ({ page }) => {
     await page.getByRole("button", { name: /Nästa steg/ }).click();
   }
 
-  await revealBoard(page, 1);
+  // The criteria come first; the exit ticket follows, and after it the chapter's writing map.
+  await page.getByRole("button", { name: "Fortsätt", exact: true }).click();
 
   const titles = [
     "Textens övergripande delar",

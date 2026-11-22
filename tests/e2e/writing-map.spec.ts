@@ -64,9 +64,20 @@ test("the chapter ends with the writing map, bound to the student's own text", a
   await expect(wheel.getByRole("button", { name: "Meningar: kommer senare" })).toBeVisible();
   await expect(wheel.getByRole("img", { name: "Redo för slutdiagnos: inte än" })).toBeVisible();
 
-  // The chapter's own part is chosen first, and its evidence is marked in the student's text.
-  await expect(wheel.getByRole("button", { name: "Textbindning: grundläggande" })).toHaveAttribute("aria-pressed", "true");
+  // At first only the map is shown: no part is chosen, nothing is marked and Edda says nothing more.
+  await expect(wheel.locator("[aria-pressed='true']")).toHaveCount(0);
+  await expect(page.locator(".map-detail")).toHaveCount(0);
+  await expect(page.locator(".strength-mark")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /låt Edda titta igen/ })).toHaveCount(0);
+
+  if (process.env.MAP_SHOT) await page.screenshot({ path: process.env.MAP_SHOT });
+
+  // When the student chooses a part, Edda gives her tips and the evidence is marked in the text.
+  await wheel.getByRole("button", { name: "Textbindning: grundläggande" }).click();
   await expect(page.locator(".strength-mark")).toHaveText("För det första");
+  // Choosing the same part again puts the tips away.
+  await wheel.getByRole("button", { name: "Textbindning: grundläggande" }).click();
+  await expect(page.locator(".map-detail")).toHaveCount(0);
   await wheel.getByRole("button", { name: "Resonemang: utvecklad" }).click();
   await expect(page.locator(".strength-mark")).toHaveText("skulle eleverna kunna koncentrera sig bättre");
   await expect(page.getByText("Vad leder det till för eleverna?")).toBeVisible();
@@ -82,7 +93,6 @@ test("the chapter ends with the writing map, bound to the student's own text", a
 
   // When the student has changed the text, Edda can read again and the map follows the text.
   const again = page.getByRole("button", { name: "Jag har ändrat i min text – låt Edda titta igen" });
-  await expect(again).toBeDisabled();
   await editor.fill(`${draft} Det är viktigt eftersom lektionerna blir lugnare.`);
   await expect(page.locator(".strength-mark")).toHaveCount(0);
   await again.click();

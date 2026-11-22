@@ -344,8 +344,8 @@ function App() {
     try {
       const parts = await requestProgressMap(assessedDraft, taught);
       setProgressMap({ draft: assessedDraft, parts });
-      // Start with the chapter's own part, so the student sees what the work just done has led to.
-      setMapSelected((current) => current && taught.includes(current) ? current : lesson.skillIds.length === 1 ? lesson.skillIds[0] : taught[0]);
+      // Only the map is shown at first. Edda says more about a part when the student chooses it.
+      setMapSelected(null);
     } catch (error) {
       setMapError(error instanceof Error ? error.message : "Edda kunde inte läsa texten just nu.");
     } finally {
@@ -1157,7 +1157,7 @@ function App() {
                         lessons.slice(0, lessonIndex + 1).some((item) => item.skillIds.includes(skill)))}
                       parts={progressMap?.parts ?? null}
                       selected={mapSelected}
-                      onSelect={setMapSelected}
+                      onSelect={(skill) => setMapSelected((current) => current === skill ? null : skill)}
                       onAssess={assessProgress}
                       loading={mapLoading}
                       error={mapError}

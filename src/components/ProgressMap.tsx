@@ -125,13 +125,14 @@ export default function ProgressMap({ taught, parts, selected, onSelect, onAsses
                   <li><span className="map-key is-level-2" />utvecklad</li>
                   <li><span className="map-key is-level-3" />välutvecklad</li>
                 </ol>
-                <p className="map-legend-note">Grön betyder redo. Klicka på en del för att se varför.</p>
+                <p className="map-legend-note">Grön betyder redo. Klicka på en del om du vill ha tips av Edda.</p>
               </div>
             </div>
             {isReady && (
               <p className="map-ready-note" role="status">Alla delar är gröna. Du är redo för slutdiagnosen.</p>
             )}
-            {chosen ? (
+            {/* Only the map is shown until the student chooses a part: then Edda says more about it. */}
+            {chosen && (
               <div className="map-detail" role="status">
                 <div className="edda-says is-on-track">
                   <span aria-hidden="true" className="edda-face" />
@@ -150,17 +151,15 @@ export default function ProgressMap({ taught, parts, selected, onSelect, onAsses
                     {chosen.next}
                   </p>
                 )}
+                <p className="assessment-note">Kartan är Eddas stöd för din bearbetning, inte ett betyg.</p>
               </div>
-            ) : (
-              <p className="board-small-note">Välj en del i kartan. Du bestämmer själv vilken du vill arbeta med.</p>
             )}
             {error && <p className="check-in-error" role="alert">{error}</p>}
-            <div className="map-actions">
-              <button className="quiet-button" disabled={loading || !isOutdated || isEmpty} onClick={onAssess} type="button">
+            {isOutdated && (
+              <button className="quiet-button map-again" disabled={loading || isEmpty} onClick={onAssess} type="button">
                 {loading ? "Edda läser din text …" : "Jag har ändrat i min text – låt Edda titta igen"}
               </button>
-              <span className="assessment-note">Kartan är Eddas stöd för din bearbetning, inte ett betyg.</span>
-            </div>
+            )}
           </>
         )}
       </AfterWriting>
