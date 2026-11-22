@@ -81,13 +81,11 @@ export default function LessonEntryCheck({
       <BoardSequence>
       {/* The lesson opens by catching attention and stating the goal, before prior knowledge is recalled. */}
       <BoardStep pause>
-        <p className="board-kicker">{lesson.shortTitle.toUpperCase()}</p>
         <p className="board-hook"><Written byHand>{lesson.hook}</Written></p>
       </BoardStep>
       <BoardStep pause>
-        <p className="board-kicker">{lesson.shortTitle.toUpperCase()}</p>
         <h2 className="board-prompt"><Written byHand>Målet med lektionen</Written></h2>
-        <p className="activity-instruction"><Written spoken>{lesson.learnerGoal}</Written></p>
+        <p className="activity-instruction"><Written keys={lesson.goalKeys} spoken>{lesson.learnerGoal}</Written></p>
         {/* Why it is worth the effort: for the student's own text now, and for the grade in Swedish in the long run. */}
         <p className="board-worth"><Written>{lesson.worth}</Written></p>
       </BoardStep>

@@ -70,25 +70,27 @@ async function loadSpeech(text: string): Promise<string> {
 }
 
 /**
- * Reads the text aloud and resolves when Edda has finished. Resolves at once, without sound,
+ * Reads the text aloud and resolves when Edda has finished (true when she was heard to the end). Resolves at once, without sound,
  * when the voice is off or cannot be used, so the caller can always show the text afterwards.
  * The returned `cancel` stops her if the text is no longer on the board.
  */
-export function speak(text: string): { done: Promise<void>; cancel: () => void } {
+export function speak(text: string): { done: Promise<boolean>; cancel: () => void } {
   let cancelled = false;
   let audio: HTMLAudioElement | null = null;
 
+  // Resolves to true only when Edda was heard to the end: then her words need not be shown again.
   const done = (async () => {
-    if (!isVoiceActive()) return;
+    if (!isVoiceActive()) return false;
     try {
       const url = await loadSpeech(text);
-      if (cancelled || !isVoiceActive()) return;
+      if (cancelled || !isVoiceActive()) return false;
       stopSpeaking();
       audio = new Audio(url);
       current = audio;
-      await new Promise<void>((resolve, reject) => {
-        audio!.addEventListener("ended", () => resolve());
-        audio!.addEventListener("pause", () => resolve());
+      return await new Promise<boolean>((resolve, reject) => {
+        audio!.addEventListener("ended", () => resolve(true));
+        // Browsers also report a pause when the sound has reached its end; only a real interruption counts.
+        audio!.addEventListener("pause", () => resolve(Boolean(audio!.ended)));
         audio!.addEventListener("error", () => reject(new Error("audio_error")));
         Promise.resolve(audio!.play()).catch(reject);
       });
@@ -98,6 +100,7 @@ export function speak(text: string): { done: Promise<void>; cancel: () => void }
         unavailable = true;
         notify();
       }
+      return false;
     } finally {
       if (current === audio) current = null;
     }

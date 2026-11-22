@@ -54,6 +54,13 @@ Testerna ska skydda elevens självständiga skrivande, lektionsprogressionen, se
 - **PED-11:** slutdiagnosen har en ny sakfråga, ett separat tomt utkast och ingen kopiering från träningsutkastet. Diagnosutkastet sparas inte lokalt.
 - **PED-12:** efter diagnos kan ett textförankrat fynd rekommendera ett befintligt moment för fortsatt övning; inget officiellt betyg eller omskriven text visas.
 - **PED-14:** den avslutande checklistan visas först efter uttrycklig inlämning och omfattar de fyra specificerade områdena. Den är inte synlig eller tillgänglig under den stödfria diagnosen.
+- **VOICE-04:** när Edda har hörts till slut visas hennes ord inte som text: nyckelord där sådana finns, annars ingenting; blev hon avbruten eller är ljudet av visas hela texten.
+- **PED-47:** ett nytt kapitel börjar i något elevens egen text redan har, med elevens egna ord på tavlan; Eddas AI-svar får med sig vad eleven kan och vad som är nästa steg i kursens egna ord, aldrig elevtext.
+- **PED-46:** efter en inlämnad skrivuppgift går Edda tillbaka till det uppgiften bad om och som saknas: exempeltextens ställe visas, eleven prövar i sin text och Edda läser igen, högst två varv; det som senare kapitel tar upp räknas inte som en lucka.
+- **PED-45:** för en elev som behövde få ett ställe visat i förra kapitlet visar Edda vartannat ställe själv och eleven prövar de övriga.
+- **PED-42:** eleven letar först själv i exempeltexten utan markeringar; fynd får Eddas namn och lyser gult utan AI-anrop; Edda går sedan bara igenom det som återstår, och tar över av sig själv efter klick bredvid eller en stund utan fynd.
+- **PED-43:** en elev som behövde få ett ställe visat i förra kapitlet får ingen egen letning utan vägleds från början.
+- **PED-44:** tavlan har inga räknare eller kapiteletiketter, och **Nästa steg** visas först när steget är klart.
 - **PED-41:** ett hittat ställe visar bara rubriken och Eddas egen förklaring i pratbubblan; citatet upprepas inte på tavlan och inget AI-anrop görs för ett rätt klick.
 - **PED-37:** Edda förklarar kortare av sig själv medan eleven hittar ställena på första försöket, säger det en gång och återgår till fullt stöd efter en miss; inga erbjudanden eller val visas.
 - **PED-38:** ledtråd och visat ställe kommer av sig själva efter egen ansträngning eller lång stillhet, aldrig efter snabba klick; i skrivuppgiften kommer ett första steg när texten står stilla.

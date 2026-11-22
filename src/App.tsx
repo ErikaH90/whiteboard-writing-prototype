@@ -4,7 +4,7 @@ import DemoTeacherInbox from "./components/DemoTeacherInbox";
 import FinalDiagnosisChecklist from "./components/FinalDiagnosisChecklist";
 import SubmissionChecklist from "./components/SubmissionChecklist";
 import ProgressMap, { mapSkills, MapWheel } from "./components/ProgressMap";
-import { buildPart, readByRule, readText } from "../server/writingMap.mjs";
+import { buildPart, mapFeatures, readByRule, readText } from "../server/writingMap.mjs";
 import PracticeRound from "./components/PracticeRound";
 import { effortTimes, minTaskWords } from "./lib/effort";
 import LessonEntryCheck from "./components/LessonEntryCheck";
@@ -40,6 +40,7 @@ import {
   type ReviewFeedback,
   requestLocate,
   requestProgressMap,
+  setStudentModel,
   type MapPart,
   type MapSkill,
 } from "./lib/coachApi";
@@ -73,6 +74,53 @@ function readSavedDraft(): { draft: string; error: boolean } {
     return { draft: "", error: true };
   }
 }
+
+/** The open question while the student looks around in the exemplar alone, one per part of the text. */
+const exploreAsks: Record<MapSkill, string> = {
+  structure: "Vilka delar bygger upp texten?",
+  reasoning: "Var gör skribenten sina argument starka?",
+  cohesion: "Vilka ord binder ihop texten?",
+  sentence: "Var varierar skribenten sitt språk?",
+  language: "Var är skiljetecken och ord noga valda?",
+};
+
+/**
+ * For each thing that can be missing in the student's text: the place in the exemplar that shows
+ * it (an index into the chapter's marked places). Edda goes back to that place and explains it.
+ */
+const gapExamples: Partial<Record<MapSkill, Record<string, number>>> = {
+  structure: { heading: 0, thesis: 1, arguments: 3, counter: 4, conclusion: 5 },
+  reasoning: { reason: 0, explain: 1, example: 1, consequence: 2, rebuttal: 5 },
+  cohesion: { order: 2, cause: 1, effect: 3, contrast: 0, addition: 4 },
+  sentence: { starts: 1, lengths: 0, wording: 4 },
+  language: { formal: 2 },
+};
+
+/**
+ * How each chapter is tied to what the student has already written: the thing to look for in the
+ * student's own text, and what Edda says when it is there. Her sentence is the course's own; the
+ * student's words are shown on the board and are never sent to the voice service.
+ */
+const chapterBridges: Partial<Record<number, { skill: MapSkill; feature: string; say: string }>> = {
+  1: { skill: "structure", feature: "thesis", say: "Du har redan en tes i din text. Nu tittar vi på hur skälen för den blir starka." },
+  2: { skill: "structure", feature: "arguments", say: "Du har redan argument i din text. Nu tittar vi på hur de binds ihop." },
+  3: { skill: "cohesion", feature: "order", say: "Du binder redan ihop din text med sambandsord. Nu tittar vi på hur meningarna kan låta olika." },
+  4: { skill: "structure", feature: "conclusion", say: "Din text har nu en avslutning. Nu putsar vi språket." },
+};
+
+/**
+ * What each chapter's writing task asks the student to write, as things from the writing map, in
+ * the order Edda goes back to them: the introduction with a thesis first, then arguments and how
+ * they are developed, the counter-argument and linking words, the conclusion and sentence variation,
+ * and last the writing rules.
+ */
+const taskFeatures: [MapSkill, string][][] = [
+  [["structure", "heading"], ["structure", "thesis"]],
+  [["structure", "arguments"], ["reasoning", "reason"], ["reasoning", "explain"], ["reasoning", "consequence"]],
+  [["structure", "counter"], ["reasoning", "rebuttal"], ["cohesion", "order"], ["cohesion", "cause"], ["cohesion", "contrast"]],
+  [["structure", "conclusion"], ["sentence", "starts"], ["sentence", "lengths"]],
+  [["language", "capitals"], ["language", "endmarks"], ["language", "formal"]],
+];
 
 /** The parts of the writing map that follow plain rules and therefore follow the text as it is written. */
 const liveSkills: MapSkill[] = ["cohesion", "sentence"];
@@ -136,6 +184,9 @@ function App() {
     /** The page where Edda says that she now explains more briefly. */
     toldAt: number | null;
   }>>({});
+  // Before Edda asks her questions, the student looks around in the exemplar on their own. What
+  // the student finds is not gone through again; Edda only takes up what is left.
+  const [explores, setExplores] = useState<Record<number, { found: number[]; stray: number; latest: number | null; done: boolean }>>({});
   const [completedEntryLessons, setCompletedEntryLessons] = useState<number[]>([]);
   const [seenBoards, setSeenBoards] = useState<string[]>([]);
   const [hasMetExemplar, setHasMetExemplar] = useState(false);
@@ -202,6 +253,24 @@ function App() {
   const [progressMap, setProgressMap] = useState<{ draft: string; parts: MapPart[] } | null>(null);
   const [mapSelected, setMapSelected] = useState<MapSkill | null>(null);
   const mapReadings = useRef(new Map<string, MapPart[]>());
+  // After a writing task Edda goes back to what is still missing in the student's text: she shows
+  // how the exemplar does just that, the student tries it in the own text, and she reads again.
+  const [taskLoop, setTaskLoop] = useState<{
+    board: string;
+    round: number;
+    /** The thing that is missing (a part and an id from the course's list) and Edda's hint for it. */
+    skill: MapSkill;
+    feature: string;
+    hint: string;
+    /** The place in the exemplar that shows it, if there is one. */
+    example: number | null;
+    stage: "praise" | "model" | "try" | "done";
+    /** The text Edda last read. */
+    draft: string;
+    /** What the student tried last time is now in the text. */
+    closed: boolean;
+    reading: boolean;
+  } | null>(null);
   // More practice on a part the student has chosen in the map, and the text when the practice began.
   const [practice, setPractice] = useState<{ skill: MapSkill; level: number; hint: string; draft: string } | null>(null);
   // Maps the student has chosen to show the teacher (a local demo), and the text of the map last shown.
@@ -235,8 +304,10 @@ function App() {
     ? isSeparateRevision ? revisionDraft : diagnosisDraft
     : draft;
   // After a writing task Edda points at one thing to develop; on request she may point at up to three.
+  // While Edda goes back to something missing, that is the one thing in focus: no other mark competes with it.
+  const isClosingGap = taskLoop !== null && taskLoop.board === `${lessonIndex}-${phaseIndex}`;
   const findings = reviewFeedback
-    ? reviewSource === "task" ? reviewFeedback.findings.slice(0, 1) : reviewFeedback.findings
+    ? reviewSource === "task" ? (isClosingGap ? [] : reviewFeedback.findings.slice(0, 1)) : reviewFeedback.findings
     : null;
   // The strength is marked in the text too, so that it is as visible as what can be developed.
   const strength = reviewFeedback
@@ -265,7 +336,33 @@ function App() {
     const part = liveParts.find((item) => item.skill === skill) ?? progressMap?.parts.find((item) => item.skill === skill);
     return part ? [part] : [];
   });
+  // What Edda knows about this student, for every answer she gives: what the text already shows
+  // and what comes next, in the course's own words (never the student's text).
+  const knownLines = mapNow.filter((part) => taughtSkills.includes(part.skill)).flatMap((part) =>
+    mapFeatures[part.skill].filter((feature) => part.lacks && !part.lacks.includes(feature.id)).map((feature) => feature.praise));
+  const nextLines = mapNow.filter((part) => taughtSkills.includes(part.skill)).flatMap((part) =>
+    mapFeatures[part.skill].filter((feature) => part.lacks?.includes(feature.id)).slice(0, 1).map((feature) => feature.hint));
+  const modelKey = `${lessonIndex}|${knownLines.join("|")}|${nextLines.join("|")}`;
+  useEffect(() => {
+    setStudentModel(hasStarted ? {
+      knows: knownLines.slice(0, 24),
+      next: nextLines.slice(0, 6),
+      taught: lessons.slice(0, lessonIndex + 1).map((item) => item.shortTitle),
+      upcoming: lessons.slice(lessonIndex + 1, lessons.length - 1).map((item) => item.shortTitle),
+    } : null);
+    // The lines are the course's own sentences; the key changes when they do.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [modelKey, hasStarted]);
   const mapLevels = Object.fromEntries(mapNow.map((part) => [part.skill, part.level])) as Partial<Record<MapSkill, number>>;
+  // A new chapter starts in what the student's text already has: Edda names it, and the student's
+  // own words are shown, before the new thing is built on top of it.
+  const bridge = chapterBridges[lessonIndex];
+  const bridgeQuote = !bridge
+    ? null
+    : liveSkills.includes(bridge.skill)
+      ? liveParts.find((part) => part.skill === bridge.skill && part.level > 0)?.quote ?? null
+      : progressMap?.parts.find((part) => part.skill === bridge.skill)?.found.find((entry) => entry.id === bridge.feature)?.quote ?? null;
+  const ownBridge = bridge && bridgeQuote && draft.includes(bridgeQuote) ? { say: bridge.say, quote: bridgeQuote } : null;
   // The map is shown when Edda has read the text, which she does when the student hands in a writing task.
   const shownMap = progressMap ? mapNow.filter((part) => taughtSkills.includes(part.skill)) : null;
   const mapPart = hasProgressMap
@@ -405,7 +502,44 @@ function App() {
     markAttempted();
     earnAchievement();
     // The same hand-in lets Edda bring the writing map up to date, so that it needs no click of its own.
-    void assessProgress(true);
+    const handedIn = draft;
+    const parts = await assessProgress(true);
+    // What is still missing of the chapter's part decides what Edda goes back to.
+    const gap = lesson.taskLink ? gapIn(parts, handedIn) : null;
+    if (gap) {
+      setTaskAdvice(null);
+      setTaskLoop({ board: boardKey, round: 1, ...gap, stage: gap.example !== null ? "praise" : "try", draft: handedIn, closed: false, reading: false });
+    }
+  }
+
+  /**
+   * The first thing this chapter's writing task asked for that is missing in the text, with the
+   * exemplar's place for it. Edda does not go back to things the student has not been asked to write yet.
+   */
+  function gapIn(parts: MapPart[] | null, text: string) {
+    for (const [skill, feature] of taskFeatures[lessonIndex] ?? []) {
+      const part = liveSkills.includes(skill)
+        ? buildPart(text, skill, readByRule(text, skill)) as MapPart
+        : parts?.find((item) => item.skill === skill);
+      if (!part?.lacks?.includes(feature)) continue;
+      const hint = mapFeatures[skill].find((item) => item.id === feature)?.hint ?? "";
+      return { skill, feature, hint, example: gapExamples[skill]?.[feature] ?? null };
+    }
+    return null;
+  }
+
+  /** The student has tried it in the text: Edda reads again and goes back to the next thing, at most twice. */
+  async function readAfterTrying() {
+    if (!loop) return;
+    const tried = draft;
+    setTaskLoop({ ...loop, reading: true });
+    const gap = gapIn(await assessProgress(true), tried);
+    const closed = !gap || gap.feature !== loop.feature || gap.skill !== loop.skill;
+    if (gap && loop.round < 2) {
+      setTaskLoop({ board: loop.board, round: loop.round + 1, ...gap, stage: gap.example !== null ? "model" : "try", draft: tried, closed, reading: false });
+    } else {
+      setTaskLoop({ ...loop, stage: "done", draft: tried, closed, reading: false });
+    }
   }
 
   /** The student has tried Edda's advice in their text and asks her to look again. */
@@ -423,7 +557,7 @@ function App() {
     // The next chapter's part is read too: Edda then knows what the text already shows of it.
     const upcoming = lessons[lessonIndex + 1]?.skillIds.length === 1 ? lessons[lessonIndex + 1].skillIds : [];
     const skills = mapSkills.map(({ skill }) => skill).filter((skill) => taughtSkills.includes(skill) || upcoming.includes(skill));
-    if (!assessedDraft.trim() || skills.length === 0) return;
+    if (!assessedDraft.trim() || skills.length === 0) return null;
     if (!isQuiet) setMapLoading(true);
     setMapError(null);
     try {
@@ -434,9 +568,11 @@ function App() {
       setProgressMap({ draft: assessedDraft, parts });
       // Only the map is shown at first. Edda says more about a part when the student chooses it.
       setMapSelected(null);
+      return parts;
     } catch (error) {
       // When Edda reads on her own after a writing task, a failure is not the student's concern.
       if (!isQuiet) setMapError(error instanceof Error ? error.message : "Edda kunde inte läsa texten just nu.");
+      return null;
     } finally {
       if (!isQuiet) setMapLoading(false);
     }
@@ -694,7 +830,10 @@ function App() {
     && !hasMetExemplar
     && !hasCompletedEntry
     && lessonIndex < lessons.length - 1);
-  const surfaceView = exemplarAvailable ? "exemplar" : "draft";
+  // When Edda shows how the exemplar does something that is missing, the exemplar is back beside the board.
+  const loop = taskLoop?.board === boardKey ? taskLoop : null;
+  const gapWalk = exemplarFocus[loop?.skill ?? lesson.skillIds[0]].highlights.strong;
+  const surfaceView = exemplarAvailable || loop?.stage === "model" ? "exemplar" : "draft";
   const hasBoardCheck = phaseIndex < 4 || lesson.exitTicket !== null;
   // In guided mode the next step opens when the whole board has been shown and the student has
   // answered its check or finished its task.
@@ -723,12 +862,31 @@ function App() {
   const comparisons = modelling?.comparisons ?? [];
   // Some chapters end the modelling with an error hunt on the whiteboard instead.
   const errorHunt = modelling?.hunt ?? null;
+  // How much the student explores on their own follows how the last chapter went, so that nobody
+  // is left alone longer than they can manage: wide for the one who found the places alone (or whose
+  // own text already shows this chapter's part), none for the one who needed Edda to show the way.
+  const lastWalk = walks[lessonIndex - 1];
+  const exploring: "wide" | "short" | "none" = !effortTimes.explore || walkthrough.length === 0
+    ? "none"
+    : lastWalk && (lastWalk.reveals >= 1 || lastWalk.misses >= 3)
+      ? "none"
+      : alreadyInText || (lastWalk && lastWalk.found >= 2 && lastWalk.misses <= 1) ? "wide" : "short";
+  // A student who needed Edda to show the way in the last chapter gets clear examples: Edda shows
+  // every other place herself, and the student tries the ones in between.
+  const needsModelling = Boolean(lastWalk && (lastWalk.reveals >= 1 || lastWalk.misses >= 3));
+  const explore = explores[lessonIndex] ?? { found: [], stray: 0, latest: null, done: false };
+  const isExploring = exploring !== "none" && !explore.done;
+  // After the exploration the board starts again with what is left.
+  const boardStage = exploring !== "none" && explore.done ? `${boardKey}:rest` : boardKey;
   type BoardPage =
+    | { kind: "explore" }
     | { kind: "compare"; comparisonIndex: number; pairIndex: number | null }
     | { kind: "part"; index: number; number: number };
   // Board page 0 is the goal; these pages follow it, in the chapter's own order.
   const boardPages: BoardPage[] = [];
-  if (modelling) {
+  if (modelling && isExploring) {
+    boardPages.push({ kind: "explore" });
+  } else if (modelling) {
     let partNumber = 0;
     for (const step of modellingFlow(modelling)) {
       if ("compare" in step) {
@@ -736,7 +894,8 @@ function App() {
         comparisons[step.compare].pairs.forEach((_, pairIndex) => {
           boardPages.push({ kind: "compare", comparisonIndex: step.compare, pairIndex });
         });
-      } else {
+      } else if (!explore.found.includes(step.part)) {
+        // What the student found on their own is not gone through again.
         partNumber += 1;
         boardPages.push({ kind: "part", index: step.part, number: partNumber });
       }
@@ -757,14 +916,16 @@ function App() {
   if (pageStarted.current.key !== pageKey) pageStarted.current = { key: pageKey, at: Date.now() };
   const [, setEffortTick] = useState(0);
   const workedFor = Date.now() - pageStarted.current.at;
+  // Edda shows this place as an example; the student tries the next one.
+  const isModelledPage = needsModelling && currentPage?.kind === "part" && currentPage.number % 2 === 1;
   // The page is done when the student found the place, or Edda has shown it.
-  const isPickResolved = pick.solved || pick.revealed;
+  const isPickResolved = pick.solved || pick.revealed || isModelledPage;
   const isSearchingPart = currentPage?.kind === "part" && !isPickResolved;
   const exemplarMode: ExemplarMode = isListeningIntro
     ? "listen"
     : !hasCompletedEntry
       ? "plain"
-      : isComparePage ? "compare" : isSearchingPart ? "pick" : focusIndex !== null ? "focus" : "plain";
+      : isComparePage ? "compare" : isSearchingPart || currentPage?.kind === "explore" ? "pick" : focusIndex !== null ? "focus" : "plain";
 
   /** The student clicks where they think the answer is: a part of the exemplar or of the second example. */
   async function pickOnPage(index: number) {
@@ -777,7 +938,7 @@ function App() {
       target = currentPage.index;
       question = part.ask ?? part.label;
       answer = walkthrough[index].quote;
-    } else if (currentPage.pairIndex !== null) {
+    } else if (currentPage.kind === "compare" && currentPage.pairIndex !== null) {
       const item = comparisons[currentPage.comparisonIndex];
       target = currentPage.pairIndex;
       question = `Vilket ställe i den andra texten motsvarar ”${item.pairs[target].simple}”?`;
@@ -892,6 +1053,56 @@ function App() {
   const hasWrittenForTask = draft !== taskStart.current.draft
     && draft.trim().split(/\s+/).filter(Boolean).length >= minTaskWords;
 
+  // When the last place of the walk-through is one Edda shows, the step is done when it is shown.
+  const isModelledLast = isModelledPage && currentBoardPage === boardPages.length && !errorHunt;
+  useEffect(() => {
+    if (isModelledLast && !attemptedBoards.includes(boardKey)) markAttempted();
+  });
+
+  const isOnExplorePage = currentPage?.kind === "explore" && isExploring;
+  /** The exploration is over: the student found everything, has looked enough, or has come to a stop. */
+  function endExploring(found = explore.found) {
+    setExplores((current) => ({ ...current, [lessonIndex]: { ...explore, found, done: true } }));
+    // When nothing is left to go through, the step is done.
+    const hasMore = found.length < walkthrough.length || comparisons.length > 0 || errorHunt !== null;
+    if (!hasMore) {
+      setSeenBoards((current) => current.includes(boardKey) ? current : [...current, boardKey]);
+      markAttempted();
+    }
+  }
+
+  /** The student clicked a place in the text on their own and it is one of the chapter's parts. */
+  function exploreFind(index: number) {
+    if (!isOnExplorePage || explore.found.includes(index)) return;
+    const found = [...explore.found, index];
+    setExplores((current) => ({ ...current, [lessonIndex]: { ...explore, found, latest: index } }));
+    setWalks((current) => ({ ...current, [lessonIndex]: { ...walk, streak: walk.streak + 1, found: walk.found + 1 } }));
+    recordCheck(lesson.skillIds, "independent");
+    pageStarted.current = { key: pageKey, at: Date.now() };
+    if (found.length === walkthrough.length) endExploring(found);
+  }
+
+  /** A click in the text that is not one of the parts. Several in a row mean the student has come to a stop. */
+  function exploreStray() {
+    if (!isOnExplorePage) return;
+    const stray = explore.stray + 1;
+    if (stray >= (exploring === "wide" ? effortTimes.exploreStrayWide : effortTimes.exploreStray)) endExploring();
+    else setExplores((current) => ({ ...current, [lessonIndex]: { ...explore, stray } }));
+  }
+
+  // Edda takes over when nothing has been found for a while: sooner for the one who is new to
+  // looking alone, later for the one who has shown that it works.
+  const exploreIdle = exploring === "wide" ? effortTimes.exploreIdleWide : effortTimes.exploreIdle;
+  useEffect(() => {
+    if (!isOnExplorePage) return;
+    if (workedFor >= exploreIdle) {
+      endExploring();
+      return;
+    }
+    const timer = window.setTimeout(() => setEffortTick((tick) => tick + 1), exploreIdle - workedFor + 20);
+    return () => window.clearTimeout(timer);
+  });
+
   /** Edda shows the place the student has been looking for. */
   function showPlaceOnPage() {
     if (!currentPage || pick.submitting || isPickResolved) return;
@@ -901,14 +1112,6 @@ function App() {
   }
 
   const currentAdvice = taskAdvice?.board === boardKey ? taskAdvice : null;
-  const boardHeader = (
-    <>
-      <p className="board-kicker"><Written>{`DEL ${lessonIndex + 1}: ${lesson.shortTitle.toUpperCase()}`}</Written></p>
-      <p className="board-goal"><strong><Written>Mål:</Written></strong> <Written>{lesson.learnerGoal}</Written></p>
-      <div className="board-divider" />
-    </>
-  );
-
   return (
     <main className={`app-shell ${isFinalDiagnosis || isFinalRecall ? "" : "is-fitted"}`}>
       {!isFinalDiagnosis && !isFinalRecall && (
@@ -931,7 +1134,6 @@ function App() {
               />
             ))}
           </nav>
-          <span className="topbar-count">{lessonIndex + 1}/{lessons.length}</span>
           {/* The student's writing map fills in by itself while the student works. */}
           {shownMap && (
             <span className="topbar-map" title="Din skrivkarta">
@@ -992,7 +1194,7 @@ function App() {
                       <p className="board-kicker">START</p>
                       <h2 className="board-prompt welcome-title"><Written byHand>Välkommen!</Written></h2>
                       <p className="activity-instruction">
-                        <Written spoken>Hej! Jag heter Edda. Vi ska träna på att skriva argumenterande text tillsammans, steg för steg. Först vill jag veta: vad vill du skriva om? Det blir din skrivuppgift.</Written>
+                        <Written keys={[]} spoken>Hej! Jag heter Edda. Vi ska träna på att skriva argumenterande text tillsammans, steg för steg. Först vill jag veta: vad vill du skriva om? Det blir din skrivuppgift.</Written>
                       </p>
                       <AfterWriting>
                         {chosenTopic === null ? (
@@ -1079,7 +1281,7 @@ function App() {
                     <div className="board-activity">
                       <p className="board-prompt"><Written byHand>Lyssna nu</Written></p>
                       <p className="activity-instruction">
-                        <Written spoken>Till höger finns ett gott exempel på en argumenterande text. Lyssna på hela texten och följ med medan du lyssnar. Sedan går vi igenom vad som gör den bra.</Written>
+                        <Written keys={[]} spoken>Till höger finns ett gott exempel på en argumenterande text. Lyssna på hela texten och följ med medan du lyssnar. Sedan går vi igenom vad som gör den bra.</Written>
                       </p>
                       <AfterWriting>
                         <div className="listen-actions">
@@ -1113,23 +1315,39 @@ function App() {
                 </BoardSequence>
               ) : (
                 <>
-              {phaseIndex > 0 && (
-                <p className="board-kicker">{`DEL ${lessonIndex + 1}: ${lesson.shortTitle.toUpperCase()}`}</p>
-              )}
               <BoardSequence
-                key={boardKey}
-                instant={seenBoards.includes(boardKey)}
-                onComplete={() => setSeenBoards((current) => current.includes(boardKey) ? current : [...current, boardKey])}
+                key={boardStage}
+                instant={seenBoards.includes(boardKey) && !isExploring}
+                // While the student explores, the step is not done: Edda's part comes after.
+                onComplete={isExploring ? undefined : () => setSeenBoards((current) => current.includes(boardKey) ? current : [...current, boardKey])}
                 onPageChange={(page) => setBoardPage({ board: boardKey, page })}
               >
-                {phaseIndex === 0 && (
+                {phaseIndex === 0 && (boardStage === boardKey ? (
                   <BoardStep pause>
-                    {boardHeader}
+                    <p className="board-prompt"><Written byHand>{lesson.shortTitle}</Written></p>
                     {exemplarAvailable && (
-                      <p className="board-exemplar-note"><Written spoken>{exemplarFocus[lesson.skillIds[0]].boardNote}</Written></p>
+                      <p className="board-exemplar-note">
+                        {/* The new chapter starts in something the student's own text already has. */}
+                        <Written keys={exemplarFocus[lesson.skillIds[0]].boardKeys} spoken>
+                          {ownBridge ? `${ownBridge.say} ${exemplarFocus[lesson.skillIds[0]].boardNote}` : exemplarFocus[lesson.skillIds[0]].boardNote}
+                        </Written>
+                      </p>
+                    )}
+                    {exemplarAvailable && ownBridge && (
+                      <p className="own-words"><span className="compare-label">Ur din text</span>{`”${ownBridge.quote}”`}</p>
                     )}
                   </BoardStep>
-                )}
+                ) : (
+                  // After the exploration Edda says in one line what happens next.
+                  <BoardStep pause={boardPages.length > 0 || errorHunt !== null}>
+                    <p className="board-prompt"><Written byHand>{explore.found.length === walkthrough.length ? "Du hittade allt själv" : explore.found.length > 0 ? `Du hittade ${explore.found.length} av ${walkthrough.length} själv` : "Nu letar vi tillsammans"}</Written></p>
+                    {(boardPages.length > 0 || errorHunt !== null) && (
+                      <p className="activity-instruction">
+                        <Written>{explore.found.length === walkthrough.length ? "Nu tittar vi på resten av genomgången." : "Nu tar vi resten, en sak i taget."}</Written>
+                      </p>
+                    )}
+                  </BoardStep>
+                ))}
                 {boardPages.map((page, pageIndex) => {
                   const isCurrent = pageIndex + 1 === currentBoardPage;
                   const showAnswer = isCurrent && isPickResolved;
@@ -1151,7 +1369,8 @@ function App() {
                         <strong className="edda-name">Edda</strong>
                         <div className="edda-bubble">
                           {pick.solved && <EddaMark className="is-earned" />}
-                          <span><Written spoken={!pick.brief}>{text}</Written></span>
+                          {/* When Edda has said it, the heading is the key word and the place is lit in the text. */}
+                          <span><Written keys={[]} spoken={!pick.brief}>{text}</Written></span>
                         </div>
                       </div>
                     </div>
@@ -1161,17 +1380,42 @@ function App() {
                     <p aria-live="polite" className="edda-steps-back">Du hittar ställena själv, så jag förklarar kortare nu.</p>
                   );
 
+                  if (page.kind === "explore") {
+                    const latest = explore.latest !== null ? walkthrough[explore.latest] : null;
+                    return (
+                      <BoardStep key="explore">
+                        <div className="board-activity focus-walk">
+                          <p className="board-prompt"><Written byHand>{exploreAsks[lesson.skillIds[0]]}</Written></p>
+                          <p className="board-small-note"><Written>Titta själv i texten till höger och klicka på det du hittar.</Written></p>
+                          <AfterWriting>
+                            {/* Edda puts a name on what the student has just found; the place lights up in the text. */}
+                            {latest && (
+                              <div className="edda-line" key={explore.latest} role="status">
+                                <span aria-hidden="true" className="edda-face" />
+                                <div className="edda-bubble-wrap">
+                                  <strong className="edda-name">{`Edda · ${latest.label}`}</strong>
+                                  <div className="edda-bubble">
+                                    <EddaMark className="is-earned" />
+                                    <span>{latest.explain}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                            <button className="text-button" onClick={() => endExploring()} type="button">Jag har letat klart</button>
+                          </AfterWriting>
+                        </div>
+                      </BoardStep>
+                    );
+                  }
+
                   if (page.kind === "compare") {
                     const item = comparisons[page.comparisonIndex];
                     if (page.pairIndex === null) {
                       return (
                         <BoardStep key={`page-${pageIndex}`} pause>
                           <div className="board-activity focus-walk">
-                            {comparisons.length > 1 && (
-                              <p className="board-kicker">{`${page.comparisonIndex + 1} AV ${comparisons.length}`}</p>
-                            )}
                             <p className="board-prompt"><Written byHand>{item.title}</Written></p>
-                            <p className="activity-instruction"><Written spoken>{item.intro}</Written></p>
+                            <p className="activity-instruction"><Written keys={[]} spoken>{item.intro}</Written></p>
                           </div>
                         </BoardStep>
                       );
@@ -1180,7 +1424,6 @@ function App() {
                     return (
                       <BoardStep key={`page-${pageIndex}`} pause={!isLast} locked={!freeNavigation && !showAnswer}>
                         <div className="board-activity focus-walk">
-                          <p className="board-kicker">{`JÄMFÖR · ${page.pairIndex + 1} AV ${item.pairs.length}`}</p>
                           {showAnswer ? (
                             <>
                               <p className="board-prompt"><Written byHand>{pair.label}</Written></p>
@@ -1203,7 +1446,6 @@ function App() {
                   return (
                     <BoardStep key={`page-${pageIndex}`} pause={!isLast} locked={!freeNavigation && !showAnswer}>
                       <div className="board-activity focus-walk">
-                        <p className="board-kicker">{`${page.number} AV ${walkthrough.length}`}</p>
                         {showAnswer ? (
                           <>
                             <p className="board-prompt"><Written byHand>{part.label}</Written></p>
@@ -1278,16 +1520,54 @@ function App() {
                     pause={hasSubmissionChecklist}
                   >
                     <div className="board-activity writing-task">
+                      {/* While Edda shows how the exemplar does it, only that is on the board. */}
+                      <div className="task-brief" hidden={loop?.stage === "model"}>
                       <p className="board-prompt"><Written byHand>Din uppgift</Written></p>
-                      {foundAlone && lessonIndex < lessons.length - 1 && (
+                      {/* Said once, before the student writes; it is gone when Edda has read the text. */}
+                      {foundAlone && lessonIndex < lessons.length - 1 && !attemptedBoards.includes(boardKey) && (
                         <p className="edda-steps-back">Du hittade ställena i exempeltexten själv, så du går direkt till din uppgift.</p>
                       )}
                       <p className="activity-instruction"><Written spoken>{lesson.practice}</Written></p>
-                      <p className="board-small-note"><Written>Skriv i din text till höger.</Written></p>
                       {showHint && <p aria-live="polite" className="hint-card"><span aria-hidden="true">✦</span> Ett första steg: {lesson.hint}</p>}
+                      </div>
                       <AfterWriting>
                         <div className="task-actions">
-                          {reviewLoading && reviewSource === "task" ? (
+                          {loop?.reading ? (
+                            <p className="example-pick-status" role="status">Edda läser din text …</p>
+                          ) : loop?.stage === "model" && loop.example !== null ? (
+                            // Back to modelling, aimed at what is missing: the place is lit in the exemplar and Edda explains it.
+                            <div className="gap-model">
+                              <p className="board-prompt">{gapWalk[loop.example].label}</p>
+                              <div className="edda-line" role="status">
+                                <span aria-hidden="true" className="edda-face" />
+                                <div className="edda-bubble-wrap">
+                                  <strong className="edda-name">Edda</strong>
+                                  <div className="edda-bubble">
+                                    <span><Written keys={[]} spoken>{gapWalk[loop.example].explain ?? gapWalk[loop.example].label}</Written></span>
+                                  </div>
+                                </div>
+                              </div>
+                              <button className="primary-button" onClick={() => setTaskLoop({ ...loop, stage: "try" })} type="button">Pröva i din text</button>
+                            </div>
+                          ) : loop?.stage === "try" ? (
+                            <div className="task-feedback">
+                              {loop.closed && <p className="task-done" role="status"><EddaMark /> Nu finns det i din text.</p>}
+                              <p className="develop-note">
+                                <span className="compare-label">Att pröva</span>
+                                {loop.hint}
+                              </p>
+                              <button
+                                className="primary-button"
+                                disabled={draft === loop.draft || !draft.trim()}
+                                onClick={readAfterTrying}
+                                type="button"
+                              >
+                                Jag har prövat – låt Edda titta igen
+                              </button>
+                            </div>
+                          ) : loop?.stage === "done" ? (
+                            <p className="task-done" role="status"><EddaMark /> {loop.closed ? "Nu finns det i din text." : "Uppgiften är klar."}</p>
+                          ) : reviewLoading && reviewSource === "task" ? (
                             <p className="example-pick-status" role="status">Edda läser din text …</p>
                           ) : attemptedBoards.includes(boardKey) ? (
                             reviewFeedback && reviewSource === "task" ? (
@@ -1295,10 +1575,13 @@ function App() {
                                 <EddaFeedback
                                   feedback={{
                                     kind: "on_track",
-                                    feedback: `${reviewFeedback.success.message} Se det gröna i din text.`,
+                                    feedback: reviewFeedback.success.message,
                                   }}
                                 />
-                                {currentAdvice?.round === 2 ? (
+                                {loop?.stage === "praise" ? (
+                                  // First what works; then Edda shows how the exemplar does what is still missing.
+                                  <button className="primary-button" onClick={() => setTaskLoop({ ...loop, stage: "model" })} type="button">Se hur exempeltexten gör</button>
+                                ) : currentAdvice?.round === 2 ? (
                                   <p className="task-link">Du prövade, och din text förändrades. Så arbetar en skribent.</p>
                                 ) : (
                                   <>
@@ -1306,10 +1589,8 @@ function App() {
                                       <p className="develop-note">
                                         <span className="compare-label">Att pröva</span>
                                         {currentAdvice.message}
-                                        <span className="develop-next">Pröva det i din text. Sedan kan Edda titta igen.</span>
                                       </p>
                                     )}
-                                    {lesson.taskLink && <p className="task-link">{lesson.taskLink}</p>}
                                   </>
                                 )}
                               </div>
@@ -1330,7 +1611,7 @@ function App() {
                                 </button>
                               </div>
                             ) : (
-                              <p className="task-done" role="status"><EddaMark /> Uppgiften är klar. Gå vidare med Nästa steg.</p>
+                              <p className="task-done" role="status"><EddaMark /> Uppgiften är klar.</p>
                             )
                           ) : (
                             <button
@@ -1484,9 +1765,9 @@ function App() {
                     <button className="quiet-button" onClick={() => movePhase(Math.max(0, phaseIndex - 1))} disabled={phaseIndex === 0}>Tillbaka</button>
                   )}
                   {phaseIndex < phases.length - 1 ? (
-                    <button className="primary-button" disabled={!canAdvance} onClick={() => movePhase(phaseIndex + 1)}>Nästa steg <span aria-hidden="true">→</span></button>
+                    canAdvance && <button className="primary-button" onClick={() => movePhase(phaseIndex + 1)}>Nästa steg <span aria-hidden="true">→</span></button>
                   ) : lessonIndex < lessons.length - 1 ? (
-                    <button className="primary-button" disabled={!canAdvance} onClick={() => selectLesson(lessonIndex + 1)}>Nästa kapitel <span aria-hidden="true">→</span></button>
+                    canAdvance && <button className="primary-button" onClick={() => selectLesson(lessonIndex + 1)}>Nästa kapitel <span aria-hidden="true">→</span></button>
                   ) : <span className="finish-label">Sista kapitlet</span>}
                 </div>
               </div>
@@ -1499,13 +1780,15 @@ function App() {
         {!isFinalRecall && <section className={`writing-card ${isFinalDiagnosis ? "final-diagnosis-card" : ""}`} aria-label={isFinalDiagnosis ? "Slutdiagnosens skrivyta" : surfaceView === "exemplar" ? "Exempeltext" : "Elevens skrivyta"}>
           {surfaceView === "exemplar" && (
             <ExemplarPanel
-              skillId={lesson.skillIds[0]}
-              mode={exemplarMode}
-              focusIndex={focusIndex}
+              skillId={loop?.stage === "model" ? loop.skill : lesson.skillIds[0]}
+              mode={loop?.stage === "model" ? "focus" : exemplarMode}
+              focusIndex={loop?.stage === "model" ? loop.example : focusIndex}
               comparison={comparison}
               pairIndex={pairIndex}
-              pick={{ selected: pick.selected, found: [], disabled: pick.submitting, candidates: walkthrough.map((_, index) => index) }}
-              onPick={pickOnPage}
+              pick={{ selected: pick.selected, found: isOnExplorePage ? explore.found : [], disabled: pick.submitting, candidates: walkthrough.map((_, index) => index) }}
+              onPick={isOnExplorePage ? exploreFind : pickOnPage}
+              isExploring={isOnExplorePage}
+              onStray={exploreStray}
               comparePick={{ resolved: isPickResolved, selected: pick.selected, disabled: pick.submitting }}
               onPickPair={pickOnPage}
             />

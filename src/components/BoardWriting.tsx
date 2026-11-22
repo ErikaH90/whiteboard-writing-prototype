@@ -273,15 +273,22 @@ export function BoardStep({ children, className }: StepProps) {
  * which is used for headings; other text is shown at once when its turn comes, so that the
  * student does not have to wait for long explanations. Rendered as plain text outside a step.
  */
-export function Written({ children, byHand = false, spoken = false }: {
+export function Written({ children, byHand = false, spoken = false, keys }: {
   children: string;
   byHand?: boolean;
   /** Edda says the text aloud first; it is shown when she has finished speaking. */
   spoken?: boolean;
+  /**
+   * What stays on the board when Edda has said the text: a few key words to remember it by, or
+   * nothing (an empty list). The same text is then not shown again, since reading what has just
+   * been heard only costs attention. Without sound the full text is shown instead. Leave it out
+   * for text the student needs in front of them, such as a question or a task.
+   */
+  keys?: string[];
 }) {
   const step = useContext(StepContext);
   if (!step) return <>{children}</>;
-  return <Ink byHand={byHand} key={children} spoken={spoken} step={step} text={children} />;
+  return <Ink byHand={byHand} key={children} keys={keys} spoken={spoken} step={step} text={children} />;
 }
 
 /** True while a written speech bubble from Edda is visible, so that she is never heard and read at once. */
@@ -289,7 +296,7 @@ function isEddaBubbleShown(): boolean {
   return Array.from(document.querySelectorAll(".edda-says")).some((bubble) => !bubble.closest("[hidden]"));
 }
 
-function Ink({ step, text, byHand, spoken }: { step: StepContextValue; text: string; byHand: boolean; spoken: boolean }) {
+function Ink({ step, text, byHand, spoken, keys }: { step: StepContextValue; text: string; byHand: boolean; spoken: boolean; keys?: string[] }) {
   const id = useId();
   const { register, finish } = step;
   const status = step.statusOf(id);
@@ -298,6 +305,8 @@ function Ink({ step, text, byHand, spoken }: { step: StepContextValue; text: str
   const soundOn = useSoundOn();
   // Decided when Edda's turn comes: with sound she speaks, without it the text is shown at once.
   const [isSpeaking, setIsSpeaking] = useState(false);
+  // Edda was heard to the end: her words are then not repeated as text.
+  const [wasHeard, setWasHeard] = useState(false);
 
   useEffect(() => {
     if (status !== "writing" || !spoken || !isVoiceActive()) return;
@@ -309,8 +318,9 @@ function Ink({ step, text, byHand, spoken }: { step: StepContextValue; text: str
     setIsSpeaking(true);
     const speech = speak(text);
     let active = true;
-    speech.done.then(() => {
+    speech.done.then((heard) => {
       if (!active) return;
+      setWasHeard(heard);
       setIsSpeaking(false);
       finish(id);
     });
@@ -353,6 +363,20 @@ function Ink({ step, text, byHand, spoken }: { step: StepContextValue; text: str
             <span className="edda-bubble edda-dots"><i /><i /><i /></span>
           </span>
         </span>
+      </span>
+    );
+  }
+
+  if (wasHeard && keys !== undefined) {
+    // Only key words stay; the full text is still there for assistive technology.
+    return (
+      <span className="board-ink is-said" data-board-ink={id} data-keys={keys.length}>
+        <span className="board-ink-full">{text}</span>
+        {keys.length > 0 && (
+          <span aria-hidden="true" className="board-keys">
+            {keys.map((word) => <span className="board-key" key={word}>{word}</span>)}
+          </span>
+        )}
       </span>
     );
   }

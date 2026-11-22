@@ -195,6 +195,75 @@ describe("board writing", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it("shows only key words when Edda has said the text, and nothing when no key words are given", async () => {
+    class FakeAudio extends EventTarget {
+      static instances: FakeAudio[] = [];
+      play = vi.fn(async () => undefined);
+      pause = vi.fn();
+
+      constructor(public src: string) {
+        super();
+        FakeAudio.instances.push(this);
+      }
+    }
+    resetVoice();
+    allowMotion();
+    vi.stubGlobal("Audio", FakeAudio);
+    vi.stubGlobal("URL", Object.assign(URL, { createObjectURL: vi.fn(() => "blob:edda") }));
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("ljud", { status: 200 })));
+    render(
+      <BoardSequence>
+        <BoardStep pause>
+          <p><Written keys={["Tes", "Argument"]} spoken>När du är klar kan du peka ut tes och argument.</Written></p>
+        </BoardStep>
+        <BoardStep>
+          <p><Written keys={[]} spoken>Här står tesen.</Written></p>
+        </BoardStep>
+      </BoardSequence>,
+    );
+
+    await waitFor(() => expect(FakeAudio.instances).toHaveLength(1));
+    act(() => { FakeAudio.instances[0].dispatchEvent(new Event("ended")); });
+    // Her words are not shown again: the key words are what is left to remember them by.
+    await waitFor(() => expect(screen.getByText("Tes")).toHaveClass("board-key"));
+    expect(screen.getByText("Argument")).toHaveClass("board-key");
+    expect(screen.getByText("När du är klar kan du peka ut tes och argument.")).toHaveClass("board-ink-full");
+
+    await userEvent.setup().click(screen.getByRole("button", { name: "Fortsätt" }));
+    await waitFor(() => expect(FakeAudio.instances).toHaveLength(2));
+    act(() => { FakeAudio.instances[1].dispatchEvent(new Event("ended")); });
+    await waitFor(() => expect(document.querySelector(".board-ink.is-said[data-keys='0']")).toBeInTheDocument());
+    expect(document.querySelectorAll(".board-key")).toHaveLength(2);
+  });
+
+  it("shows the full text when Edda was interrupted, so that nothing is lost", async () => {
+    class FakeAudio extends EventTarget {
+      static instances: FakeAudio[] = [];
+      play = vi.fn(async () => undefined);
+      pause = vi.fn();
+
+      constructor(public src: string) {
+        super();
+        FakeAudio.instances.push(this);
+      }
+    }
+    resetVoice();
+    allowMotion();
+    vi.stubGlobal("Audio", FakeAudio);
+    vi.stubGlobal("URL", Object.assign(URL, { createObjectURL: vi.fn(() => "blob:edda") }));
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("ljud", { status: 200 })));
+    render(
+      <BoardSequence>
+        <BoardStep><p><Written keys={["Tes"]} spoken>Här står tesen.</Written></p></BoardStep>
+      </BoardSequence>,
+    );
+
+    await waitFor(() => expect(FakeAudio.instances).toHaveLength(1));
+    act(() => { FakeAudio.instances[0].dispatchEvent(new Event("pause")); });
+    await waitFor(() => expect(screen.getByText("Här står tesen.")).toHaveClass("board-ink"));
+    expect(document.querySelector(".board-key")).not.toBeInTheDocument();
+  });
+
   it("shows the text at once when Edda's voice cannot be used", async () => {
     resetVoice();
     allowMotion();

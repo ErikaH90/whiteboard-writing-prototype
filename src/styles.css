@@ -3694,3 +3694,126 @@ input:focus-visible {
   border-color: transparent;
   background: none;
 }
+
+/* The exemplar text as a page to read: a clear headline, air between the paragraphs and an even
+   right edge. It still fits the screen without scrolling; --fit-scale shrinks it as a whole. */
+
+@media (min-width: 901px) and (min-height: 480px) {
+  .app-shell.is-fitted .exemplar-panel:not(.is-recap):not(.is-compare) .exemplar-stage {
+    margin: 26px 46px 20px;
+  }
+
+  .app-shell.is-fitted .exemplar-panel:not(.is-recap):not(.is-compare) .exemplar-text {
+    padding: 0 0 4px;
+    color: #3d424d;
+    font-size: 18px;
+    line-height: 1.64;
+    hyphens: auto;
+    text-wrap: pretty;
+  }
+
+  .app-shell.is-fitted .exemplar-panel:not(.is-recap):not(.is-compare) .exemplar-text h2 {
+    margin: 0 0 18px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid #e3e6ec;
+    color: #262a33;
+    font-size: 30px;
+    line-height: 1.25;
+    text-wrap: balance;
+  }
+
+  .app-shell.is-fitted .exemplar-panel:not(.is-recap):not(.is-compare) .exemplar-text p {
+    margin-bottom: 15px;
+  }
+
+  .app-shell.is-fitted .exemplar-panel:not(.is-recap):not(.is-compare) .exemplar-text p:last-child {
+    margin-bottom: 0;
+  }
+}
+
+/* Exploring the exemplar alone: the parts look like the rest of the text until they are found */
+
+.exemplar-text.is-exploring {
+  cursor: pointer;
+}
+
+.exemplar-text.is-exploring .exemplar-mark.is-candidate:not(.is-solved) {
+  padding: 0;
+  background: none;
+  box-shadow: none;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+}
+
+.exemplar-text.is-exploring .exemplar-mark.is-candidate:not(.is-solved):hover,
+.exemplar-text.is-exploring .exemplar-mark.is-candidate:not(.is-solved):focus-visible {
+  background: none;
+  outline: none;
+}
+
+.exemplar-text.is-exploring .exemplar-mark.is-candidate.is-solved {
+  background: #ffe97a;
+  color: inherit;
+  cursor: default;
+  opacity: 1;
+}
+
+/* When Edda has said something, only key words stay on the board */
+
+.board-keys {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 10px;
+}
+
+.board-key {
+  padding: 4px 14px;
+  border-radius: 999px;
+  background: #f1edfd;
+  color: #4a37ad;
+  font-size: 0.9em;
+  line-height: 1.3;
+}
+
+/* Nothing is left to read once she has said it: her bubble steps aside. */
+.edda-line:has(.board-ink.is-said[data-keys="0"]) {
+  display: none;
+}
+
+p:has(> .board-ink.is-said[data-keys="0"]) {
+  display: none;
+}
+
+/* Back to modelling after a writing task: the exemplar's place for what is missing */
+
+.gap-model {
+  display: grid;
+  gap: 10px;
+  justify-items: start;
+}
+
+.gap-model > * {
+  margin: 0;
+}
+
+.gap-model .edda-line {
+  justify-self: stretch;
+}
+
+/* The student's own words, which a new chapter starts from */
+
+.own-words {
+  margin: 12px 0 0;
+  padding: 10px 14px;
+  border-left: 4px solid #58b368;
+  border-radius: 0 10px 10px 0;
+  background: #f1f9f3;
+  color: var(--board-ink);
+  font-size: 19px;
+  line-height: 1.4;
+}
+
+.own-words .compare-label {
+  display: block;
+}

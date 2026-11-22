@@ -116,7 +116,7 @@ test("the chapter ends with the writing map, bound to the student's own text", a
   // repeated first; then the student tries it in the own text and Edda reads again.
   await wheel.getByRole("button", { name: "Textbindning: grundläggande" }).click();
   await page.getByRole("button", { name: "Träna mer på textbindning" }).click();
-  await expect(page.getByText("TRÄNA MER · TEXTBINDNING · 1 AV 2")).toBeVisible();
+  await expect(page.getByText("TRÄNA MER · TEXTBINDNING")).toBeVisible();
   await expect(wheel).toHaveCount(0);
   await page.getByRole("textbox", { name: "Ditt svar" }).fill("Ett påhittat svar om orsak och kontrast.");
   await page.getByRole("button", { name: "Svara" }).click();

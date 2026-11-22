@@ -135,8 +135,32 @@ async function postJson(path: string, body: unknown): Promise<unknown> {
   return result;
 }
 
+/**
+ * What Edda knows about this student: what the student's own text already shows, what comes
+ * next, and which parts of the course have been gone through. It follows every answer Edda
+ * gives, so that she builds on what the student already does and does not explain like an
+ * expert who has forgotten what a beginner knows. It holds the course's own descriptions and
+ * the names of the chapters, never the student's text.
+ */
+export type StudentModel = {
+  /** What the student's text already shows, in the course's own words. */
+  knows: string[];
+  /** The next things for this student, as the course's own questions. */
+  next: string[];
+  /** The chapters gone through so far, and those that are still to come. */
+  taught: string[];
+  upcoming: string[];
+};
+
+let studentModel: StudentModel | null = null;
+
+/** Set by the app whenever the writing map changes. */
+export function setStudentModel(model: StudentModel | null) {
+  studentModel = model;
+}
+
 export async function reviewDraft(request: ReviewRequest): Promise<ReviewFeedback> {
-  const result = await postJson("/api/review", request);
+  const result = await postJson("/api/review", { ...request, ...(studentModel && { studentModel }) });
   if (
     !isRecord(result) ||
     !Array.isArray(result.findings) ||
@@ -210,7 +234,7 @@ export async function reviewDraft(request: ReviewRequest): Promise<ReviewFeedbac
 }
 
 export async function submitCheckIn(request: CheckInRequest): Promise<CheckInFeedback> {
-  const result = await postJson("/api/check-in", request);
+  const result = await postJson("/api/check-in", { ...request, ...(studentModel && { studentModel }) });
   if (
     !isRecord(result) ||
     (result.kind !== "on_track" && result.kind !== "retry") ||
@@ -279,6 +303,10 @@ export type MapPart = {
   quote?: string;
   strength: string;
   next: string;
+  /** The first thing of this part that is not in the text yet (an id from the course's list), if any. */
+  missing?: string | null;
+  /** Everything of this part that is not in the text yet (ids from the course's list). */
+  lacks?: string[];
   /** What Edda has pointed out in the text for this part, kept so that it stays found on the next reading. */
   found: { id: string; quote: string }[];
 };
@@ -311,7 +339,9 @@ export async function requestProgressMap(draft: string, skills: MapSkill[], know
       ? part.found.filter((entry): entry is { id: string; quote: string } =>
         isRecord(entry) && typeof entry.id === "string" && typeof entry.quote === "string")
       : [];
-    if (level === 0) return { skill: skills[index], level, strength: "", next: part.next, found };
+    const missing = typeof part.missing === "string" ? part.missing : null;
+    const lacks = Array.isArray(part.lacks) ? part.lacks.filter((id): id is string => typeof id === "string") : [];
+    if (level === 0) return { skill: skills[index], level, strength: "", next: part.next, missing, lacks, found };
     const { start, end } = part;
     if (
       typeof start !== "number" || typeof end !== "number" ||
@@ -320,6 +350,6 @@ export async function requestProgressMap(draft: string, skills: MapSkill[], know
     ) {
       throw new Error("AI-tjänsten gav ett svar som inte kunde visas.");
     }
-    return { skill: skills[index], level, start, end, quote: draft.slice(start, end), strength: part.strength, next: part.next, found };
+    return { skill: skills[index], level, start, end, quote: draft.slice(start, end), strength: part.strength, next: part.next, missing, lacks, found };
   });
 }

@@ -58,6 +58,8 @@ export type Lesson = {
   worth: string;
   /** What the student will be able to do after the lesson, in the student's own language. */
   learnerGoal: string;
+  /** A few key words that stay on the board when Edda has said the goal. */
+  goalKeys: string[];
   /** The curriculum wording the lesson relates to. Shown as a reference, never invented. */
   goal: string;
   model: {
@@ -158,6 +160,7 @@ export const lessons: Lesson[] = [
     hook: "Kan en text få dig att ändra åsikt? Det beror mycket på hur den är uppbyggd.",
     worth: "En text som är lätt att följa övertygar fler. Uppbyggnaden är också något som bedöms när du skriver i svenska, så det du övar här kan höja ditt betyg.",
     learnerGoal: "När du är klar kan du peka ut tes, argument, motargument och avslutning i en argumenterande text, och bygga upp din egen text på samma sätt.",
+    goalKeys: ["Tes", "Argument", "Motargument", "Avslutning"],
     goal: writingCriterion,
     model: {
       strong: "Det är hög tid att vi ifrågasätter vår köttnorm, för konsekvenserna av vår kosthållning drabbar både planeten och dess invånare.",
@@ -213,6 +216,7 @@ export const lessons: Lesson[] = [
     hook: "”Det är bättre för att det är bättre.” Blir du övertygad?",
     worth: "Ett argument som du förklarar är svårt att säga emot. Hur du utvecklar dina tankar är också något som bedöms i svenska, så det kan höja ditt betyg.",
     learnerGoal: "När du är klar kan du utveckla ett argument genom att förklara varför det stämmer och vad det leder till.",
+    goalKeys: ["Förklara varför", "Visa vad det leder till"],
     goal: writingCriterion,
     model: {
       strong: "För det första står köttindustrin för en massiv belastning på miljön. Att föda upp djur för slakt kräver enorma mängder mark, vatten och foder, vilket i sin tur genererar orimligt höga koldioxidutsläpp.",
@@ -268,6 +272,7 @@ export const lessons: Lesson[] = [
     hook: "”Därför” eller ”däremot”? Ett enda ord kan vända hela meningen.",
     worth: "Med rätt sambandsord hänger dina tankar ihop, och läsaren följer med hela vägen. Textbindning är också något som bedöms i svenska, så det kan höja ditt betyg.",
     learnerGoal: "När du är klar kan du välja sambandsord som visar hur dina tankar hänger ihop.",
+    goalKeys: ["Sambandsord", "Tankar som hänger ihop"],
     goal: writingCriterion,
     model: {
       strong: "Visst hävdas det ofta att kött är en oumbärlig källa till protein och järn, men detta bemöts enkelt av att en väl sammansatt vegetarisk kost både täcker näringsbehovet och minskar risken för välfärdssjukdomar.",
@@ -323,6 +328,7 @@ export const lessons: Lesson[] = [
     hook: "Jag tycker. Jag tycker. Jag tycker. Hur länge orkar du läsa?",
     worth: "Variation gör att din text låter som du och inte som en lista. Språklig variation är också något som bedöms i svenska, så det kan höja ditt betyg.",
     learnerGoal: "När du är klar kan du variera dina ord, hur dina meningar börjar och hur långa de är, utan att texten blir svår att följa.",
+    goalKeys: ["Ordval", "Meningsstarter", "Meningslängd"],
     goal: languageCriterion,
     model: {
       strong: "Sammanfattningsvis är köttnormen ett systemfel som vi måste börja montera ned. Det är dags att sluta äta av vana och i stället välja medvetet.",
@@ -378,6 +384,7 @@ export const lessons: Lesson[] = [
     hook: "En punkt eller ett ord på fel plats kan få läsaren att tappa tråden.",
     worth: "En text utan småfel gör att läsaren litar på det du säger. Att följa skrivreglerna är också något som bedöms i svenska, så det kan höja ditt betyg.",
     learnerGoal: "När du är klar kan du granska stavning, skiljetecken och ordval så att din text blir lätt att följa.",
+    goalKeys: ["Stavning", "Skiljetecken", "Ordval"],
     goal: languageCriterion,
     model: {
       strong: "En vegetarisk kost kan ge oss all den näring vi behöver för att må bra.",
@@ -433,6 +440,7 @@ export const lessons: Lesson[] = [
     hook: "Nu får du visa vad du har lärt dig, i en helt ny text.",
     worth: "Nu använder du allt du har övat på, i en text som är helt din egen. Det är så du visar vad du kan i svenska.",
     learnerGoal: "När du är klar har du skrivit och granskat en egen argumenterande text med det du har övat på.",
+    goalKeys: ["En egen text", "Granska själv"],
     goal: `${writingCriterion}\n${languageCriterion}`,
     model: {
       strong: "Börja med att läsa texten som en läsare. Välj sedan ett utvecklingsområde och gör en egen ändring som du kan förklara.",

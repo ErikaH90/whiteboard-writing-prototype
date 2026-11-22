@@ -41,7 +41,7 @@ describe("more practice on a part chosen in the writing map", () => {
     const user = userEvent.setup();
     renderRound(0);
 
-    expect(screen.getByText("TRÄNA MER · TEXTBINDNING · 1 AV 3")).toBeVisible();
+    expect(screen.getByText("TRÄNA MER · TEXTBINDNING")).toBeVisible();
     expect(screen.getByText(/Vi börjar med ett exempel, och sedan prövar du själv/)).toBeVisible();
     // The example comes first: the student picks the better one.
     expect(screen.getByText(lesson.model.question)).toBeVisible();
@@ -50,7 +50,6 @@ describe("more practice on a part chosen in the writing map", () => {
     await user.click(await screen.findByRole("button", { name: "Fortsätt" }));
 
     // Then the core idea is recalled in the student's own words.
-    expect(screen.getByText("TRÄNA MER · TEXTBINDNING · 2 AV 3")).toBeVisible();
     await user.type(screen.getByRole("textbox", { name: "Ditt svar" }), "Orsak och kontrast.");
     await user.click(screen.getByRole("button", { name: "Svara" }));
     await user.click(await screen.findByRole("button", { name: "Fortsätt" }));
@@ -77,7 +76,7 @@ describe("more practice on a part chosen in the writing map", () => {
   it("repeats the core idea first when the part is only begun, and waits for the student to revise", () => {
     renderRound(1);
 
-    expect(screen.getByText("TRÄNA MER · TEXTBINDNING · 1 AV 2")).toBeVisible();
+    expect(screen.getByText("TRÄNA MER · TEXTBINDNING")).toBeVisible();
     expect(screen.getByRole("textbox", { name: "Ditt svar" })).toBeVisible();
     cleanup();
     renderRound(3);

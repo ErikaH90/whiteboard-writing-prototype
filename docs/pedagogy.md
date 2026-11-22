@@ -134,6 +134,51 @@ Stegen grundläggande, utvecklad och välutvecklad räknas fram av hur många av
 
 Från skrivkartan väljer eleven själv en del att träna mer på. Rundans innehåll följer hur väl eleven behärskar delen i sin egen text: ju mindre av delen som syns, desto mer repetition kommer först (exempel, sedan återkallning med egna ord), och den som har grunden går direkt till att pröva i sin text. Varje runda börjar med en mening om varför den ser ut som den gör och slutar med att Edda läser texten igen, så att eleven ser om övningen gav resultat. Eleven kan när som helst gå tillbaka till kartan.
 
+## Nytt byggs på det eleven redan har
+
+Skrivkartan är appens bild av elevens kunskap. Den används för att knyta det nya till det som redan finns:
+
+- **Varje nytt kapitel börjar i elevens egen text.** Har eleven en tes börjar kapitlet om resonemang med ”Du har redan en tes i din text. Nu tittar vi på hur skälen för den blir starka.”, och elevens egen mening visas på tavlan. På samma sätt börjar textbindning i elevens argument, meningsbyggnad i elevens sambandsord och språk i elevens avslutning. Saknas förkunskapen i texten börjar kapitlet utan den kopplingen.
+- **Edda vet vad eleven kan och inte kan.** Hennes AI-svar får med sig vad elevens text redan visar och vad som är nästa steg, så att hon inte förklarar som en expert som har glömt hur en nybörjare tänker.
+- **Övningen läggs på elevens nivå.** Hur mycket eleven letar själv, om Edda visar vartannat ställe, hur kort hon förklarar, vilken lucka hon går tillbaka till efter skrivuppgiften och vad en övningsrunda innehåller följer alla av vad eleven har visat.
+
+## Kretsloppet: modellera, pröva, ta reda på, modellera igen
+
+Arbetet mellan Edda och eleven går i varv, och varven sluts av sig själva:
+
+1. **Modellering.** Edda och eleven går igenom exempeltexten.
+2. **Eleven prövar själv** i sin egen text och lämnar in.
+3. **Edda tar reda på vad som finns och saknas.** Hon läser texten mot det som just den uppgiften bad om (i kapitel 1 rubrik och tes, i kapitel 2 flera argument och hur de utvecklas, i kapitel 3 motargument och sambandsord, i kapitel 4 avslutning och meningsvariation, i kapitel 5 skrivreglerna). Hon går inte tillbaka till sådant eleven ännu inte har ombetts skriva.
+4. **Tillbaka till modellering, riktad mot luckan.** Först får eleven veta vad som fungerar. Saknas något visar Edda just det i exempeltexten: stället lyser gult och hon förklarar det kort.
+5. **Eleven prövar igen** i sin egen text, med en fråga som stöd, och Edda läser igen när texten har ändrats.
+
+Högst två varv görs per uppgift, så att ingen fastnar; det som återstår syns i skrivkartan, där eleven kan välja att träna mer. Eleven kan gå vidare med **Nästa steg** efter första inlämningen. Vilka saker varje uppgift omfattar står i `taskFeatures` i `src/App.tsx`.
+
+## Tal eller text, inte båda
+
+Arbetsminnet belastas i onödan när samma sak både hörs och ska läsas (redundanseffekten). Därför gäller:
+
+- Medan Edda pratar visar tavlan bara rubriken och hennes bubbla med punkter.
+- När hon har sagt något visas det inte en gång till som text. Kvar står högst några nyckelord, och förklaringen bärs i stället av det som lyser gult i texten bredvid (tal tillsammans med bild, inte tal tillsammans med samma text).
+- Bara det eleven måste ha framför sig för att arbeta visas som text: frågan eller uppgiften.
+- När eleven läser eller skriver är Edda tyst.
+
+## Modellera och pröva för den som behöver mer stöd
+
+En elev som i förra kapitlet behövde få ett ställe visat, eller missade flera gånger, får tydliga exempel: Edda visar vartannat ställe själv och förklarar det, och eleven prövar de ställen som ligger emellan. Övriga elever letar själva från början.
+
+## Undersökande först: eleven letar själv i exempeltexten
+
+Genomgången av exempeltexten börjar med en öppen fråga (till exempel ”Vilka delar bygger upp texten?”) och ingenting i texten är markerat. Eleven läser och klickar på det den själv hittar. Edda sätter namn på fyndet i en kort pratbubbla, och stället börjar lysa gult. Det eleven har hittat själv gås inte igenom igen; Edda tar bara upp det som återstår, med sina frågor.
+
+Hur länge eleven får leta själv följer hur det har gått, så att ingen lämnas ensam längre än den klarar:
+
+- **Mer utrymme** för den som i förra kapitlet hittade ställena själv, eller vars egen text redan visar kapitlets del: Edda tar över först efter 45 sekunder utan fynd eller sex klick bredvid.
+- **Kortare utrymme** annars, och i första kapitlet: 25 sekunder utan fynd eller tre klick bredvid.
+- **Ingen egen letning** för den som i förra kapitlet behövde få ett ställe visat eller missade flera gånger: Edda vägleder från början.
+
+Eleven kan när som helst själv välja **Jag har letat klart**. Edda säger sedan i en rad hur mycket eleven hittade och att resten tas en sak i taget. Hittar eleven allt själv är genomgången klar. Gränserna står i `src/lib/effort.ts`.
+
 ## Rätt avvägd ansträngning: Edda anpassar stödet själv
 
 Stödet ska ligga på elevens nivå utan att eleven behöver välja stödnivå eller trycka på knappar för att få hjälp. Eleven ska kunna hålla uppmärksamheten på texten; anpassningen sker bakom kulisserna.

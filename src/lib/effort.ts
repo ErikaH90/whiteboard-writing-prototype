@@ -12,6 +12,16 @@ export const effortTimes = {
   idle: 45_000,
   /** In the writing task: a first step when the text has stood still for this long. */
   writingIdle: 90_000,
+  /** The student first looks around in the exemplar alone. Tests of the guided walk-through turn it off. */
+  explore: true,
+  /** Edda takes over the exploration when nothing has been found for this long, */
+  exploreIdle: 25_000,
+  /** or later for a student who has shown that looking alone works, */
+  exploreIdleWide: 45_000,
+  /** or when the student has clicked beside the parts this many times, */
+  exploreStray: 3,
+  /** or this many times for a student who has shown that looking alone works. */
+  exploreStrayWide: 6,
 };
 
 /** The writing task is handed in when the student has written this many words and changed the text. */

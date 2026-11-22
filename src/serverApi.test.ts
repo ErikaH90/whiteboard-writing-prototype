@@ -154,6 +154,9 @@ describe("server AI API", () => {
         quote: "Skoldagen borde börja senare",
         strength: "Du har en tes som säger tydligt vad du tycker.",
         next: "Vilket skäl till kan du ge för din åsikt?",
+        // The first thing that is missing: what Edda goes back to and shows an example of.
+        missing: "arguments",
+        lacks: ["arguments", "counter", "conclusion"],
         found: [{ id: "thesis", quote: "Skoldagen borde börja senare" }],
       },
       // Linking words are found by rule: order and cause make the second step.
@@ -165,12 +168,48 @@ describe("server AI API", () => {
         quote: "eftersom",
         strength: "Du använder sambandsord som visar en orsak.",
         next: "Vilket ord kan visa en följd, alltså vad något leder till?",
+        missing: "effect",
+        lacks: ["effect", "contrast", "addition"],
         found: [],
       },
     ]);
     // Only structure needs the model. It is read twice, and only what both readings point out counts.
     expect(create).toHaveBeenCalledTimes(2);
     expect(create.mock.calls[0][0].temperature).toBe(0);
+  });
+
+  it("lets Edda build her answer on what she knows about the student, never on student text", async () => {
+    const client = mockClient({ kind: "on_track", level: 2, feedback: "Du har redan en tes. Ett argument är skälet till den." });
+    const studentModel = {
+      knows: ["Du har en tes som säger tydligt vad du tycker."],
+      next: ["Vilket skäl till kan du ge för din åsikt?"],
+      taught: ["Struktur", "Resonemang"],
+      upcoming: ["Textbindning", "Meningsbyggnad", "Språk"],
+    };
+    const result = await post(createApiApp({ client }), "/api/check-in", {
+      mode: "text",
+      question: "Vad kan du lägga till efter ett argument?",
+      answer: "En förklaring.",
+      focus: "utvecklade resonemang",
+      studentModel,
+    });
+
+    expect(result.status).toBe(200);
+    const request = vi.mocked(client.chat.completions.create).mock.calls[0] as unknown as [{ messages: { content: string }[] }];
+    // Edda is told to start from the student and to tie the new to something the student already does.
+    expect(request[0].messages[0].content).toContain("Knyt det nya till något eleven redan gör");
+    expect(request[0].messages[0].content).toContain("upcoming");
+    expect(JSON.parse(request[0].messages[1].content).studentModel).toEqual(studentModel);
+
+    // The model of the student holds short lines in the course's own words only.
+    const tooLong = await post(createApiApp({ client }), "/api/check-in", {
+      mode: "text",
+      question: "Vad är en tes?",
+      answer: "En åsikt.",
+      focus: "tes",
+      studentModel: { ...studentModel, knows: ["x".repeat(400)] },
+    });
+    expect(tooLong.status).toBe(400);
   });
 
   it("counts several arguments only when two different places in the text are quoted", async () => {

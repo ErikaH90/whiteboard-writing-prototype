@@ -55,7 +55,7 @@ export default function PracticeRound({ lesson, label, level, hint, priorEvidenc
 
   return (
     <div className="board-activity practice-round">
-      <p className="board-kicker">{`TRÄNA MER · ${label.toUpperCase()}${stages.length > 1 ? ` · ${index + 1} AV ${stages.length}` : ""}`}</p>
+      <p className="board-kicker">{`TRÄNA MER · ${label.toUpperCase()}`}</p>
       {index === 0 && <p className="practice-reason">{reasons[Math.min(3, Math.max(0, level))]}</p>}
       {stage === "example" && (
         <ExamplePick

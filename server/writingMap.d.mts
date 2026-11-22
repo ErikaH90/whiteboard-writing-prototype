@@ -8,6 +8,8 @@ export type BuiltMapPart = {
   quote?: string;
   strength: string;
   next: string;
+  missing: string | null;
+  lacks: string[];
   found: { id: string; quote: string }[];
 };
 

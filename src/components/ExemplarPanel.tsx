@@ -33,6 +33,12 @@ type Props = {
    */
   comparePick?: { resolved: boolean; selected: number | null; disabled: boolean };
   onPickPair?: (pairIndex: number) => void;
+  /**
+   * The student looks around alone (mode "pick"): the parts are not marked until they are found,
+   * so finding them takes reading. `onStray` is called for a click in the text beside the parts.
+   */
+  isExploring?: boolean;
+  onStray?: () => void;
 };
 
 const fittedLayout = "(min-width: 901px) and (min-height: 480px)";
@@ -51,6 +57,8 @@ export default function ExemplarPanel({
   pairIndex = null,
   comparePick,
   onPickPair,
+  isExploring = false,
+  onStray,
 }: Props) {
   const stageRef = useRef<HTMLDivElement>(null);
   const textRef = useRef<HTMLElement>(null);
@@ -108,7 +116,10 @@ export default function ExemplarPanel({
       <div className="exemplar-stage" ref={stageRef}>
         <article
           aria-label={`${exemplarLabels.strong}: ${text.title}`}
-          className={`exemplar-text ${focused ? "is-focusing" : ""}`}
+          className={`exemplar-text ${focused ? "is-focusing" : ""} ${isPick && isExploring ? "is-exploring" : ""}`}
+          onClick={isPick && isExploring ? (event) => {
+            if (!(event.target as HTMLElement).closest(".exemplar-mark")) onStray?.();
+          } : undefined}
           ref={textRef}
         >
           {marked.blocks.map((block, blockIndex) => {
@@ -123,6 +134,8 @@ export default function ExemplarPanel({
                   <button
                     aria-pressed={isFound || isSelected}
                     className={`exemplar-mark is-candidate ${isFound ? "is-solved" : isSelected ? "is-selected" : ""}`}
+                    // While the student explores, the parts are not announced before they are found.
+                    tabIndex={isExploring && !isFound ? -1 : undefined}
                     disabled={(pick?.disabled ?? true) || isFound}
                     key={index}
                     onClick={() => onPick?.(partIndex)}

@@ -120,6 +120,8 @@ test("while Edda speaks the whiteboard shows only the heading and her dots, in e
       stillFor = 0; log(`klick i texten · ${place}`);
       continue;
     }
+    // The student first looks around alone; the walk goes on to Edda's questions.
+    if (await click("Jag har letat klart")) { stillFor = 0; log(`letat klart · ${place}`); continue; }
     // After two tries the student can ask Edda to show the place.
     if (await click("Visa stället")) { stillFor = 0; log(`visa stället · ${place}`); continue; }
     // 2. The topic on the welcome board.
@@ -170,6 +172,7 @@ test("while Edda speaks the whiteboard shows only the heading and her dots, in e
   console.log(`BROTT (${audit.violations.length}):\n${audit.violations.join("\n")}`);
   expect(audit.violations).toEqual([]);
   expect(chaptersSeen.size).toBe(6);
-  // Every chapter's goal, explanations, tasks and questions were heard on the way.
-  expect(audit.spoken.length).toBeGreaterThan(60);
+  // Every chapter's goal, tasks and questions were heard on the way, and the explanations that
+  // Edda reads aloud (she does not read them when the student finds the places at the first try).
+  expect(audit.spoken.length).toBeGreaterThan(40);
 });

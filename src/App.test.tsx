@@ -103,6 +103,10 @@ beforeEach(() => {
   effortTimes.reveal = 0;
   effortTimes.idle = 45_000;
   effortTimes.writingIdle = 90_000;
+  // The exploration before Edda's questions has its own tests; the others follow the guided walk-through.
+  effortTimes.explore = false;
+  effortTimes.exploreIdle = 25_000;
+  effortTimes.exploreStray = 3;
   vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     if (String(input).includes("/api/check-in")) {
       return new Response(JSON.stringify({ kind: "on_track", feedback: "Du är på rätt spår. Kan du ge ett exempel?" }), {
@@ -274,7 +278,9 @@ describe("writing coach", () => {
     const parts = exemplarFocus.structure.highlights.strong;
 
     await completeEntry(user);
-    expect(screen.getByText(lesson.learnerGoal)).toBeVisible();
+    // The goal has been said once; it is not repeated as text when the walk-through starts.
+    expect(screen.queryByText(lesson.learnerGoal)).not.toBeInTheDocument();
+    expect(screen.getByText(exemplarFocus.structure.boardNote)).toBeVisible();
     const surface = screen.getByRole("region", { name: "Exempeltext" });
     const candidates = () => within(surface).getAllByRole("button");
     const marks = () => [...surface.querySelectorAll("mark")].map((mark) => mark.firstChild?.textContent);
@@ -365,7 +371,8 @@ describe("writing coach", () => {
     const parts = exemplarFocus.structure.highlights.strong;
     for (const [index, part] of parts.entries()) {
       await user.click(screen.getByRole("button", { name: "Fortsätt" }));
-      expect(screen.getByText(`${index + 1} AV ${parts.length}`)).toBeVisible();
+      // The board has no counter of its own: the top bar shows where the student is.
+      expect(screen.queryByText(`${index + 1} AV ${parts.length}`)).not.toBeInTheDocument();
       expect(within(surface).getByRole("article")).not.toHaveClass("is-focusing");
       await findInText(user, part.quote);
       expect([...surface.querySelectorAll("mark")].map((mark) => mark.firstChild?.textContent)).toEqual([part.quote]);
@@ -437,7 +444,7 @@ describe("writing coach", () => {
     expect(screen.queryByText(lessons[0].learnerGoal)).not.toBeInTheDocument();
 
     act(() => { FakeAudio.instances[0].dispatchEvent(new Event("ended")); });
-    expect(screen.getByText(lessons[0].learnerGoal)).toBeInTheDocument();
+    expect(screen.getByText(exemplarFocus.structure.boardNote)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Lyssna/ })).not.toBeInTheDocument();
   });
 
@@ -473,29 +480,30 @@ describe("writing coach", () => {
     expect(screen.queryByRole("button", { name: "Tillbaka" })).not.toBeInTheDocument();
 
     // The next step stays closed until the student has found, or been shown, every part.
-    const next = () => screen.getByRole("button", { name: /Nästa steg/ });
-    expect(next()).toBeDisabled();
+    // One way forward at a time: the step button is there only when the step is done.
+    const next = () => screen.queryByRole("button", { name: /Nästa steg/ });
+    expect(next()).not.toBeInTheDocument();
     const parts = exemplarFocus.structure.highlights.strong;
     for (const [index, part] of parts.entries()) {
       await user.click(screen.getByRole("button", { name: "Fortsätt" }));
       // The board holds the student on each question until it is answered.
       expect(screen.getByText(part.ask!)).toBeVisible();
       expect(screen.queryByRole("button", { name: "Fortsätt" })).not.toBeInTheDocument();
-      expect(next()).toBeDisabled();
+      expect(next()).not.toBeInTheDocument();
       await findInText(user, part.quote);
-      if (index < parts.length - 1) expect(next()).toBeDisabled();
+      if (index < parts.length - 1) expect(next()).not.toBeInTheDocument();
     }
     expect(next()).toBeEnabled();
 
     // The chapter's writing task: the student's own text takes over the writing surface.
-    await user.click(next());
+    await user.click(next()!);
     // This student found every place alone, so Edda steps back by herself: no example first, and she says why.
     expect(screen.queryByText(lesson.model.question)).not.toBeInTheDocument();
     expect(screen.getByText("Du hittade ställena i exempeltexten själv, så du går direkt till din uppgift.")).toBeVisible();
     expect(screen.getByText(lesson.practice)).toBeVisible();
     expect(screen.getByText("Börja med att skriva din inledning med tes.")).toBeVisible();
     const editor = screen.getByRole("textbox", { name: "Din argumenterande text" });
-    expect(next()).toBeDisabled();
+    expect(next()).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Jag är klar – låt Edda läsa" })).toBeDisabled();
     const requestsBefore = vi.mocked(fetch).mock.calls.length;
     const taskDraft = "Jag tycker att skoldagen borde börja senare. Jag tycker att elever är trötta på morgonen.";
@@ -521,7 +529,10 @@ describe("writing coach", () => {
     expect(eddaSays.querySelector(".edda-mark")).toBeInTheDocument();
     expect(screen.getByText("Att pröva")).toBeVisible();
     expect(screen.getByText("Behöver varje mening börja så?")).toBeVisible();
-    expect(screen.getByText(lesson.taskLink)).toBeVisible();
+    // The board holds only Edda's short answer and the one thing to try; the marks in the text show where.
+    expect(screen.queryByText(lesson.taskLink)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Se det gröna i din text/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/så du går direkt till din uppgift/)).not.toBeInTheDocument();
     expect(document.querySelector(".strength-mark")).toHaveTextContent("Jag");
     expect(document.querySelectorAll(".finding-mark.is-develop")).toHaveLength(1);
     // The summary above the text belongs to feedback the student asks for; here Edda answers on the board.
@@ -530,7 +541,6 @@ describe("writing coach", () => {
     expect(next()).toBeEnabled();
 
     // The loop is closed: the student tries the advice in the text and Edda looks again.
-    expect(screen.getByText("Pröva det i din text. Sedan kan Edda titta igen.")).toBeVisible();
     await user.type(editor, " Dessutom orkar man mer.");
     expect(screen.getByText("Behöver varje mening börja så?")).toBeVisible();
     const requestsBeforeRetry = vi.mocked(fetch).mock.calls.length;
@@ -545,8 +555,8 @@ describe("writing coach", () => {
     expect(editor).toHaveValue(`${taskDraft} Dessutom orkar man mer.`);
 
     // Recall without support: closed until the student has answered.
-    await user.click(next());
-    expect(next()).toBeDisabled();
+    await user.click(next()!);
+    expect(next()).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Fortsätt" }));
     await user.type(screen.getByRole("textbox", { name: "Ditt svar" }), "Tesen är det skribenten vill övertyga om.");
     await user.click(screen.getByRole("button", { name: "Svara" }));
@@ -826,6 +836,258 @@ describe("writing coach", () => {
     expect(await screen.findByText("Ett första steg: titta i rubriken.")).toBeVisible();
   });
 
+  it("lets the student look around in the exemplar alone first, and has Edda go through only what is left", async () => {
+    effortTimes.explore = true;
+    window.history.replaceState({}, "", "/");
+    const user = userEvent.setup();
+    render(<App />);
+    const parts = exemplarFocus.structure.highlights.strong;
+    await completeEntry(user);
+    await user.click(screen.getByRole("button", { name: "Fortsätt" }));
+    const surface = screen.getByRole("region", { name: "Exempeltext" });
+    const place = (quote: string) => within(surface).getAllByRole("button", { hidden: true }).find((button) => button.textContent === quote)!;
+
+    // An open question, and nothing in the text is marked: finding the parts takes reading.
+    expect(screen.getByText("Vilka delar bygger upp texten?")).toBeVisible();
+    expect(within(surface).getByRole("article")).toHaveClass("is-exploring");
+    expect(surface.querySelector(".is-solved")).not.toBeInTheDocument();
+    expect(screen.queryByText(parts[0].ask!)).not.toBeInTheDocument();
+
+    // The student finds the thesis on their own: Edda puts a name on it and the place lights up. No AI is asked.
+    const requests = vi.mocked(fetch).mock.calls.length;
+    await user.click(place(parts[1].quote));
+    expect(screen.getByRole("status")).toHaveTextContent(`Edda · ${parts[1].label}`);
+    expect(screen.getByRole("status")).toHaveTextContent(parts[1].explain!);
+    expect(place(parts[1].quote)).toHaveClass("is-solved");
+    expect(fetch).toHaveBeenCalledTimes(requests);
+
+    // A few clicks beside the parts: the student has come to a stop, so Edda takes over what is left.
+    for (let click = 0; click < 3; click += 1) await user.click(surface.querySelector(".exemplar-plain")!);
+    expect(screen.getByText("Du hittade 1 av 6 själv")).toBeVisible();
+    expect(screen.queryByText("Vilka delar bygger upp texten?")).not.toBeInTheDocument();
+
+    // Edda asks about the five parts that are left; the thesis is not gone through again.
+    const asked: string[] = [];
+    for (const part of parts.filter((_, index) => index !== 1)) {
+      await user.click(screen.getByRole("button", { name: "Fortsätt" }));
+      expect(screen.getByText(part.ask!)).toBeVisible();
+      asked.push(part.ask!);
+      await findInText(user, part.quote);
+    }
+    expect(asked).not.toContain(parts[1].ask);
+    expect(screen.queryByRole("button", { name: "Fortsätt" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Nästa steg/ })).toBeInTheDocument();
+  });
+
+  it("is done with the walk-through when the student finds everything alone, and can stop looking at any time", async () => {
+    effortTimes.explore = true;
+    window.history.replaceState({}, "", "/");
+    const user = userEvent.setup();
+    render(<App />);
+    const parts = exemplarFocus.structure.highlights.strong;
+    await completeEntry(user);
+    await user.click(screen.getByRole("button", { name: "Fortsätt" }));
+    const surface = screen.getByRole("region", { name: "Exempeltext" });
+
+    expect(screen.getByRole("button", { name: "Jag har letat klart" })).toBeInTheDocument();
+    for (const part of parts) {
+      await user.click(within(surface).getAllByRole("button", { hidden: true }).find((button) => button.textContent === part.quote)!);
+    }
+    // Nothing is left for Edda to go through, and the student goes straight to the writing task.
+    expect(screen.getByText("Du hittade allt själv")).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Fortsätt" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /Nästa steg/ }));
+    expect(screen.getByText(lessons[0].practice)).toBeVisible();
+  });
+
+  it("takes over by itself when the student has found nothing for a while", async () => {
+    effortTimes.explore = true;
+    effortTimes.exploreIdle = 200;
+    const user = userEvent.setup();
+    render(<App />);
+    await completeEntry(user);
+    await user.click(screen.getByRole("button", { name: "Fortsätt" }));
+
+    expect(screen.getByText("Vilka delar bygger upp texten?")).toBeVisible();
+    expect(await screen.findByText("Nu letar vi tillsammans")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Fortsätt" }));
+    expect(screen.getByText(exemplarFocus.structure.highlights.strong[0].ask!)).toBeVisible();
+  });
+
+  it("does not leave a student alone who needed Edda to show the way in the last chapter", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    const parts = exemplarFocus.structure.highlights.strong;
+    await completeEntry(user);
+    await user.click(screen.getByRole("button", { name: "Fortsätt" }));
+    const surface = screen.getByRole("region", { name: "Exempeltext" });
+    const clickInText = async (quote: string) => {
+      await user.click(within(surface).getAllByRole("button").find((button) => button.textContent === quote)!);
+    };
+    // In the first chapter Edda had to show a place.
+    await clickInText(parts[3].quote);
+    await clickInText(parts[4].quote);
+    expect(await screen.findByText(parts[0].explain!)).toBeVisible();
+
+    // In the next chapter this student is not asked to look around alone: Edda guides from the start.
+    effortTimes.explore = true;
+    await user.click(screen.getByRole("button", { name: /^Kapitel 2:/ }));
+    await completeEntry(user);
+    await user.click(screen.getByRole("button", { name: "Fortsätt" }));
+    expect(screen.queryByText("Var gör skribenten sina argument starka?")).not.toBeInTheDocument();
+    expect(screen.getByText(exemplarFocus.reasoning.comparisons![0].title)).toBeVisible();
+  });
+
+  it("alternates between Edda showing a place and the student trying, for a student who needed much help", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    // In the chapter about sentences Edda had to show a place.
+    await user.click(screen.getByRole("button", { name: /^Kapitel 4:/ }));
+    await completeEntry(user);
+    const sentenceParts = exemplarFocus.sentence.highlights.strong;
+    while (!sentenceParts.some((part) => screen.queryByText(part.ask!))) {
+      await user.click(screen.getByRole("button", { name: "Fortsätt" }));
+    }
+    const asked = sentenceParts.find((part) => screen.queryByText(part.ask!))!;
+    const wrong = sentenceParts.filter((part) => part !== asked);
+    const clickInText = async (quote: string) => {
+      const surface = screen.getByRole("region", { name: "Exempeltext" });
+      await user.click(within(surface).getAllByRole("button").find((button) => button.textContent === quote)!);
+    };
+    await clickInText(wrong[0].quote);
+    await clickInText(wrong[1].quote);
+    expect(await screen.findByText(asked.explain!)).toBeVisible();
+
+    // In the next chapter Edda shows the first place herself, as a clear example, with nothing to find.
+    await user.click(screen.getByRole("button", { name: /^Kapitel 5:/ }));
+    await completeEntry(user);
+    const parts = exemplarFocus.language.highlights.strong;
+    await user.click(screen.getByRole("button", { name: "Fortsätt" }));
+    expect(screen.getByText(parts[0].label)).toBeVisible();
+    expect(screen.getByText(parts[0].explain!)).toBeVisible();
+    expect(screen.queryByText(parts[0].ask!)).not.toBeInTheDocument();
+    expect(document.querySelector(".edda-mark")).not.toBeInTheDocument();
+    const surface = screen.getByRole("region", { name: "Exempeltext" });
+    expect([...surface.querySelectorAll("mark")].map((mark) => mark.firstChild?.textContent)).toEqual([parts[0].quote]);
+
+    // Then the student tries the next one, and after that Edda shows again.
+    await user.click(screen.getByRole("button", { name: "Fortsätt" }));
+    expect(screen.getByText(parts[1].ask!)).toBeVisible();
+    await findInText(user, parts[1].quote);
+    await user.click(screen.getByRole("button", { name: "Fortsätt" }));
+    expect(screen.getByText(parts[2].explain!)).toBeVisible();
+    expect(screen.queryByText(parts[2].ask!)).not.toBeInTheDocument();
+  });
+
+  it("goes back to modelling what is missing after the writing task, lets the student try again and reads again", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    // The chapter about linking words asks for a counter-argument and for linking words.
+    await user.click(screen.getByRole("button", { name: /^Kapitel 3:/ }));
+    await completeEntry(user);
+    const lesson = lessons[2];
+    await user.click(screen.getByRole("button", { name: /Nästa steg/ }));
+    while (!screen.queryByText(lesson.practice)) await user.click(screen.getByRole("button", { name: "Fortsätt" }));
+
+    // Edda's reading of the text: the counter-argument is missing at first, and is there after the student has tried.
+    let readings = 0;
+    const usual = vi.mocked(fetch).getMockImplementation()!;
+    vi.mocked(fetch).mockImplementation(async (input, init) => {
+      if (!String(input).includes("/api/progress-map")) return usual(input, init);
+      const body = JSON.parse(String(init?.body)) as { draft: string; skills: string[] };
+      readings += 1;
+      const hasCounter = body.draft.includes("Visst");
+      return new Response(JSON.stringify({
+        parts: body.skills.map((skill) => skill === "structure"
+          // The conclusion is missing too, but this chapter's task has not asked for it yet.
+          ? { skill, level: 2, start: 0, end: 3, quote: body.draft.slice(0, 3), strength: "Du har en tes.", next: "", missing: hasCounter ? "conclusion" : "counter", lacks: hasCounter ? ["conclusion"] : ["counter", "conclusion"], found: [] }
+          : { skill, level: 2, start: 0, end: 3, quote: body.draft.slice(0, 3), strength: "Du ger skäl.", next: "", missing: null, lacks: [], found: [] }),
+      }), { status: 200, headers: { "Content-Type": "application/json" } });
+    });
+
+    const editor = () => screen.getByRole("textbox", { name: "Din argumenterande text" });
+    await user.type(editor(), "Jag tycker att skoldagen borde börja senare. Elever sover för lite.");
+    await user.click(screen.getByRole("button", { name: "Jag är klar – låt Edda läsa" }));
+
+    // First what works. Then Edda goes back to modelling, aimed at what is missing.
+    expect(await screen.findByText("Du uttrycker en tydlig tanke.")).toBeVisible();
+    expect(screen.queryByText("Att pröva")).not.toBeInTheDocument();
+    await user.click(await screen.findByRole("button", { name: "Se hur exempeltexten gör" }));
+
+    // The exemplar is back beside the board with its counter-argument lit, and Edda explains just that.
+    const structure = exemplarFocus.structure.highlights.strong;
+    const exemplar = screen.getByRole("region", { name: "Exempeltext" });
+    expect([...exemplar.querySelectorAll("mark")].map((mark) => mark.firstChild?.textContent)).toEqual([structure[4].quote]);
+    expect(screen.getByText(structure[4].label)).toBeVisible();
+    expect(screen.getByText(structure[4].explain!)).toBeVisible();
+    expect(screen.getByText(lesson.practice)).not.toBeVisible();
+
+    // The student tries it in the own text; Edda reads again when the text has changed.
+    await user.click(screen.getByRole("button", { name: "Pröva i din text" }));
+    expect(screen.getByText("Vad skulle någon som inte håller med dig säga?")).toBeVisible();
+    const again = () => screen.getByRole("button", { name: "Jag har prövat – låt Edda titta igen" });
+    expect(again()).toBeDisabled();
+    await user.type(editor(), " Visst hinner man mindre på eftermiddagen.");
+    await user.click(again());
+
+    // The counter-argument is there now. Next comes what the same task also asks for and is missing:
+    // a linking word that shows order, which the app reads from the text by rule.
+    const cohesion = exemplarFocus.cohesion.highlights.strong;
+    expect(await screen.findByText(cohesion[2].label)).toBeVisible();
+    expect([...screen.getByRole("region", { name: "Exempeltext" }).querySelectorAll("mark")].map((mark) => mark.firstChild?.textContent)).toEqual([cohesion[2].quote]);
+    await user.click(screen.getByRole("button", { name: "Pröva i din text" }));
+    expect(screen.getByText("Nu finns det i din text.")).toBeVisible();
+    expect(screen.getByText("Vilka ord kan visa i vilken ordning dina argument kommer?")).toBeVisible();
+    await user.type(editor(), " För det första är elever trötta.");
+    await user.click(again());
+
+    // Two rounds at most: then the task is done. The student could go on at any time.
+    expect(await screen.findByText("Nu finns det i din text.")).toBeVisible();
+    expect(screen.queryByRole("button", { name: /Jag har prövat/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Nästa steg/ })).toBeInTheDocument();
+    expect(readings).toBe(3);
+  });
+
+  it("starts a new chapter in what the student's own text already has, and tells Edda what the student knows", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    const usual = vi.mocked(fetch).getMockImplementation()!;
+    vi.mocked(fetch).mockImplementation(async (input, init) => {
+      if (!String(input).includes("/api/progress-map")) return usual(input, init);
+      const body = JSON.parse(String(init?.body)) as { draft: string; skills: string[] };
+      const quote = "Jag tycker att skoldagen borde börja senare.";
+      const start = body.draft.indexOf(quote);
+      return new Response(JSON.stringify({
+        parts: body.skills.map((skill) => skill === "structure"
+          ? { skill, level: 1, start, end: start + quote.length, quote, strength: "Du har en tes.", next: "", missing: "arguments", lacks: ["arguments", "counter", "conclusion"], found: [{ id: "thesis", quote }] }
+          : { skill, level: 0, strength: "", next: "", missing: null, lacks: [], found: [] }),
+      }), { status: 200, headers: { "Content-Type": "application/json" } });
+    });
+
+    // The student writes an introduction with a thesis in the first chapter and hands it in.
+    await openDraft(user);
+    while (!screen.queryByText(lessons[0].practice)) await user.click(screen.getByRole("button", { name: "Fortsätt" }));
+    await user.type(screen.getByRole("textbox", { name: "Din argumenterande text" }), "Senare skolstart Jag tycker att skoldagen borde börja senare.");
+    await user.click(screen.getByRole("button", { name: "Jag är klar – låt Edda läsa" }));
+    await screen.findByRole("img", { name: "Din skrivkarta i litet format" });
+
+    // The next chapter begins with the student's own thesis, and Edda builds the new thing on it.
+    await user.click(screen.getByRole("button", { name: /^Kapitel 2:/ }));
+    const before = vi.mocked(fetch).mock.calls.length;
+    await completeEntry(user);
+    expect(screen.getByText(/^Du har redan en tes i din text\. Nu tittar vi på hur skälen för den blir starka\./)).toBeVisible();
+    expect(screen.getByText("”Jag tycker att skoldagen borde börja senare.”")).toBeVisible();
+
+    // What Edda knows about the student follows her answers: the course's own words, not the student's text.
+    const checkIn = vi.mocked(fetch).mock.calls.slice(before).find(([input]) => String(input).includes("/api/check-in"))!;
+    const sent = JSON.parse(String(checkIn[1]?.body)) as { studentModel: { knows: string[]; next: string[]; taught: string[]; upcoming: string[] } };
+    expect(sent.studentModel.knows).toContain("Du har en tes som säger tydligt vad du tycker.");
+    expect(sent.studentModel.next).toContain("Vilket skäl till kan du ge för din åsikt?");
+    expect(sent.studentModel.taught).toEqual(["Struktur", "Resonemang"]);
+    expect(sent.studentModel.upcoming).toEqual(["Textbindning", "Meningsbyggnad", "Språk"]);
+    expect(JSON.stringify(sent.studentModel)).not.toContain("skoldagen");
+  });
+
   it("lets Edda read the writing task only when the student has written something new", async () => {
     const user = userEvent.setup();
     render(<App />);
@@ -867,8 +1129,8 @@ describe("writing coach", () => {
     expect(screen.getByText(lessons[0].learnerGoal)).toBeVisible();
     expect(screen.getByText(lessons[0].worth)).toBeVisible();
     await completeEntry(user);
-    // The student-facing goal is repeated when the modelling starts.
-    expect(screen.getByText(lessons[0].learnerGoal)).toBeVisible();
+    // The goal is not repeated as text when the walk-through starts.
+    expect(screen.queryByText(lessons[0].learnerGoal)).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /Meningsbyggnad/ }));
     await user.click(screen.getByRole("button", { name: "Fortsätt" }));

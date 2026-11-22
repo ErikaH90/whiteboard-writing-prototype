@@ -43,6 +43,14 @@ async function completeEntry(
   if (firstExemplarMeeting) await skipListening(page);
 }
 
+// The student first looks around in the exemplar alone. These tests go on to Edda's guided
+// questions; the exploration itself is covered by the unit tests.
+async function leaveExploring(page: import("@playwright/test").Page) {
+  await expect(page.getByText("Vilka delar bygger upp texten?")).toBeVisible();
+  await page.getByRole("button", { name: "Jag har letat klart" }).click();
+  await page.getByRole("button", { name: "Fortsätt", exact: true }).click();
+}
+
 async function revealBoard(page: import("@playwright/test").Page, stops: number) {
   for (let stop = 0; stop < stops; stop += 1) {
     await page.getByRole("button", { name: "Fortsätt", exact: true }).click();
@@ -170,6 +178,7 @@ test("whiteboard accepts a choice or a written answer and responds", async ({ pa
   await completeEntry(page);
   // In the modelling step the whiteboard asks first, and the student looks for the place in the text.
   await page.getByRole("button", { name: "Fortsätt", exact: true }).click();
+  await leaveExploring(page);
   await expect(page.getByText("Klicka på rubriken.")).toBeVisible();
   await expect(page.getByText("Rubriken säger både vad texten handlar om")).toHaveCount(0);
   const text = page.getByRole("region", { name: "Exempeltext" });
@@ -385,6 +394,10 @@ test("exemplar text follows a retrieval question, is listened to and then shown 
 
   // The student looks for each part; once found, only that part is lit and the rest is blurred.
   await page.getByRole("button", { name: "Fortsätt", exact: true }).click();
+  // While the student looks around alone nothing in the text is marked.
+  await expect(surface.locator("article")).toHaveClass(/is-exploring/);
+  await expect(surface.locator(".exemplar-mark.is-candidate").first()).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+  await leaveExploring(page);
   await expect(surface.locator("mark")).toHaveCount(0);
   await expect(surface.locator(".exemplar-mark.is-candidate")).toHaveCount(6);
   await findInText(page, structureParts[0]);
@@ -493,18 +506,22 @@ test("the lesson is guided: chapters are locked and Edda decides what the writin
   await expect(page.getByRole("button", { name: /Resonemang/ })).toBeDisabled();
   await completeEntry(page);
   const next = page.getByRole("button", { name: /Nästa steg/ });
-  await expect(next).toBeDisabled();
+  await expect(next).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Tillbaka" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Din text" })).toHaveCount(0);
 
   const proceed = page.getByRole("button", { name: "Fortsätt", exact: true });
+  // The student first looks around alone, and here chooses to go on to Edda's questions.
+  await proceed.click();
+  await expect(page.getByText("Vilka delar bygger upp texten?")).toBeVisible();
+  await page.getByRole("button", { name: "Jag har letat klart" }).click();
   // Each question holds the student until the place is found, or Edda has shown it.
   for (const [index, quote] of structureParts.entries()) {
     await proceed.click();
     await expect(proceed).toHaveCount(0);
-    await expect(next).toBeDisabled();
+    await expect(next).toHaveCount(0);
     await findInText(page, quote);
-    if (index < structureParts.length - 1) await expect(next).toBeDisabled();
+    if (index < structureParts.length - 1) await expect(next).toHaveCount(0);
   }
   await expect(next).toBeEnabled();
 
@@ -514,7 +531,7 @@ test("the lesson is guided: chapters are locked and Edda decides what the writin
   await expect(page.getByText("Här är två sätt att skriva en tes. Klicka på den som är bäst.")).toHaveCount(0);
   await expect(page.getByText("Börja med att skriva din inledning med tes.")).toBeVisible();
   await expect(page.getByRole("region", { name: "Exempeltext" })).toHaveCount(0);
-  await expect(next).toBeDisabled();
+  await expect(next).toHaveCount(0);
   await page.getByRole("textbox", { name: "Din argumenterande text" }).fill("Skoldagen borde börja senare.");
   await page.getByRole("button", { name: "Jag är klar – låt Edda läsa" }).click();
   // Edda has read the text: the strength is marked in green in the student's own text.
@@ -523,6 +540,10 @@ test("the lesson is guided: chapters are locked and Edda decides what the writin
   await expect(next).toBeEnabled();
   // The same hand-in brought the writing map up to date: it is in the top bar without any click of its own.
   await expect(page.getByRole("img", { name: "Din skrivkarta i litet format" })).toBeVisible();
+  // When Edda has read the text the board is short: her answer, and nothing that repeats what the text shows.
+  await expect(page.getByText(/så du går direkt till din uppgift/)).toHaveCount(0);
+  await expect(page.getByText(/Se det gröna i din text/)).toHaveCount(0);
+  if (process.env.MAP_SHOT) await page.screenshot({ path: process.env.MAP_SHOT.replace(".png", "-task.png") });
 });
 
 test("Edda speaks her guidance and the text appears when she has finished", async ({ page }) => {

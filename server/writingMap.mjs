@@ -162,12 +162,16 @@ export function buildPart(draft, skill, places, text = readText(draft)) {
   const next = isHeldBack
     ? "Skriv vidare på din text. Edda behöver mer text för att kunna se det här tydligt."
     : missing[0]?.hint ?? "";
-  if (level === 0) return { skill, level: 0, strength: "", next, found: [] };
+  // The first thing that is not in the text yet: what Edda goes back to and shows an example of.
+  const gap = isHeldBack ? null : missing[0]?.id ?? null;
+  // Everything of this part that is not in the text yet.
+  const lacks = missing.map((feature) => feature.id);
+  if (level === 0) return { skill, level: 0, strength: "", next, missing: gap, lacks, found: [] };
 
   // Edda shows the latest thing in the list that is in the text, with its place as evidence.
   const shown = [...there].reverse().find((feature) => places[feature.id]) ?? null;
   const evidence = shown ? places[shown.id] : text.sentences[0] ?? null;
-  if (!evidence) return { skill, level: 0, strength: "", next, found: [] };
+  if (!evidence) return { skill, level: 0, strength: "", next, missing: gap, lacks, found: [] };
   return {
     skill,
     level,
@@ -176,6 +180,8 @@ export function buildPart(draft, skill, places, text = readText(draft)) {
     quote: draft.slice(evidence.start, evidence.end),
     strength: (shown ?? there[there.length - 1]).praise,
     next,
+    missing: gap,
+    lacks,
     // What the model pointed out, so that it stays found while that place is still in the text.
     found: features
       .filter((feature) => feature.by === "model" && places[feature.id])

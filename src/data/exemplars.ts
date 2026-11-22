@@ -60,6 +60,8 @@ export type FlowStep = { compare: number } | { part: number };
 export type ExemplarFocus = {
   /** How the whiteboard introduces the walk-through of the exemplar. */
   boardNote: string;
+  /** A few key words that stay on the board when Edda has said the note. */
+  boardKeys: string[];
   /** Comparisons shown before the walk-through, in order. */
   comparisons?: ExemplarComparison[];
   /** An error hunt on the whiteboard, after the walk-through. */
@@ -82,6 +84,7 @@ export const exemplarLabels: Record<ExemplarId, string> = {
 export const exemplarFocus: Record<SkillId, ExemplarFocus> = {
   structure: {
     boardNote: "Vi går igenom hur exempeltexten är uppbyggd, en del i taget. Följ det som lyser gult till höger.",
+    boardKeys: ["Textens delar", "Det gula i texten"],
     highlights: {
       strong: [
         { quote: "Tallrikens tysta offer – dags att duka av köttet", ask: "Klicka på rubriken.", label: "Rubrik som visar ämnet och ståndpunkten", explain: "Rubriken säger både vad texten handlar om och vad skribenten tycker: köttet ska bort från tallriken." },
@@ -103,6 +106,7 @@ export const exemplarFocus: Record<SkillId, ExemplarFocus> = {
   },
   reasoning: {
     boardNote: "Vi tittar på vad som gör ett argument utvecklat. Först jämför vi två inledningar, sedan går vi igenom begreppen i texten. Följ det som lyser gult till höger.",
+    boardKeys: ["Två inledningar jämförs", "Begreppen i texten"],
     comparisons: [
       {
         title: "Enkelt eller utvecklat?",
@@ -158,6 +162,7 @@ export const exemplarFocus: Record<SkillId, ExemplarFocus> = {
   },
   cohesion: {
     boardNote: "Vi tittar på hur sambandsord binder ihop en text. Först ser vi hur tre lösa meningar blir en sammanhängande text, sedan går vi igenom sambandsorden i exempeltexten. Följ det som lyser gult till höger.",
+    boardKeys: ["Lösa meningar blir en text", "Sambandsorden i texten"],
     comparisons: [
       {
         title: "Före och efter",
@@ -213,6 +218,7 @@ export const exemplarFocus: Record<SkillId, ExemplarFocus> = {
   },
   sentence: {
     boardNote: "Vi tittar på tre sätt att variera språket: ordval, meningsstarter och meningslängd. För varje sätt ser vi en text före och efter bearbetning. Sedan går vi igenom hur exempeltexten gör.",
+    boardKeys: ["Ordval", "Meningsstarter", "Meningslängd"],
     comparisons: [
       {
         title: "Variera ordvalet",
@@ -321,6 +327,7 @@ export const exemplarFocus: Record<SkillId, ExemplarFocus> = {
   },
   language: {
     boardNote: "Först tittar vi på hur exempeltexten till höger använder skiljetecken och ordval. Sedan får du leta språkfel i en annan text, här på tavlan.",
+    boardKeys: ["Skiljetecken och ordval", "Leta språkfel"],
     hunt: {
       intro: "Här är en påhittad elevtext med flera språkfel. Kan du hitta dem?",
       segments: [
