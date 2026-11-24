@@ -127,7 +127,7 @@ const locateSchema = {
 
 function createElevenLabsSpeech(apiKey) {
   return async (text) => {
-    const voiceId = process.env.ELEVENLABS_VOICE_ID || "21m00Tcm4TlvDq8ikWAM";
+    const voiceId = process.env.ELEVENLABS_VOICE_ID || "HqmZnnvy6tCQd8EGWKRT";
     const response = await fetch(
       `https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(voiceId)}?output_format=mp3_44100_128`,
       {
