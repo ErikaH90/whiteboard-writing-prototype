@@ -1,6 +1,7 @@
 import { useMemo, useRef } from "react";
 import { exemplarFocus, exemplarLabels, exemplarTexts, markExemplar, type ExemplarComparison } from "../data/exemplars";
 import type { SkillId } from "../data/lessons";
+import { takesMoreRoom, useReadingSettings } from "../lib/readingSettings";
 import { useFitToHeight } from "../lib/useFitToHeight";
 
 export type ExemplarMode =
@@ -74,8 +75,10 @@ export default function ExemplarPanel({
     [text, isPick, candidates, lessonHighlights, focused],
   );
 
-  // The whole text stays visible without scrolling.
-  useFitToHeight(stageRef, textRef, fittedLayout, 0.45);
+  // The whole text stays visible without scrolling. When the student has asked for larger or wider
+  // text it keeps that size and scrolls instead.
+  const isRoomy = takesMoreRoom(useReadingSettings());
+  useFitToHeight(stageRef, textRef, isRoomy ? "not all" : fittedLayout, 0.45);
 
   if (mode === "compare" && comparison) {
     const pair = pairIndex !== null ? comparison.pairs[pairIndex] ?? null : null;

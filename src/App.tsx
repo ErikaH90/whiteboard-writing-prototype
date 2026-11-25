@@ -13,6 +13,7 @@ import ExamplePick from "./components/ExamplePick";
 import ErrorHunt from "./components/ErrorHunt";
 import EddaFeedback, { EddaMark } from "./components/EddaFeedback";
 import ExemplarPanel, { type ExemplarMode } from "./components/ExemplarPanel";
+import ReadingSettings, { ReadingRuler } from "./components/ReadingSettings";
 import { exemplarFocus, exemplarTexts, modellingFlow } from "./data/exemplars";
 import {
   maxOwnTopicLength,
@@ -29,6 +30,7 @@ import {
 } from "./data/topics";
 import { useFitToHeight } from "./lib/useFitToHeight";
 import { setSoundOn, useSoundOn } from "./lib/eddaVoice";
+import { readingStyle, takesMoreRoom, useReadingSettings } from "./lib/readingSettings";
 import { useExemplarAudio } from "./lib/useExemplarAudio";
 import { AfterWriting, BoardSequence, BoardStep, Written } from "./components/BoardWriting";
 import { finalRecallQuestions, lessons, phases, type LearningEvidence, type SkillId } from "./data/lessons";
@@ -194,6 +196,8 @@ function App() {
   const [hasStarted, setHasStarted] = useState(false);
   // Edda reads her guidance aloud; the student can turn her voice off.
   const soundOn = useSoundOn();
+  const reading = useReadingSettings();
+  const writingCardRef = useRef<HTMLElement>(null);
   const [topic, setTopic] = useState<WritingTopic>(() => {
     try {
       return readSavedTopic(window.localStorage);
@@ -1113,7 +1117,11 @@ function App() {
 
   const currentAdvice = taskAdvice?.board === boardKey ? taskAdvice : null;
   return (
-    <main className={`app-shell ${isFinalDiagnosis || isFinalRecall ? "" : "is-fitted"}`}>
+    <main
+      className={`app-shell ${isFinalDiagnosis || isFinalRecall ? "" : "is-fitted"} ${takesMoreRoom(reading) ? "has-roomy-text" : ""}`}
+      style={readingStyle(reading)}
+    >
+      <ReadingRuler surface={writingCardRef} />
       {!isFinalDiagnosis && !isFinalRecall && (
         <header className="topbar">
           <div className="topbar-title">
@@ -1145,6 +1153,7 @@ function App() {
               />
             </span>
           )}
+          <ReadingSettings />
           <button
             aria-pressed={soundOn}
             className="sound-toggle"
@@ -1174,6 +1183,7 @@ function App() {
           <span className="frame-corner corner-bottom-right" aria-hidden="true" />
           <div className="board-surface" ref={boardSurfaceRef}>
             <div className="board-content" ref={boardContentRef}>
+              <span aria-hidden="true" className="edda-face edda-host" />
               {isFinalRecall ? (
                 <FinalRecall
                   index={finalRecallIndex}
@@ -1281,7 +1291,7 @@ function App() {
                     <div className="board-activity">
                       <p className="board-prompt"><Written byHand>Lyssna nu</Written></p>
                       <p className="activity-instruction">
-                        <Written keys={[]} spoken>Till höger finns ett gott exempel på en argumenterande text. Lyssna på hela texten och följ med medan du lyssnar. Sedan går vi igenom vad som gör den bra.</Written>
+                        <Written keys={[]} spoken>Här finns ett gott exempel på en argumenterande text. Lyssna på hela texten och följ med medan du lyssnar. Sedan går vi igenom vad som gör den bra.</Written>
                       </p>
                       <AfterWriting>
                         <div className="listen-actions">
@@ -1386,7 +1396,7 @@ function App() {
                       <BoardStep key="explore">
                         <div className="board-activity focus-walk">
                           <p className="board-prompt"><Written byHand>{exploreAsks[lesson.skillIds[0]]}</Written></p>
-                          <p className="board-small-note"><Written>Titta själv i texten till höger och klicka på det du hittar.</Written></p>
+                          <p className="board-small-note"><Written>Titta själv i texten och klicka på det du hittar.</Written></p>
                           <AfterWriting>
                             {/* Edda puts a name on what the student has just found; the place lights up in the text. */}
                             {latest && (
@@ -1462,7 +1472,7 @@ function App() {
                           <>
                             <p className="board-prompt"><Written byHand>{part.ask ?? part.label}</Written></p>
                             {stepsBack}
-                            <p className="board-small-note"><Written>{explainsBriefly ? "Klicka i texten till höger." : "Leta själv först: det du hittar själv minns du bättre. Klicka i texten till höger."}</Written></p>
+                            <p className="board-small-note"><Written>{explainsBriefly ? "Klicka i texten." : "Leta själv först: det du hittar själv minns du bättre. Klicka i texten."}</Written></p>
                             {eddaResponse}
                             {/* The hint comes by itself when the student has tried and stood still for a while. */}
                             {isCurrent && isStuck && (
@@ -1661,7 +1671,7 @@ function App() {
                                 <p className="self-check-note" role="status">Edda hittar inte det i din text än. Lägg till det och pröva igen.</p>
                               )}
                               {state?.state === "empty" && (
-                                <p className="self-check-note" role="status">Skriv i din text till höger först.</p>
+                                <p className="self-check-note" role="status">Skriv i din text först.</p>
                               )}
                               {state?.state === "error" && <p className="check-in-error" role="alert">{state.message}</p>}
                               <button
@@ -1690,7 +1700,7 @@ function App() {
                         ))}
                       </ul>
                       <p className="assessment-note"><Written>Detta är stöd för din bearbetning – inte ett officiellt betyg.</Written></p>
-                      <p className="board-small-note"><Written>Använd kriterierna när du granskar ditt utkast till höger.</Written></p>
+                      <p className="board-small-note"><Written>Använd kriterierna när du granskar ditt utkast.</Written></p>
                     </div>
                   </BoardStep>
                 )}
@@ -1777,7 +1787,7 @@ function App() {
           </div>
         </section>}
 
-        {!isFinalRecall && <section className={`writing-card ${isFinalDiagnosis ? "final-diagnosis-card" : ""}`} aria-label={isFinalDiagnosis ? "Slutdiagnosens skrivyta" : surfaceView === "exemplar" ? "Exempeltext" : "Elevens skrivyta"}>
+        {!isFinalRecall && <section ref={writingCardRef} className={`writing-card ${isFinalDiagnosis ? "final-diagnosis-card" : ""}`} aria-label={isFinalDiagnosis ? "Slutdiagnosens skrivyta" : surfaceView === "exemplar" ? "Exempeltext" : "Elevens skrivyta"}>
           {surfaceView === "exemplar" && (
             <ExemplarPanel
               skillId={loop?.stage === "model" ? loop.skill : lesson.skillIds[0]}
@@ -1833,6 +1843,7 @@ function App() {
               <span className="word-count">{wordCount} ord</span>
               {saveError && !isFinalDiagnosis && <span className="save-status has-error" role="status">Kunde inte spara lokalt</span>}            </div>
             <div className="editor-actions">
+              {isFinalDiagnosis && <ReadingSettings />}
               {isFinalDiagnosis && isDiagnosisSubmitted && !isSeparateRevision && (
                 <button
                   className="quiet-button"

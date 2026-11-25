@@ -392,7 +392,7 @@ export const lessons: Lesson[] = [
       question: "Här är samma mening två gånger. Klicka på den som följer skrivreglerna.",
     },
     practice: "Läs igenom hela texten och kontrollera att du har följt skrivreglerna, som stavning och skiljetecken.",
-    taskLink: "Du hittade språkfelen i texten på tavlan. Läs din egen text med samma ögon.",
+    taskLink: "Du hittade språkfelen i texten hos mig. Läs din egen text med samma ögon.",
     hint: "Kontrollera stor bokstav, meningsgränser och att orden passar ihop. Ändra bara det du själv kan motivera.",
     recall: "Vilka två saker kan du kontrollera när du korrekturläser en mening?",
     checklist: ["Ett ställe där jag har kontrollerat stavningen.", "Ett ställe där jag har kontrollerat stor bokstav och skiljetecken.", "Ett ord som jag har valt för att det passar texten."],

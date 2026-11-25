@@ -136,8 +136,8 @@ export default function ProgressMap({ taught, parts, selected, onSelect, onAsses
       <AfterWriting>
         {parts === null ? (
           <>
-            <p className="board-small-note">Edda läser din text till höger och visar hur långt varje del har kommit.</p>
-            {isEmpty && <p className="self-check-note" role="status">Skriv i din text till höger först.</p>}
+            <p className="board-small-note">Edda läser din text och visar hur långt varje del har kommit.</p>
+            {isEmpty && <p className="self-check-note" role="status">Skriv i din text först.</p>}
             {error && <p className="check-in-error" role="alert">{error}</p>}
             <button className="primary-button" disabled={loading || isEmpty} onClick={onAssess} type="button">
               {loading ? "Edda läser din text …" : "Visa min skrivkarta"}

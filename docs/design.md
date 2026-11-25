@@ -1,24 +1,38 @@
 # Designprinciper
 
+## Sidlayout utan whiteboard
+
+Skrivcoachen delar formspråk med läsförståelseprototypen. Det finns ingen whiteboard längre:
+
+- Sidan är vit. Texten (exempeltexten eller elevens egen text) är själva sidan och ligger till vänster, utan kort eller ram, med en liten etikett (”Exempeltext”) över exempeltextens rubrik.
+- Edda talar från en pratbubbla till höger om texten: vit, rundad, med mjuk skugga, en liten pil mot texten och hennes lila ansikte uppe till vänster i bubblan. Allt som tidigare stod på whiteboarden (rubriker, frågor, svarsalternativ, skrivkartan, checklistor och knappar) visas i bubblan.
+- Bubblan är bara så hög som innehållet kräver. Medan Edda talar syns bara hennes ansikte, rubriken och tre punkter.
+- Texten i bubblan sätts i DM Sans med lila rubriker. Handstilen Patrick Hand används inte i bubblan.
+- På breda skärmar tar texten cirka 60 procent och bubblan cirka 40. Vid högst 900 px staplas de, med Edda överst, och pilen döljs.
+- Innan det finns någon text att visa står bubblan ensam, centrerad på sidan.
+- Edda hänvisar till ”texten”, aldrig till höger eller vänster, eftersom placeringen skiljer sig mellan bred och smal skärm.
+
+Där resten av dokumentet säger ”whiteboarden” eller ”tavlan” avses Eddas bubbla. Reglerna om ett steg i taget, tal före text och guidad gång gäller oförändrat. I koden heter delarna fortfarande `board-frame`, `board-surface` och `board-content`.
+
 ## Visuell huvudreferens
 
 Skrivcoachen ska kännas som samma produkt som matematikvyn. Det som delas är:
 
 - ljus bakgrund, och en skrivyta med tunn ljus kant och rundade hörn,
 - en topprad som en vit remsa över hela sidan med en tunn linje under: fet titel med underrad (”Kapitel 1 av 6 · Struktur”), en förloppslinje med ett segment per kapitel (klara kapitel är fyllda i blått, det aktuella har blå kontur och vit insida, kommande är grå) och ”1/6”,
-- vänsterställd handskriven text på whiteboarden: lila rubriker och mörk brödtext,
-- Edda som figur: ett lila runt ansikte med en pratbubbla med lila kant och namnet ovanför; Eddas markering ligger i bubblan,
+- vänsterställd text i Eddas bubbla: lila rubriker och mörk brödtext,
+- Edda som figur: ett lila runt ansikte uppe till vänster i pratbubblan; Eddas markering ligger i hennes svar,
 - knappar som rundade rektanglar: blå för huvudhandlingen, vit med tunn kant för övriga och varmt gul för ledtråd.
 
-Det som skiljer sig från matematikvyn är avsiktligt: whiteboarden ska se ut som en whiteboard, med kraftig mörk ram, markerade hörn och vit yta. Varken whiteboarden eller skrivytan har rutnät, och skrivytan är helt vit med sin egen seriftypografi.
+Ingen yta har rutnät, och skrivytan är vit med sin egen seriftypografi.
 
 Färgerna är uppskattade från en skärmbild av matematikvyn och ligger som variabler överst i avsnittet ”Shared look with the mathematics view” i `src/styles.css`. Byt dem där när de exakta värdena finns.
 
-Whiteboarden använder det lokalt bundlade handskriftsfontet Patrick Hand för all undervisningstext. Skrivytans text behåller sin egen lättlästa seriftypografi. Ladda inte typsnittet från en extern webbfontstjänst.
+Skrivytans text behåller sin egen lättlästa seriftypografi. Ladda inte typsnitt från en extern webbfontstjänst.
 
 ## Layout
 
-- På breda skärmar fördelas tvåkolumnslayouten med ungefär 45 procent till whiteboarden och 55 procent till skrivytan.
+- På breda skärmar tar texten till vänster cirka 60 procent och Eddas bubbla till höger cirka 40.
 - När skärmbredden är högst 900 px staplas panelerna så skrivytan förblir användbar; progressionen får kunna rullas horisontellt.
 - Visa lektionsprogressionen en gång högst upp, i toppraden; undvik extra status- och fasrader.
 - Whiteboarden visar ett undervisningssteg åt gången.
@@ -90,6 +104,11 @@ Whiteboarden använder det lokalt bundlade handskriftsfontet Patrick Hand för a
 - Rörelse ska respektera användarens inställning för minskad rörelse: då visas varje del av whiteboarden direkt, men stoppen mellan delarna finns kvar.
 - Medan tavlan skriver finns hela texten för den aktuella delen tillgänglig för skärmläsare; den delvis skrivna texten är dold för hjälpmedel.
 - Text, fokusmarkeringar och interaktiva ytor ska ha tillräcklig läsbarhet.
+- Knappen **Textformat** i toppraden (och i slutdiagnosens verktygsrad) öppnar elevens egna läsinställningar för skrivytan: textstorlek, radavstånd, avstånd mellan bokstäver och ord, bakgrundsfärg och läslinjal. Panelen är stängd tills eleven öppnar den, och valen sparas i webbläsaren.
+- Inställningarna gäller exempeltexten och elevens egen text på skrivytan. Typsnittet ändras inte, och whiteboarden påverkas inte.
+- Det finns ingen gul bakgrund, eftersom de gula markeringarna måste synas tydligt.
+- När eleven har valt större eller glesare text krymps exempeltexten inte längre för att rymmas: den behåller sin storlek och rullas i stället, och avstavningen stängs av.
+- Läslinjalen följer pekaren över skrivytan och försvinner medan eleven skriver.
 
 ## Responsiv granskning
 

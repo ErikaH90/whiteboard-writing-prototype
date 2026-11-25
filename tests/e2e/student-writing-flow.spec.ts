@@ -313,7 +313,7 @@ test("final diagnosis hides teaching support until completion and offers optiona
   expect(reviewRequests).toBe(1);
 });
 
-test("board uses 45 percent on desktop and stacks on narrow screens", async ({ page }) => {
+test("the text is to the left with Edda's bubble beside it, and they stack on narrow screens", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto("/?fri");
 
@@ -322,7 +322,9 @@ test("board uses 45 percent on desktop and stacks on narrow screens", async ({ p
 
   expect(board).not.toBeNull();
   expect(writingArea).not.toBeNull();
-  expect(board!.width / writingArea!.width).toBeCloseTo(9 / 11, 1);
+  // The text takes about 60 percent and Edda's bubble about 40, with the text to the left.
+  expect(board!.width / writingArea!.width).toBeCloseTo(2 / 3, 1);
+  expect(writingArea!.x).toBeLessThan(board!.x);
 
   await page.setViewportSize({ width: 820, height: 1000 });
   const narrowBoard = await page.locator(".board-frame").boundingBox();
@@ -564,7 +566,7 @@ test("Edda speaks her guidance and the text appears when she has finished", asyn
 
   // The hook is a heading and is not spoken; the goal that follows is Edda's guidance.
   await page.getByRole("button", { name: "Fortsätt", exact: true }).click();
-  await expect(page.getByText("Edda berättar")).toBeVisible();
+  await expect(page.locator(".edda-dots")).toBeVisible();
   await expect(page.locator(".board-ink.is-speaking")).toHaveCount(1);
   await expect(page.getByRole("button", { name: "Fortsätt", exact: true })).toHaveCount(0);
 
@@ -584,4 +586,39 @@ test("Edda speaks her guidance and the text appears when she has finished", asyn
   await page.getByRole("button", { name: "Fortsätt", exact: true }).click();
   await expect(page.getByText("Vad är en argumenterande text?")).toBeVisible();
   expect(spoken).toHaveLength(0);
+});
+
+test("student can make the text on the writing surface easier to read", async ({ page }) => {
+  await page.route("**/api/check-in", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ kind: "on_track", feedback: "Du är på rätt spår." }),
+    });
+  });
+  await page.goto("/");
+  await startLesson(page);
+  await completeEntry(page, undefined, false);
+
+  const exemplar = page.locator(".exemplar-text");
+  const sizeOf = () => exemplar.evaluate((element) => parseFloat(getComputedStyle(element).fontSize));
+  const before = await sizeOf();
+
+  await page.getByRole("button", { name: "Textformat" }).click();
+  const panel = page.getByRole("dialog", { name: "Textformat" });
+  await panel.getByRole("group", { name: "Textstorlek" }).getByRole("button", { name: "Störst" }).click();
+  await panel.getByRole("group", { name: "Radavstånd" }).getByRole("button", { name: "Större" }).click();
+  await panel.getByRole("button", { name: "Gräddvit" }).click();
+  await panel.getByRole("group", { name: "Läslinjal" }).getByRole("button", { name: "På" }).click();
+  await page.keyboard.press("Escape");
+
+  // The text keeps its larger size: it scrolls instead of shrinking to fit.
+  expect(await sizeOf()).toBeGreaterThan(before * 1.3);
+  await expect(exemplar).not.toHaveAttribute("style", /--fit-scale/);
+  await expect(page.locator(".writing-card")).toHaveCSS("background-color", "rgb(251, 245, 230)");
+
+  // The ruler follows the pointer over the writing surface.
+  const card = (await page.locator(".writing-card").boundingBox())!;
+  await page.mouse.move(card.x + card.width / 2, card.y + card.height / 2);
+  await expect(page.locator(".reading-ruler")).toBeVisible();
 });

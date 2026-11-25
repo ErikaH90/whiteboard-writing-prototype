@@ -38,9 +38,15 @@ export function useFitToHeight(
       return height;
     }
 
+    // The room inside the container: its padding is air around the content, not room for it.
+    function room() {
+      const style = window.getComputedStyle(box!);
+      return box!.clientHeight - (parseFloat(style.paddingTop) || 0) - (parseFloat(style.paddingBottom) || 0);
+    }
+
     function fitsAt(scale: number) {
       setScale(scale);
-      return naturalHeight() * scale <= box!.clientHeight + 1;
+      return naturalHeight() * scale <= room() + 1;
     }
 
     function fit() {
@@ -61,7 +67,7 @@ export function useFitToHeight(
       }
       applied = scale;
       // When the scaled content fits, the container must not scroll over the unscaled layout box.
-      if (scale < 1 && naturalHeight() * scale <= box!.clientHeight + 1) box!.setAttribute("data-fit", "scaled");
+      if (scale < 1 && naturalHeight() * scale <= room() + 1) box!.setAttribute("data-fit", "scaled");
       else box!.removeAttribute("data-fit");
       ignoreNextResize = Math.abs(before - applied) > 0.001;
     }

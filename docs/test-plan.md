@@ -126,6 +126,12 @@ Testerna ska skydda elevens självständiga skrivande, lektionsprogressionen, se
 - **API-05:** servern avvisar okända färdigheter, lärsignaler, stödnivåer och orimliga försökstal innan modellen anropas.
 - **API-06:** review-resultatets kategori valideras och används endast för att länka till en befintlig lektionsplan.
 
+### Läsinställningar
+
+- Panelen **Textformat** är stängd tills eleven öppnar den och stängs med Escape.
+- Elevens val sparas i webbläsaren och kan återställas.
+- Större text behåller sin storlek i exempeltexten (rullas i stället för att krympas), bakgrundsfärgen byts och läslinjalen följer pekaren.
+
 ### Markeringar och kommentarer
 
 - **MARK-01:** varje markering återger exakt den delsträng och de positioner som analysen avser.

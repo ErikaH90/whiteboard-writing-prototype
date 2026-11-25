@@ -20,7 +20,7 @@ export default function SubmissionChecklist() {
   return (
     <div className="board-activity submission-checklist">
       <p className="board-prompt"><Written byHand>Checklista inför inlämning</Written></p>
-      <p className="board-small-note"><Written>Gå igenom punkterna i din text till höger. Klicka för att bocka av när du är klar med en punkt.</Written></p>
+      <p className="board-small-note"><Written>Gå igenom punkterna i din text. Klicka för att bocka av när du är klar med en punkt.</Written></p>
       <AfterWriting>
         <p className="checklist-count" role="status">{done.length} av {totalItems} avklarade</p>
         <div className="checklist-sections" role="group" aria-label="Checklistans delar">

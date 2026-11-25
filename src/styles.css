@@ -346,7 +346,7 @@ input:focus-visible {
   max-width: 600px;
   margin: 0 auto;
   color: #48505c;
-  font-size: 22px;
+  font-size: 18px;
   line-height: 1.45;
 }
 
@@ -429,7 +429,7 @@ input:focus-visible {
 .board-prompt {
   margin: 0 0 16px;
   color: #686e7a;
-  font-size: 28px;
+  font-size: 22px;
 }
 
 .example-pair {
@@ -491,14 +491,14 @@ input:focus-visible {
 .example-card p {
   margin: 0;
   color: #515560;
-  font-size: 20px;
+  font-size: 16px;
   line-height: 1.48;
 }
 
 .board-question {
   margin: 14px 0 0;
   color: #3f8fbf;
-  font-size: 21px;
+  font-size: 17px;
   line-height: 1.35;
 }
 
@@ -506,7 +506,7 @@ input:focus-visible {
   max-width: 560px;
   margin: 0 auto;
   color: #48505c;
-  font-size: 23px;
+  font-size: 18px;
   line-height: 1.5;
 }
 
@@ -576,13 +576,13 @@ input:focus-visible {
 .exit-ticket-title {
   margin: 0;
   color: #4a515d;
-  font-size: 23px;
+  font-size: 18px;
   font-weight: 400;
   line-height: 1.25;
 }
 
 .exit-ticket .check-in-question {
-  font-size: 20px;
+  font-size: 16px;
 }
 
 .exit-ticket-actions {
@@ -641,7 +641,7 @@ input:focus-visible {
 .check-in-question {
   margin: 0 0 2px;
   color: #3e4651;
-  font-size: 18px;
+  font-size: 15px;
   line-height: 1.35;
 }
 
@@ -657,7 +657,7 @@ input:focus-visible {
   background: #fff;
   color: #5b606b;
   cursor: pointer;
-  font-size: 17px;
+  font-size: 15px;
   line-height: 1.3;
   text-align: left;
 }
@@ -688,7 +688,7 @@ input:focus-visible {
   border-radius: 11px;
   background: #fff;
   color: #464b55;
-  font-size: 17px;
+  font-size: 15px;
   line-height: 1.4;
 }
 
@@ -767,7 +767,7 @@ input:focus-visible {
 
 .recall-activity .activity-instruction {
   max-width: 510px;
-  font-size: 26px;
+  font-size: 21px;
 }
 
 .checklist {
@@ -907,7 +907,7 @@ input:focus-visible {
   overflow: hidden;
   border: 1px solid #e8e9ec;
   border-radius: 25px;
-  background: #fff;
+  background: var(--read-paper, #fff);
   box-shadow: 0 2px 3px rgba(39, 43, 52, 0.07);
 }
 
@@ -1266,8 +1266,10 @@ input:focus-visible {
   background: transparent;
   color: #4d515b;
   font-family: "DM Serif Text", Georgia, serif;
-  font-size: 16px;
-  line-height: 1.75;
+  font-size: calc(16px * var(--read-size, 1));
+  line-height: calc(1.75 + var(--read-line-add, 0));
+  letter-spacing: var(--read-letter, normal);
+  word-spacing: var(--read-word, normal);
 }
 
 .text-editor::placeholder {
@@ -1309,8 +1311,10 @@ input:focus-visible {
   padding: 15px 2px 18px;
   color: #4d515b;
   font-family: "DM Serif Text", Georgia, serif;
-  font-size: 16px;
-  line-height: 1.75;
+  font-size: calc(16px * var(--read-size, 1));
+  line-height: calc(1.75 + var(--read-line-add, 0));
+  letter-spacing: var(--read-letter, normal);
+  word-spacing: var(--read-word, normal);
   white-space: pre-wrap;
   overflow-wrap: break-word;
   pointer-events: none;
@@ -1615,15 +1619,15 @@ input:focus-visible {
   }
 
   .example-card p {
-    font-size: 18px;
+    font-size: 15px;
   }
 
   .board-question {
-    font-size: 18px;
+    font-size: 15px;
   }
 
   .activity-instruction {
-    font-size: 21px;
+    font-size: 17px;
   }
 
   .board-footer {
@@ -1687,7 +1691,7 @@ input:focus-visible {
   max-width: 540px;
   margin: 4px 0 16px;
   color: #48505c;
-  font-size: 21px;
+  font-size: 17px;
   line-height: 1.4;
 }
 
@@ -1781,14 +1785,16 @@ input:focus-visible {
   padding: 4px 2px 20px;
   color: #4d515b;
   font-family: "DM Serif Text", Georgia, serif;
-  font-size: 16px;
-  line-height: 1.75;
+  font-size: calc(16px * var(--read-size, 1));
+  line-height: calc(1.75 + var(--read-line-add, 0));
+  letter-spacing: var(--read-letter, normal);
+  word-spacing: var(--read-word, normal);
 }
 
 .exemplar-text h2 {
   margin: 0 0 10px;
   color: #343a47;
-  font-size: 21px;
+  font-size: calc(21px * var(--read-size, 1));
   font-weight: 400;
   line-height: 1.35;
 }
@@ -1905,7 +1911,7 @@ input:focus-visible {
   .app-shell.is-fitted .exemplar-panel:not(.is-recap) .exemplar-text {
     width: calc(100% / var(--fit-scale, 1));
     padding-bottom: 6px;
-    line-height: 1.6;
+    line-height: calc(1.6 + var(--read-line-add, 0));
     transform: scale(var(--fit-scale, 1));
     transform-origin: top left;
   }
@@ -1961,7 +1967,7 @@ input:focus-visible {
 .example-option .example-text {
   display: block;
   color: #515560;
-  font-size: 20px;
+  font-size: 16px;
   line-height: 1.48;
 }
 
@@ -1979,7 +1985,7 @@ input:focus-visible {
 
 @media (max-width: 480px) {
   .example-option .example-text {
-    font-size: 18px;
+    font-size: 15px;
   }
 }
 
@@ -2018,7 +2024,7 @@ input:focus-visible {
   border-radius: 10px;
   background: #fff3b0;
   color: #48505c;
-  font-size: 20px;
+  font-size: 16px;
   line-height: 1.4;
 }
 
@@ -2036,7 +2042,7 @@ input:focus-visible {
   max-width: 560px;
   margin: 10px auto 0;
   color: #3f4652;
-  font-size: 30px;
+  font-size: 24px;
   line-height: 1.35;
 }
 
@@ -2110,7 +2116,7 @@ input:focus-visible {
   padding: 0;
   list-style: none;
   color: #48505c;
-  font-size: 17px;
+  font-size: 15px;
   line-height: 1.35;
 }
 
@@ -2226,7 +2232,7 @@ input:focus-visible {
   gap: 8px;
   margin: 0;
   color: #48505c;
-  font-size: 17px;
+  font-size: 15px;
 }
 
 /* ==========================================================================
@@ -2579,7 +2585,7 @@ input:focus-visible {
   border: 1px solid var(--surface-line);
   border-radius: 10px;
   color: var(--board-ink);
-  font-size: 19px;
+  font-size: 15px;
   line-height: 1.35;
 }
 
@@ -2609,7 +2615,7 @@ input:focus-visible {
   border: 1px dashed var(--surface-line);
   border-radius: 10px;
   color: var(--board-ink);
-  font-size: 19px;
+  font-size: 15px;
   line-height: 1.35;
 }
 
@@ -2621,7 +2627,7 @@ input:focus-visible {
   border: 1px solid var(--surface-line);
   border-radius: 12px;
   color: var(--board-ink);
-  font-size: 22px;
+  font-size: 18px;
   line-height: 1.7;
 }
 
@@ -2664,7 +2670,7 @@ input:focus-visible {
   padding: 0;
   list-style: none;
   color: var(--board-ink);
-  font-size: 18px;
+  font-size: 15px;
   line-height: 1.35;
 }
 
@@ -2679,7 +2685,7 @@ input:focus-visible {
 }
 
 .error-hunt .compare-quote {
-  font-size: 20px;
+  font-size: 16px;
 }
 
 /* Edda's response to the student's own text: a strength and something to try, equally visible */
@@ -2708,14 +2714,14 @@ input:focus-visible {
   border-radius: 12px;
   background: #f6f3fe;
   color: var(--board-ink);
-  font-size: 19px;
+  font-size: 15px;
   line-height: 1.35;
 }
 
 .task-link {
   margin: 0;
   color: var(--board-ink);
-  font-size: 19px;
+  font-size: 15px;
   line-height: 1.4;
 }
 
@@ -2748,7 +2754,7 @@ input:focus-visible {
   border: 1px solid var(--surface-line);
   border-radius: 12px;
   color: var(--board-ink);
-  font-size: 18px;
+  font-size: 15px;
   line-height: 1.35;
 }
 
@@ -2759,7 +2765,7 @@ input:focus-visible {
 
 .self-check-quote {
   color: #2f6b47;
-  font-size: 17px;
+  font-size: 15px;
 }
 
 .develop-next {
@@ -2834,7 +2840,7 @@ input:focus-visible {
 
 .board-prompt.welcome-title {
   margin: 0 0 14px;
-  font-size: 44px;
+  font-size: 35px;
   font-weight: 400;
 }
 
@@ -2855,7 +2861,7 @@ input:focus-visible {
   color: var(--board-ink);
   cursor: pointer;
   font-family: inherit;
-  font-size: 24px;
+  font-size: 19px;
   text-align: left;
 }
 
@@ -2866,7 +2872,7 @@ input:focus-visible {
 }
 
 .topic-icon {
-  font-size: 24px;
+  font-size: 19px;
 }
 
 .lesson-plan {
@@ -3064,7 +3070,7 @@ input:focus-visible {
   margin: 0;
   color: #5b46c4;
   font-family: inherit;
-  font-size: 17px;
+  font-size: 15px;
 }
 
 .checklist-sections {
@@ -3327,7 +3333,7 @@ input:focus-visible {
   border-radius: 10px;
   background: #e9f6ec;
   color: #2f6b47;
-  font-size: 18px;
+  font-size: 15px;
 }
 
 .map-detail .edda-says {
@@ -3341,7 +3347,7 @@ input:focus-visible {
 
 .map-detail .develop-note {
   margin: 0;
-  font-size: 17px;
+  font-size: 15px;
 }
 
 .map-actions {
@@ -3370,7 +3376,7 @@ input:focus-visible {
   gap: 6px;
   margin-top: 14px;
   color: var(--board-ink);
-  font-size: 18px;
+  font-size: 15px;
 }
 
 .own-choice-row {
@@ -3396,7 +3402,7 @@ input:focus-visible {
 .welcome-question {
   margin: 18px 0 0;
   color: var(--board-ink);
-  font-size: 26px;
+  font-size: 21px;
 }
 
 .topic-choices.is-compact {
@@ -3427,7 +3433,7 @@ input:focus-visible {
   justify-content: center;
   gap: 4px 10px;
   color: #2f6b47;
-  font-size: 17px;
+  font-size: 15px;
 }
 
 .demo-map-row {
@@ -3478,7 +3484,7 @@ input:focus-visible {
   border-radius: 12px;
   background: #f6f3fe;
   color: var(--board-ink);
-  font-size: 18px;
+  font-size: 15px;
   line-height: 1.35;
 }
 
@@ -3499,7 +3505,7 @@ input:focus-visible {
   gap: 8px;
   margin: 8px 0;
   color: #2f6b47;
-  font-size: 19px;
+  font-size: 15px;
 }
 
 .focus-walk > .text-button {
@@ -3515,7 +3521,7 @@ input:focus-visible {
   border-radius: 0 10px 10px 0;
   background: #f8f6fe;
   color: var(--board-ink);
-  font-size: 19px;
+  font-size: 15px;
   line-height: 1.4;
 }
 
@@ -3610,7 +3616,7 @@ input:focus-visible {
   gap: 8px 12px;
   margin: 12px 0 0;
   color: var(--board-ink);
-  font-size: 18px;
+  font-size: 15px;
 }
 
 /* More practice on a part chosen in the writing map */
@@ -3630,7 +3636,7 @@ input:focus-visible {
 
 .practice-reason {
   color: var(--board-ink);
-  font-size: 19px;
+  font-size: 15px;
   line-height: 1.35;
 }
 
@@ -3661,7 +3667,7 @@ input:focus-visible {
 .edda-steps-back {
   margin: 6px 0;
   color: #5b46c4;
-  font-size: 18px;
+  font-size: 15px;
   line-height: 1.35;
 }
 
@@ -3678,7 +3684,7 @@ input:focus-visible {
 .edda-line .edda-bubble {
   color: var(--board-ink);
   font-family: "Patrick Hand", cursive;
-  font-size: 22px;
+  font-size: 18px;
   line-height: 1.35;
 }
 
@@ -3706,8 +3712,8 @@ input:focus-visible {
   .app-shell.is-fitted .exemplar-panel:not(.is-recap):not(.is-compare) .exemplar-text {
     padding: 0 0 4px;
     color: #3d424d;
-    font-size: 18px;
-    line-height: 1.64;
+    font-size: calc(18px * var(--read-size, 1));
+    line-height: calc(1.64 + var(--read-line-add, 0));
     hyphens: auto;
     text-wrap: pretty;
   }
@@ -3717,7 +3723,7 @@ input:focus-visible {
     padding-bottom: 14px;
     border-bottom: 1px solid #e3e6ec;
     color: #262a33;
-    font-size: 30px;
+    font-size: calc(30px * var(--read-size, 1));
     line-height: 1.25;
     text-wrap: balance;
   }
@@ -3810,10 +3816,307 @@ p:has(> .board-ink.is-said[data-keys="0"]) {
   border-radius: 0 10px 10px 0;
   background: #f1f9f3;
   color: var(--board-ink);
-  font-size: 19px;
+  font-size: 15px;
   line-height: 1.4;
 }
 
 .own-words .compare-label {
   display: block;
+}
+
+/* Reading settings: the student's own text size, spacing, paper colour and reading ruler.
+   The variables --read-size, --read-line-add, --read-letter, --read-word and --read-paper are set
+   on the app shell (see lib/readingSettings.ts) and read by the texts on the writing surface. */
+
+.reading-settings {
+  position: relative;
+}
+
+.reading-settings-icon {
+  font-family: "DM Serif Text", Georgia, serif;
+  font-size: 15px;
+  font-weight: 400;
+}
+
+.reading-settings-button.is-changed {
+  border-color: #b8c8f5;
+  background: #eef3fe;
+  color: var(--action);
+}
+
+.reading-settings-panel {
+  position: fixed;
+  z-index: 30;
+  display: grid;
+  width: min(290px, calc(100vw - 16px));
+  max-height: calc(100vh - 80px);
+  overflow-y: auto;
+  font-family: "DM Sans", "Segoe UI", sans-serif;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid var(--surface-line);
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 10px 30px rgba(39, 43, 52, 0.16);
+}
+
+.reading-choice {
+  display: grid;
+  gap: 6px;
+}
+
+.reading-choice-label {
+  color: #4e535e;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.reading-choice-options {
+  display: flex;
+  gap: 6px;
+}
+
+.reading-choice-options button {
+  min-height: 36px;
+  flex: 1;
+  padding: 6px 8px;
+  border: 1px solid var(--surface-line);
+  border-radius: 9px;
+  background: #fff;
+  color: #2d3140;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+}
+
+.reading-choice-options button[aria-pressed="true"] {
+  border-color: var(--action);
+  background: #eef3fe;
+  color: var(--action);
+  font-weight: 600;
+}
+
+.reading-choice-options .reading-paper {
+  flex: none;
+  width: 36px;
+  border-radius: 50%;
+}
+
+.reading-choice-options .reading-paper[aria-pressed="true"] {
+  box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--action);
+}
+
+.reading-reset {
+  justify-self: start;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--action);
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  text-decoration: underline;
+}
+
+.reading-ruler {
+  position: fixed;
+  z-index: 5;
+  border-top: 2px solid rgba(47, 91, 234, 0.55);
+  border-bottom: 2px solid rgba(47, 91, 234, 0.55);
+  background: rgba(47, 91, 234, 0.07);
+  pointer-events: none;
+}
+
+/* Larger or wider text does not shrink to fit: the exemplar scrolls instead. */
+.app-shell.has-roomy-text.is-fitted .exemplar-panel:not(.is-recap) .exemplar-stage {
+  overflow-y: auto;
+}
+
+/* Words are not broken over two lines when the student has asked for roomier text. */
+.app-shell.has-roomy-text.is-fitted .exemplar-panel:not(.is-recap):not(.is-compare) .exemplar-text {
+  hyphens: manual;
+}
+
+/* Page layout without the whiteboard: the text is the page, to the left, and Edda speaks from a
+   bubble beside it. The former whiteboard markup (board-frame, board-surface, board-content) is
+   now Edda's bubble. */
+
+:root {
+  background: #fff;
+}
+
+.board-frame {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+
+.frame-corner {
+  display: none;
+}
+
+.board-surface {
+  --board-font: "DM Sans", "Segoe UI", sans-serif;
+  min-height: 0;
+  padding: 26px 26px 34px 22px;
+  border-radius: 0;
+  background: none;
+}
+
+.board-content,
+.app-shell.is-fitted .board-content {
+  position: relative;
+  width: 100%;
+  min-height: 0;
+  flex: none;
+  margin: 0;
+  padding: 26px 28px 22px 84px;
+  border: 1px solid #e6e8ee;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 14px 26px rgba(39, 43, 52, 0.08);
+}
+
+/* The tail of the bubble points at the text. */
+.board-content::before {
+  position: absolute;
+  top: 38px;
+  left: -8px;
+  width: 14px;
+  height: 14px;
+  border-bottom: 1px solid #e6e8ee;
+  border-left: 1px solid #e6e8ee;
+  background: #fff;
+  content: "";
+  transform: rotate(45deg);
+}
+
+.edda-face.edda-host {
+  position: absolute;
+  top: 24px;
+  left: 26px;
+  width: 42px;
+  height: 42px;
+  box-shadow: none;
+}
+
+.edda-face.edda-host::before,
+.edda-face.edda-host::after {
+  top: 15px;
+  width: 6px;
+  height: 11px;
+}
+
+.edda-face.edda-host::before {
+  left: 12px;
+}
+
+.edda-face.edda-host::after {
+  right: 12px;
+}
+
+/* Edda's face sits at the top of the bubble, so her words need no face or bubble of their own. */
+.board-content .edda-speaking .edda-face,
+.board-content .edda-says .edda-face {
+  display: none;
+}
+
+/* "Edda berättar" is still read out by screen readers. */
+.board-content .edda-name {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.board-content .edda-dots {
+  padding: 14px 0;
+  border: 0;
+}
+
+.writing-card {
+  min-height: 0;
+  border: 0;
+  border-radius: 16px;
+  box-shadow: none;
+}
+
+@media (min-width: 901px) {
+  .workspace-grid {
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+    gap: 28px;
+  }
+
+  .workspace-grid > .writing-card {
+    order: -1;
+  }
+
+  /* Before there is a text to show, Edda has the page to herself. */
+  .workspace-grid:has(> .writing-card:empty) {
+    grid-template-columns: minmax(0, 680px);
+    justify-content: center;
+  }
+
+  .workspace-grid > .writing-card:empty {
+    display: none;
+  }
+
+  .workspace-grid:has(> .writing-card:empty) .board-content::before,
+  .workspace-grid.is-final-recall .board-content::before {
+    display: none;
+  }
+}
+
+@media (min-width: 901px) and (min-height: 480px) {
+  .app-shell.is-fitted .board-content {
+    width: calc(100% / var(--fit-scale, 1));
+    min-height: 0;
+    align-self: flex-start;
+    padding: 26px 28px 22px 84px;
+    transform-origin: top left;
+  }
+}
+
+@media (max-width: 900px) {
+  .board-surface {
+    padding: 8px 4px 20px;
+  }
+
+  .board-content::before {
+    display: none;
+  }
+}
+
+.board-content .board-hook {
+  font-size: 20px;
+  line-height: 1.4;
+}
+
+.board-content .board-prompt.welcome-title {
+  font-size: 28px;
+}
+
+/* Edda's answer is a soft box inside her bubble, not a second bubble. */
+.board-content .edda-bubble:not(.edda-dots) {
+  border: 1px solid #ddd6f6;
+  border-radius: 14px;
+  background: #f8f6fe;
+}
+
+/* A small label above the exemplar's headline, as on a page in a reader. */
+.exemplar-panel:not(.is-compare) .exemplar-text::before {
+  display: block;
+  margin-bottom: 10px;
+  color: #9498a6;
+  content: "Exempeltext";
+  font-family: "DM Sans", "Segoe UI", sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }

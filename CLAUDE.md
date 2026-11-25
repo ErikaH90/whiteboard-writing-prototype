@@ -5,12 +5,12 @@ Bygg en fristående skrivcoach för argumenterande text i svenska årskurs 9. El
 ## Icke förhandlingsbara principer
 
 - AI:n får aldrig skriva eller ersätta elevens text.
-- Följ samma formspråk som matematikvyn (se `docs/design.md`): lila rubriker på whiteboarden, Edda som figur med pratbubbla och blå huvudknappar. Whiteboarden behåller sin mörka ram med markerade hörn och vita yta; varken den eller skrivytan har rutnät. Introducera inte en ny designidentitet.
-- Använd det lokalt bundlade typsnittet Patrick Hand på whiteboarden; ändra inte skrivytans typsnitt.
-- På breda skärmar ska whiteboarden ta cirka 40 procent och skrivytan 60 procent; stapla panelerna på smalare skärmar.
+- Följ formspråket i `docs/design.md`, samma som läsförståelseprototypen: vit sida med texten till vänster, Edda som figur i en pratbubbla bredvid texten, lila rubriker och blå huvudknappar. Det finns ingen whiteboard och inga rutnät. Introducera inte en ny designidentitet.
+- Ändra inte skrivytans typsnitt.
+- På breda skärmar ska texten ta cirka 60 procent och Eddas bubbla 40 procent; stapla dem på smalare skärmar.
 - Alla moment ska följa modellering, träning, återkallning, självkontroll och slutbedömning.
 - Lektionen är guidad: eleven går framåt ett steg i taget och Edda bestämmer om skrivytan visar exempeltexten eller elevens egen text. Fri navigering (`?fri`) är bara till för visning och granskning.
-- Whiteboarden ska stämma av elevens förståelse med ett valbart alternativ eller ett eget svar i varje lektionssteg.
+- Edda ska stämma av elevens förståelse med ett valbart alternativ eller ett eget svar i varje lektionssteg.
 - Hitta inte på kursplans- eller betygskriterier. En AI-analys är inte ett officiellt betyg.
 - OpenAI-anrop får bara ske via servern efter elevens uttryckliga handling. Gränssnittet visar ingen särskild upplysning om OpenAI.
 - API-nycklar får aldrig läsas in i klienten, loggas eller läggas till i versionshantering. Använd aldrig verkliga elevtexter i tester.

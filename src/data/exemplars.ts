@@ -83,7 +83,7 @@ export const exemplarLabels: Record<ExemplarId, string> = {
 
 export const exemplarFocus: Record<SkillId, ExemplarFocus> = {
   structure: {
-    boardNote: "Vi går igenom hur exempeltexten är uppbyggd, en del i taget. Följ det som lyser gult till höger.",
+    boardNote: "Vi går igenom hur exempeltexten är uppbyggd, en del i taget. Följ det som lyser gult i texten.",
     boardKeys: ["Textens delar", "Det gula i texten"],
     highlights: {
       strong: [
@@ -105,7 +105,7 @@ export const exemplarFocus: Record<SkillId, ExemplarFocus> = {
     },
   },
   reasoning: {
-    boardNote: "Vi tittar på vad som gör ett argument utvecklat. Först jämför vi två inledningar, sedan går vi igenom begreppen i texten. Följ det som lyser gult till höger.",
+    boardNote: "Vi tittar på vad som gör ett argument utvecklat. Först jämför vi två inledningar, sedan går vi igenom begreppen i texten. Följ det som lyser gult i texten.",
     boardKeys: ["Två inledningar jämförs", "Begreppen i texten"],
     comparisons: [
       {
@@ -161,7 +161,7 @@ export const exemplarFocus: Record<SkillId, ExemplarFocus> = {
     },
   },
   cohesion: {
-    boardNote: "Vi tittar på hur sambandsord binder ihop en text. Först ser vi hur tre lösa meningar blir en sammanhängande text, sedan går vi igenom sambandsorden i exempeltexten. Följ det som lyser gult till höger.",
+    boardNote: "Vi tittar på hur sambandsord binder ihop en text. Först ser vi hur tre lösa meningar blir en sammanhängande text, sedan går vi igenom sambandsorden i exempeltexten. Följ det som lyser gult i texten.",
     boardKeys: ["Lösa meningar blir en text", "Sambandsorden i texten"],
     comparisons: [
       {
@@ -326,7 +326,7 @@ export const exemplarFocus: Record<SkillId, ExemplarFocus> = {
     },
   },
   language: {
-    boardNote: "Först tittar vi på hur exempeltexten till höger använder skiljetecken och ordval. Sedan får du leta språkfel i en annan text, här på tavlan.",
+    boardNote: "Först tittar vi på hur exempeltexten använder skiljetecken och ordval. Sedan får du leta språkfel i en annan text, här hos mig.",
     boardKeys: ["Skiljetecken och ordval", "Leta språkfel"],
     hunt: {
       intro: "Här är en påhittad elevtext med flera språkfel. Kan du hitta dem?",

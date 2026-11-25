@@ -48,7 +48,7 @@ describe("the student's writing map", () => {
     renderMap({ isEmpty: true });
 
     expect(screen.getByRole("button", { name: "Visa min skrivkarta" })).toBeDisabled();
-    expect(screen.getByRole("status")).toHaveTextContent("Skriv i din text till höger först.");
+    expect(screen.getByRole("status")).toHaveTextContent("Skriv i din text först.");
   });
 
   it("shows each part's level, lets the student choose a part and shows Edda's evidence for it", async () => {
