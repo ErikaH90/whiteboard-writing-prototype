@@ -4185,3 +4185,25 @@ button.topbar-map[aria-expanded="true"] {
 .topic-choice:has(.topic-picture) {
   padding: 10px 18px 10px 10px;
 }
+
+/* The written version of what Edda has said aloud, at the start of the last chapter */
+
+.recap-list {
+  display: grid;
+  gap: 10px;
+  margin: 4px 0 6px;
+}
+
+.recap-list dt {
+  margin-bottom: 2px;
+  color: var(--purple);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.recap-list dd {
+  margin: 0;
+  color: var(--board-ink);
+  font-size: 15px;
+  line-height: 1.4;
+}

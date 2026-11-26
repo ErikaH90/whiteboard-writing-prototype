@@ -35,7 +35,7 @@ import { challengeFor, taskAt, type Challenge } from "./lib/challenge";
 import { readingStyle, takesMoreRoom, useReadingSettings } from "./lib/readingSettings";
 import { useExemplarAudio } from "./lib/useExemplarAudio";
 import { AfterWriting, BoardSequence, BoardStep, Written } from "./components/BoardWriting";
-import { finalRecallQuestions, lessons, phases, type LearningEvidence, type SkillId } from "./data/lessons";
+import { finalRecallQuestions, lessons, phases, spokenRecap, type LearningEvidence, type SkillId } from "./data/lessons";
 import {
   reviewDraft,
   type Finding,
@@ -1523,6 +1523,24 @@ function App() {
                       onEvidence={recordCheck}
                       onDone={markAttempted}
                     />
+                  </BoardStep>
+                )}
+                {phaseIndex === 0 && lessonIndex === lessons.length - 1 && (
+                  // What Edda has said aloud in the earlier chapters, to read before the final text.
+                  <BoardStep pause>
+                    <div className="board-activity spoken-recap">
+                      <p className="board-prompt"><Written byHand>Det här har vi gått igenom muntligt</Written></p>
+                      <AfterWriting>
+                        <dl className="recap-list">
+                          {spokenRecap.map((chapter) => (
+                            <div key={chapter.title}>
+                              <dt>{chapter.title}</dt>
+                              {chapter.points.map((point) => <dd key={point}>{point}</dd>)}
+                            </div>
+                          ))}
+                        </dl>
+                      </AfterWriting>
+                    </div>
                   </BoardStep>
                 )}
                 {phaseIndex === 0 && walkthrough.length === 0 && (

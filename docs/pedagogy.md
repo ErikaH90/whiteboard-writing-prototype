@@ -219,3 +219,8 @@ Appen ska bygga elevens inre motivation enligt självbestämmandeteorin, inte st
 - Nivån bestäms när eleven kommer fram till uppgiften och ligger sedan fast, så att uppgiften inte ändras medan eleven arbetar.
 - Nivån gäller nästa uppgift, inte eleven. Den är inte ett betyg, visas inte och sparas bara i webbläsaren.
 - Gränserna (under 0,40 ger det mindre steget, från 0,72 det längre) och hur mycket varje svar väger är antaganden som bör prövas med elever. De ligger i `src/lib/challenge.ts`.
+
+## Det muntliga i skrift före slutdiagnosen
+
+- Edda förklarar muntligt, och orden försvinner när steget är klart. Sista kapitlet börjar därför med **Det här har vi gått igenom muntligt**: en kort skriftlig version av kapitel 1–5, två rader per kapitel (`spokenRecap` i `src/data/lessons.ts`).
+- Den visas en gång, läses inte upp och ligger före arbetet med elevens egen text. Återkallningsrundan från alla kapitel kommer senare, så att eleven ändå får hämta kunskapen ur minnet.

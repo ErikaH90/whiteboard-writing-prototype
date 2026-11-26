@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 import { exemplarSetForTopic, modellingFlow } from "./data/exemplars";
-import { finalRecallQuestions, lessons } from "./data/lessons";
+import { finalRecallQuestions, lessons, spokenRecap } from "./data/lessons";
 import { topicStorageKey, writingTopics } from "./data/topics";
 import { clearExemplarAudioCache } from "./lib/exemplarAudio";
 import { learnerProfileKey } from "./lib/learnerProfile";
@@ -1261,5 +1261,37 @@ describe("writing coach", () => {
     await waitFor(() => {
       expect(JSON.parse(window.localStorage.getItem(learnerProfileKey)!).interest).toBe(testSet.interest);
     });
+  });
+
+  it("opens the last chapter with a written version of what Edda has gone through aloud", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await startLesson(user);
+    await user.click(screen.getByRole("button", { name: /^Kapitel 6:/ }));
+    // The chapter opens like the others: a line to catch attention, the goal and a question to recall.
+    for (let stop = 0; stop < 8 && !screen.queryByText("Det här har vi gått igenom muntligt"); stop += 1) {
+      const answer = screen.queryByRole("textbox", { name: "Ditt svar, utan ledtråd" });
+      if (answer && !screen.queryByRole("button", { name: "Börja momentet" })) {
+        await user.type(answer, "Jag läser meningen högt.");
+        await user.click(screen.getByRole("button", { name: "Svara" }));
+        await screen.findByRole("button", { name: "Börja momentet" });
+      }
+      await user.click(screen.getByRole("button", { name: /^(Fortsätt|Börja momentet)$/ }));
+    }
+
+    expect(await screen.findByText("Det här har vi gått igenom muntligt")).toBeVisible();
+    // One short heading for each of the five chapters, with what was said under it.
+    for (const chapter of spokenRecap) {
+      expect(screen.getByText(chapter.title, { selector: "dt" })).toBeVisible();
+      for (const point of chapter.points) expect(screen.getByText(point)).toBeVisible();
+    }
+    expect(spokenRecap.map((chapter) => chapter.title)).toEqual(lessons.slice(0, 5).map((item) => item.shortTitle));
+    // It is the written version, so it is not read aloud again.
+    expect(document.querySelector(".spoken-recap .is-speaking")).toBeNull();
+
+    // The student goes on to the chapter's own first step when they have read it.
+    expect(screen.queryByText(lessons[5].model.question)).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Fortsätt" }));
+    expect(await screen.findByText(lessons[5].model.question)).toBeVisible();
   });
 });

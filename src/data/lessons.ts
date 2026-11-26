@@ -501,3 +501,45 @@ export const lessons: Lesson[] = [
     exitTicket: null,
   },
 ];
+
+/**
+ * What Edda has gone through aloud in chapters 1–5, as a short written version. It is shown once,
+ * at the start of the last chapter, so that what was said is there to read before the final text.
+ */
+export const spokenRecap: { title: string; points: string[] }[] = [
+  {
+    title: "Struktur",
+    points: [
+      "Rubriken och tesen visar vad du tycker.",
+      "Ett argument per stycke, ett motargument som du bemöter och en avslutning som knyter tillbaka till tesen.",
+    ],
+  },
+  {
+    title: "Resonemang",
+    points: [
+      "Ett argument är ett skäl för tesen.",
+      "Förklara skälet, stöd det med något som går att kontrollera och visa vad det leder till.",
+    ],
+  },
+  {
+    title: "Textbindning",
+    points: [
+      "Sambandsord visar hur tankarna hänger ihop: ordning, orsak, följd, kontrast och tillägg.",
+      "Till exempel: för det första, eftersom, därför, däremot, dessutom.",
+    ],
+  },
+  {
+    title: "Meningsbyggnad",
+    points: [
+      "Variera ordvalet, hur meningarna börjar och hur långa de är.",
+      "En kort mening efter en lång ger det viktiga tyngd.",
+    ],
+  },
+  {
+    title: "Språk",
+    points: [
+      "Stor bokstav i början och punkt i slutet av varje mening.",
+      "Skriv ihop sammansatta ord och välj skriftspråk i stället för talspråk.",
+    ],
+  },
+];
