@@ -2871,10 +2871,6 @@ input:focus-visible {
   outline: none;
 }
 
-.topic-icon {
-  font-size: 19px;
-}
-
 .lesson-plan {
   display: flex;
   min-height: 0;
@@ -4119,4 +4115,73 @@ p:has(> .board-ink.is-said[data-keys="0"]) {
   font-weight: 600;
   letter-spacing: 0.12em;
   text-transform: uppercase;
+}
+
+/* The small writing map in the top bar is a button: it opens the whole wheel. */
+
+button.topbar-map {
+  padding: 3px;
+  border: 1px solid transparent;
+  border-radius: 50%;
+  background: none;
+  cursor: pointer;
+}
+
+button.topbar-map:hover,
+button.topbar-map[aria-expanded="true"] {
+  border-color: #b8c8f5;
+  background: #eef3fe;
+}
+
+.topbar-map-panel {
+  position: fixed;
+  z-index: 30;
+  width: min(380px, calc(100vw - 16px));
+  padding: 14px 16px 12px;
+  border: 1px solid var(--surface-line);
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 10px 30px rgba(39, 43, 52, 0.16);
+  font-family: "DM Sans", "Segoe UI", sans-serif;
+}
+
+.topbar-map-panel .map-wheel {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.topbar-map-note {
+  margin: 8px 0 0;
+  color: #777d88;
+  font-size: 13px;
+  text-align: center;
+}
+
+/* Drawn pictures for the writing topics, instead of emoji */
+
+.topic-picture {
+  width: 46px;
+  height: 46px;
+  flex: none;
+}
+
+.topic-picture-tile {
+  fill: #eef3fe;
+}
+
+.topic-picture.is-phones .topic-picture-tile {
+  fill: #f1edfc;
+}
+
+.topic-picture.is-leisure .topic-picture-tile {
+  fill: #e8f5ec;
+}
+
+.topic-picture.is-own .topic-picture-tile {
+  fill: #fdf5dc;
+}
+
+.topic-choice:has(.topic-picture) {
+  padding: 10px 18px 10px 10px;
 }

@@ -1,4 +1,5 @@
-import type { KeyboardEvent } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
+import { createPortal } from "react-dom";
 import type { MapPart, MapSkill } from "../lib/coachApi";
 import { AfterWriting, Written } from "./BoardWriting";
 
@@ -115,6 +116,84 @@ export function MapWheel({ label, taught, levelOf, selected = null, onSelect, co
       <rect className="map-eye" height="11" rx="2.5" width="5" x="-9" y="-6" />
       <rect className="map-eye" height="11" rx="2.5" width="5" x="4" y="-6" />
     </svg>
+  );
+}
+
+/**
+ * The small map in the top bar. It is there from the start, and a click opens the whole wheel, so
+ * that the student can see for themselves how it is coloured in along the way.
+ */
+export function TopbarMap({ taught, levelOf, hasReading }: {
+  taught: MapSkill[];
+  levelOf: (skill: MapSkill) => number | null;
+  /** Edda has read the student's text at least once. */
+  hasReading: boolean;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    if (!isOpen) return;
+    function place() {
+      const button = buttonRef.current?.getBoundingClientRect();
+      const panel = panelRef.current;
+      if (!button || !panel) return;
+      const left = button.left + button.width / 2 - panel.offsetWidth / 2;
+      panel.style.left = `${Math.max(8, Math.min(left, window.innerWidth - panel.offsetWidth - 8))}px`;
+      panel.style.top = `${button.bottom + 10}px`;
+    }
+    place();
+    window.addEventListener("resize", place);
+    return () => window.removeEventListener("resize", place);
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    function closeOutside(event: PointerEvent) {
+      const target = event.target as Node;
+      if (!buttonRef.current?.contains(target) && !panelRef.current?.contains(target)) setIsOpen(false);
+    }
+    function closeOnEscape(event: globalThis.KeyboardEvent) {
+      if (event.key === "Escape") setIsOpen(false);
+    }
+    document.addEventListener("pointerdown", closeOutside);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOutside);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [isOpen]);
+
+  return (
+    <>
+      <button
+        aria-expanded={isOpen}
+        aria-haspopup="dialog"
+        aria-label="Min skrivkarta"
+        className="topbar-map"
+        onClick={() => setIsOpen(!isOpen)}
+        ref={buttonRef}
+        title="Min skrivkarta"
+        type="button"
+      >
+        <MapWheel compact label="Din skrivkarta i litet format" levelOf={levelOf} taught={taught} />
+      </button>
+      {isOpen && createPortal(
+        <div aria-label="Min skrivkarta" className="topbar-map-panel" ref={panelRef} role="dialog">
+          <MapWheel label="Din skrivkarta" levelOf={levelOf} taught={taught} />
+          <div className="map-legend">
+            <ol>
+              <li><span className="map-key is-level-1" />grundläggande</li>
+              <li><span className="map-key is-level-2" />utvecklad</li>
+              <li><span className="map-key is-level-3" />välutvecklad</li>
+            </ol>
+          </div>
+          {!hasReading && <p className="topbar-map-note">Kartan fylls i när Edda har läst din text.</p>}
+        </div>,
+        document.body,
+      )}
+    </>
   );
 }
 

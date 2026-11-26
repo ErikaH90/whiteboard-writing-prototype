@@ -692,7 +692,7 @@ describe("writing coach", () => {
     expect(screen.getByRole("heading", { name: "Välkommen!" })).toBeVisible();
     expect(screen.getByText(/Hej! Jag heter Edda\./)).toBeVisible();
     const choices = within(screen.getByRole("group", { name: "Välj vad du vill skriva om" })).getAllByRole("button");
-    expect(choices.map((choice) => choice.textContent)).toEqual(writingTopics.map((topic) => `${topic.icon}${topic.label}`));
+    expect(choices.map((choice) => choice.textContent)).toEqual(writingTopics.map((topic) => topic.label));
 
     // The writing surface shows how the lesson works: the six chapters and what happens in each.
     const surface = screen.getByRole("region", { name: "Elevens skrivyta" });

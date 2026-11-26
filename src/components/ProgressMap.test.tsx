@@ -2,7 +2,7 @@ import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { MapPart, MapSkill } from "../lib/coachApi";
-import ProgressMap from "./ProgressMap";
+import ProgressMap, { TopbarMap } from "./ProgressMap";
 
 afterEach(cleanup);
 
@@ -119,5 +119,24 @@ describe("the student's writing map", () => {
     expect(screen.getByText("Den här delen syns inte i din text än.")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Jag har ändrat i min text – låt Edda titta igen" }));
     expect(onAssess).toHaveBeenCalledTimes(1);
+  });
+
+  it("is always in the top bar and opens the whole wheel when the student clicks it", async () => {
+    const user = userEvent.setup();
+    const view = render(<TopbarMap hasReading={false} levelOf={() => null} taught={["structure"]} />);
+    expect(screen.queryByRole("dialog", { name: "Min skrivkarta" })).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "Min skrivkarta" }));
+    const panel = screen.getByRole("dialog", { name: "Min skrivkarta" });
+    expect(within(panel).getByText("Struktur")).toBeTruthy();
+    expect(within(panel).getByText("Kartan fylls i när Edda har läst din text.")).toBeTruthy();
+
+    // When Edda has read the text the wheel shows how far each part has come.
+    view.rerender(<TopbarMap hasReading levelOf={(skill) => skill === "structure" ? 2 : null} taught={["structure"]} />);
+    expect(within(panel).getByRole("img", { name: "Struktur: utvecklad" })).toBeTruthy();
+    expect(within(panel).queryByText("Kartan fylls i när Edda har läst din text.")).toBeNull();
+
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog", { name: "Min skrivkarta" })).toBeNull();
   });
 });

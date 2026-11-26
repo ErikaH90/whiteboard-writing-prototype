@@ -3,7 +3,7 @@ import FinalRecall from "./components/FinalRecall";
 import DemoTeacherInbox from "./components/DemoTeacherInbox";
 import FinalDiagnosisChecklist from "./components/FinalDiagnosisChecklist";
 import SubmissionChecklist from "./components/SubmissionChecklist";
-import ProgressMap, { mapSkills, MapWheel } from "./components/ProgressMap";
+import ProgressMap, { mapSkills, TopbarMap } from "./components/ProgressMap";
 import { buildPart, mapFeatures, readByRule, readText } from "../server/writingMap.mjs";
 import PracticeRound from "./components/PracticeRound";
 import { effortTimes, minTaskWords } from "./lib/effort";
@@ -14,6 +14,7 @@ import ErrorHunt from "./components/ErrorHunt";
 import EddaFeedback, { EddaMark } from "./components/EddaFeedback";
 import ExemplarPanel, { type ExemplarMode } from "./components/ExemplarPanel";
 import ReadingSettings, { ReadingRuler } from "./components/ReadingSettings";
+import TopicPicture from "./components/TopicPicture";
 import { exemplarSetForTopic, lessonModel, modellingFlow, type ExemplarText } from "./data/exemplars";
 import {
   maxOwnTopicLength,
@@ -1176,16 +1177,11 @@ function App() {
             ))}
           </nav>
           {/* The student's writing map fills in by itself while the student works. */}
-          {shownMap && (
-            <span className="topbar-map" title="Din skrivkarta">
-              <MapWheel
-                compact
-                label="Din skrivkarta i litet format"
-                levelOf={(skill) => shownMap.find((part) => part.skill === skill)?.level ?? null}
-                taught={taughtSkills}
-              />
-            </span>
-          )}
+          <TopbarMap
+            hasReading={shownMap !== null}
+            levelOf={(skill) => shownMap?.find((part) => part.skill === skill)?.level ?? null}
+            taught={taughtSkills}
+          />
           <ReadingSettings />
           <button
             aria-pressed={soundOn}
@@ -1245,7 +1241,7 @@ function App() {
                             <div className="topic-choices" role="group" aria-label="Välj vad du vill skriva om">
                               {writingTopics.map((item) => (
                                 <button className="topic-choice" key={item.id} onClick={() => setChosenTopic(item)} type="button">
-                                  <span aria-hidden="true" className="topic-icon">{item.icon}</span>
+                                  <TopicPicture id={item.id} />
                                   {item.label}
                                 </button>
                               ))}

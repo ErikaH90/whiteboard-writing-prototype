@@ -505,8 +505,9 @@ test("the lesson is guided: chapters are locked and Edda decides what the writin
   await page.goto("/");
   await startLesson(page);
 
-  // The small writing map appears first when Edda has read the student's text.
-  await expect(page.getByRole("img", { name: "Din skrivkarta i litet format" })).toHaveCount(0);
+  // The small writing map is in the top bar from the start, empty until Edda has read the student's text.
+  await expect(page.getByRole("img", { name: "Din skrivkarta i litet format" })).toBeVisible();
+  await expect(page.locator(".topbar-map .map-ring.is-filled")).toHaveCount(0);
   await expect(page.getByRole("button", { name: /Resonemang/ })).toBeDisabled();
   await completeEntry(page);
   const next = page.getByRole("button", { name: /Nästa steg/ });

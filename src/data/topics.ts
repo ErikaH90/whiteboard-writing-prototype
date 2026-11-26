@@ -1,7 +1,6 @@
 /** What the student can choose to write their argumentative text about. */
 export type WritingTopic = {
   id: "school-start" | "phones" | "leisure" | "own";
-  icon: string;
   label: string;
   /** The writing task shown above the student's text. */
   prompt: string;
@@ -10,19 +9,16 @@ export type WritingTopic = {
 export const writingTopics: WritingTopic[] = [
   {
     id: "school-start",
-    icon: "⏰",
     label: "Skoldagen",
     prompt: "Ta ställning: Borde skoldagen börja senare för elever i högstadiet?",
   },
   {
     id: "phones",
-    icon: "📱",
     label: "Mobilen i skolan",
     prompt: "Ta ställning: Borde mobiler vara förbjudna under hela skoldagen?",
   },
   {
     id: "leisure",
-    icon: "⚽",
     label: "Fritiden",
     prompt: "Ta ställning: Borde alla ungdomar få en fritidsaktivitet gratis?",
   },
@@ -30,7 +26,7 @@ export const writingTopics: WritingTopic[] = [
 
 /** The student's own topic: the question is the student's own words. */
 export function ownTopic(question: string): WritingTopic {
-  return { id: "own", icon: "✏️", label: "Eget ämne", prompt: `Ta ställning: ${question.trim()}` };
+  return { id: "own", label: "Eget ämne", prompt: `Ta ställning: ${question.trim()}` };
 }
 
 /** Who the student wants to convince. A real reader gives the text a purpose. */

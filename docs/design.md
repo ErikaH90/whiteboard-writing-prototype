@@ -10,6 +10,7 @@ Skrivcoachen delar formspråk med läsförståelseprototypen. Det finns ingen wh
 - Texten i bubblan sätts i DM Sans med lila rubriker. Handstilen Patrick Hand används inte i bubblan.
 - På breda skärmar tar texten cirka 60 procent och bubblan cirka 40. Vid högst 900 px staplas de, med Edda överst, och pilen döljs.
 - Innan det finns någon text att visa står bubblan ensam, centrerad på sidan.
+- Den lilla skrivkartan ligger alltid i toppraden, även innan Edda har läst något. Ett klick öppnar hela hjulet med färgförklaring, så att eleven själv kan se hur det färgläggs under vägen.
 - Edda hänvisar till ”texten”, aldrig till höger eller vänster, eftersom placeringen skiljer sig mellan bred och smal skärm.
 
 Där resten av dokumentet säger ”whiteboarden” eller ”tavlan” avses Eddas bubbla. Reglerna om ett steg i taget, tal före text och guidad gång gäller oförändrat. I koden heter delarna fortfarande `board-frame`, `board-surface` och `board-content`.

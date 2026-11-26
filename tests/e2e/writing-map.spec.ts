@@ -195,12 +195,13 @@ test("the writing map draws itself when the student has handed in the writing ta
     await onward.click();
     await expect(handIn.or(onward)).toBeVisible();
   }
-  await expect(page.getByRole("img", { name: "Din skrivkarta i litet format" })).toHaveCount(0);
+  // Before Edda has read anything the small map is there, but empty.
+  await expect(page.locator(".topbar-map .map-ring.is-filled")).toHaveCount(0);
   await page.getByRole("textbox", { name: "Din argumenterande text" }).fill("Förbjud mobiler i skolan!\n\nJag tycker att vi borde förbjuda mobiltelefoner i skolan.");
   await handIn.click();
 
-  // The hand-in was the only click: the small map is in the top bar.
-  await expect(page.getByRole("img", { name: "Din skrivkarta i litet format" })).toBeVisible();
+  // The hand-in was the only click: the small map in the top bar is coloured in.
+  await expect(page.locator(".topbar-map .map-ring.is-filled").first()).toBeVisible();
   expect(readings).toBe(1);
 
   // At the end of the chapter the map is already drawn; there is no button to ask for it.
