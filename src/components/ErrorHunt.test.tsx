@@ -1,9 +1,11 @@
 import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { exemplarFocus } from "../data/exemplars";
+import { defaultExemplarSet } from "../data/exemplars";
 import { lessons } from "../data/lessons";
 import ErrorHunt from "./ErrorHunt";
+
+const exemplarFocus = defaultExemplarSet.focus;
 
 const hunt = exemplarFocus.language.hunt!;
 const lesson = lessons[4];

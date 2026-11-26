@@ -1,6 +1,6 @@
 import { useId, useState, type FormEvent } from "react";
 import EddaFeedback from "./EddaFeedback";
-import type { LearningEvidence, Lesson, SkillId } from "../data/lessons";
+import type { CheckIn, LearningEvidence, Lesson, SkillId } from "../data/lessons";
 import {
   submitCheckIn,
   type CheckInFeedback,
@@ -18,10 +18,12 @@ type Props = {
   firstAnswer?: string | null;
   /** Called when the step's check is done: answered on track, tried twice, or the service failed. */
   onAttempt?: () => void;
+  /** The question at the level Edda has chosen for this student, when the step has more than one. */
+  checkIn?: CheckIn;
 };
 const maxAttempts = 10;
 
-export default function LessonCheckIn({ lesson, phaseIndex, priorEvidence, onEvidence, achievements, firstAnswer, onAttempt }: Props) {
+export default function LessonCheckIn({ lesson, phaseIndex, priorEvidence, onEvidence, achievements, firstAnswer, onAttempt, checkIn }: Props) {
   return phaseIndex === 4
     ? lesson.exitTicket
       ? <ChapterExitTicket lesson={lesson} exitTicket={lesson.exitTicket} priorEvidence={priorEvidence} onEvidence={onEvidence} achievements={achievements} firstAnswer={firstAnswer} onDone={onAttempt} />
@@ -33,12 +35,13 @@ export default function LessonCheckIn({ lesson, phaseIndex, priorEvidence, onEvi
         priorEvidence={priorEvidence}
         onEvidence={onEvidence}
         onAttempt={onAttempt}
+        checkIn={checkIn}
       />
     );
 }
 
-function LessonCheckInForm({ lesson, phaseIndex, priorEvidence, onEvidence, onAttempt }: Props) {
-  const checkIn = lesson.checkIns[phaseIndex];
+function LessonCheckInForm({ lesson, phaseIndex, priorEvidence, onEvidence, onAttempt, checkIn: chosen }: Props) {
+  const checkIn = chosen ?? lesson.checkIns[phaseIndex];
   const mode = checkIn.mode;
   const question = checkIn.question;
   const answerId = useId();

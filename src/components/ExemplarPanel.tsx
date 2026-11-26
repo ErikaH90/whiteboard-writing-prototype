@@ -1,5 +1,5 @@
 import { useMemo, useRef } from "react";
-import { exemplarFocus, exemplarLabels, exemplarTexts, markExemplar, type ExemplarComparison } from "../data/exemplars";
+import { defaultExemplarSet, exemplarLabels, markExemplar, type ExemplarComparison, type ExemplarSet } from "../data/exemplars";
 import type { SkillId } from "../data/lessons";
 import { takesMoreRoom, useReadingSettings } from "../lib/readingSettings";
 import { useFitToHeight } from "../lib/useFitToHeight";
@@ -17,6 +17,8 @@ export type ExemplarMode =
   | "compare";
 
 type Props = {
+  /** The exemplar texts the student meets; the default set when nothing else is given. */
+  set?: ExemplarSet;
   skillId: SkillId;
   mode: ExemplarMode;
   /** Which of the lesson's highlights is in focus (mode "focus"). */
@@ -49,6 +51,7 @@ const fittedLayout = "(min-width: 901px) and (min-height: 480px)";
  * switch views here, the text follows the whiteboard.
  */
 export default function ExemplarPanel({
+  set = defaultExemplarSet,
   skillId,
   mode,
   focusIndex = null,
@@ -65,8 +68,8 @@ export default function ExemplarPanel({
   const textRef = useRef<HTMLElement>(null);
 
   const isPick = mode === "pick";
-  const text = exemplarTexts.strong;
-  const lessonHighlights = exemplarFocus[skillId].highlights.strong;
+  const text = set.texts.strong;
+  const lessonHighlights = set.focus[skillId].highlights.strong;
   const candidateKey = (pick?.candidates ?? []).join(",");
   const candidates = useMemo(() => candidateKey ? candidateKey.split(",").map(Number) : [], [candidateKey]);
   const focused = mode === "focus" && focusIndex !== null ? lessonHighlights[focusIndex] ?? null : null;

@@ -80,3 +80,9 @@ Integrationen är en lokal prototyp, inte godkänd för offentlig drift eller ve
 - Servern validerar lärsignaler mot kända delförmågor, statusvärden, försökstal och stödnivåer innan signalerna får ingå i en förfrågan till modellen.
 - AI:n får aldrig generera en ersättningstext, färdig formulering eller ett betyg. Elevtext är data att granska, inte instruktioner som får åsidosätta coachens regler.
 - `ELEVENLABS_API_KEY` används inte i skrivcoachen.
+
+## Nivå på nästa uppgift
+
+- Avstämningen (`/api/check-in`) svarar också med fältet `next`: `easier`, `same` eller `harder`. Det är Eddas bedömning av om nästa uppgift bör vara lättare eller svårare, utifrån svaret och antalet försök. Ett felklick kan aldrig ge `harder`. Fältet visas inte för eleven.
+- Elevmodellen som följer med varje anrop har fältet `level` (1–3): hur krävande nästa steg bör vara just nu. Edda lägger sin fråga eller sitt nästa steg på den nivån och nämner den aldrig.
+- Uppläsningen (`/api/exemplar-audio`) tar emot exempelpaketets id (`food`, `school`, `screens`, `leisure`) och läser paketets utmärkta text. Servern läser texterna från `src/data/exemplarSets/*.json`.

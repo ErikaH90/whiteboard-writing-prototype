@@ -1,4 +1,5 @@
 import type { LearningEvidence, SkillId } from "../data/lessons";
+import { evidenceValue, noteSignal, nudge, type Mastery, type NextTask } from "./challenge";
 
 export const learnerProfileKey = "skrivcoach-demo-learner-profile-v1";
 
@@ -26,6 +27,8 @@ export type LearnerProfile = {
   interest: InterestId | null;
   difficulty: Partial<Record<SkillId, DifficultyRating>>;
   evidence: Partial<Record<SkillId, SkillEvidenceRecord>>;
+  /** How far the student seems to have come in each part (0–1); decides the level of the next task. */
+  mastery?: Mastery;
 };
 
 export const emptyLearnerProfile: LearnerProfile = {
@@ -93,7 +96,16 @@ export function parseLearnerProfile(value: unknown): LearnerProfile | null {
     } else return null;
   }
 
-  return { version: 1, interest, difficulty, evidence };
+  // The estimate behind the task levels is optional: an older or damaged value simply starts over.
+  const mastery: Mastery = {};
+  if (isRecord(value.mastery)) {
+    for (const skillId of skillIds) {
+      const estimate = value.mastery[skillId];
+      if (typeof estimate === "number" && estimate >= 0 && estimate <= 1) mastery[skillId] = estimate;
+    }
+  }
+
+  return { version: 1, interest, difficulty, evidence, mastery };
 }
 
 export function recordEvidence(
@@ -119,7 +131,22 @@ export function recordEvidence(
       needsSupport: previous.needsSupport + Number(hasCapacity && result === "needs_support"),
     };
   }
-  return { ...profile, evidence };
+  return { ...profile, evidence, mastery: noteSignal(profile.mastery ?? {}, skillIdsToUpdate, evidenceValue[result]) };
+}
+
+/** The exemplar topic the student met, so that examples and exercises can follow the same interest. */
+export function recordInterest(profile: LearnerProfile, interest: InterestId): LearnerProfile {
+  return profile.interest === interest ? profile : { ...profile, interest };
+}
+
+/** How far a part has come in the student's own text, from the writing map (0–3 steps). */
+export function recordMapLevel(profile: LearnerProfile, skillId: SkillId, level: number): LearnerProfile {
+  return { ...profile, mastery: noteSignal(profile.mastery ?? {}, [skillId], level / 3, 0.5) };
+}
+
+/** Edda's judgement after an answer of whether the next task should be easier or harder. */
+export function recordNextTask(profile: LearnerProfile, skillIdsToUpdate: SkillId[], next: NextTask): LearnerProfile {
+  return next === "same" ? profile : { ...profile, mastery: nudge(profile.mastery ?? {}, skillIdsToUpdate, next) };
 }
 
 export function getLatestEvidence(profile: LearnerProfile): Partial<Record<SkillId, LearningEvidence>> {

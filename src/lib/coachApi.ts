@@ -1,3 +1,4 @@
+import type { NextTask } from "./challenge";
 import type { LearningEvidence, SkillId } from "../data/lessons";
 import type { EvidenceSummary, InterestId } from "./learnerProfile";
 
@@ -57,6 +58,8 @@ export type CheckInFeedback = {
    * 2 = explained, 3 = developed. Decides the size of Edda's star. Not a grade.
    */
   level?: 1 | 2 | 3;
+  /** Edda's judgement of whether the next task should be easier, as it is, or harder. */
+  next?: NextTask;
 };
 
 export type LearningContext = {
@@ -150,7 +153,16 @@ export type StudentModel = {
   /** The chapters gone through so far, and those that are still to come. */
   taught: string[];
   upcoming: string[];
+  /** How demanding the next step should be for this student right now: 1 smaller, 2 as it is, 3 further. */
+  level?: 1 | 2 | 3;
 };
+
+let nextTaskListener: ((next: NextTask) => void) | null = null;
+
+/** The app listens to Edda's judgement after each answer, to place the next task at the right level. */
+export function setNextTaskListener(listener: ((next: NextTask) => void) | null) {
+  nextTaskListener = listener;
+}
 
 let studentModel: StudentModel | null = null;
 
@@ -245,7 +257,9 @@ export async function submitCheckIn(request: CheckInRequest): Promise<CheckInFee
   }
 
   const level = result.level === 1 || result.level === 2 || result.level === 3 ? result.level : undefined;
-  return { kind: result.kind, feedback: result.feedback, ...(result.kind === "on_track" && level && { level }) };
+  const next = result.next === "easier" || result.next === "harder" || result.next === "same" ? result.next : undefined;
+  if (next) nextTaskListener?.(next);
+  return { kind: result.kind, feedback: result.feedback, ...(result.kind === "on_track" && level && { level }), ...(next && { next }) };
 }
 
 export async function generatePersonalizedExample(request: PersonalizedExampleRequest): Promise<PersonalizedExample> {

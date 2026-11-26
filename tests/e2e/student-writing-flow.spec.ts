@@ -59,13 +59,15 @@ async function revealBoard(page: import("@playwright/test").Page, stops: number)
 }
 
 // The six parts the whiteboard asks the student to find in the first chapter, in order.
+// The student writes about the school day and meets the exemplar from the same area (the "school" set).
+const exemplarTitle = "Stillasittandets pris – dags att schemalägga rörelsen";
 const structureParts = [
-  "Tallrikens tysta offer – dags att duka av köttet",
-  "Det är hög tid att vi ifrågasätter vår köttnorm",
-  "För det första står köttindustrin för en massiv belastning på miljön.",
-  "Utöver miljöaspekten väcker den industriella djurhållningen en djupt etisk fråga.",
-  "Visst hävdas det ofta att kött är en oumbärlig källa till protein och järn",
-  "Sammanfattningsvis är köttnormen ett systemfel som vi måste börja montera ned.",
+  "Stillasittandets pris – dags att schemalägga rörelsen",
+  "Det är hög tid att skolan schemalägger rörelse varje dag",
+  "För det första hänger rörelse och inlärning nära samman.",
+  "Utöver inlärningen väcker bristen på rörelse en fråga om rättvisa.",
+  "Visst hävdas det ofta att schemat redan är fullt och att daglig rörelse inkräktar på kärnämnena",
+  "Sammanfattningsvis är den stillasittande skoldagen en vana som vi måste bryta.",
 ];
 
 // The student looks for a part and clicks it in the text beside the whiteboard.
@@ -381,7 +383,7 @@ test("exemplar text follows a retrieval question, is listened to and then shown 
   await completeEntry(page, "En text där man tar ställning och ger skäl.", false);
 
   const surface = page.getByRole("region", { name: "Exempeltext" });
-  await expect(surface.getByRole("heading", { name: "Tallrikens tysta offer – dags att duka av köttet" })).toBeVisible();
+  await expect(surface.getByRole("heading", { name: exemplarTitle })).toBeVisible();
   await expect(surface.locator("mark")).toHaveCount(0);
   expect(audioRequests).toBe(0);
 
@@ -404,14 +406,14 @@ test("exemplar text follows a retrieval question, is listened to and then shown 
   await expect(surface.locator(".exemplar-mark.is-candidate")).toHaveCount(6);
   await findInText(page, structureParts[0]);
   await expect(surface.locator("mark")).toHaveCount(1);
-  await expect(surface.locator("mark")).toContainText("Tallrikens tysta offer");
+  await expect(surface.locator("mark")).toContainText(structureParts[0]);
   await expect(surface.locator("mark")).toHaveCSS("background-color", "rgb(255, 233, 122)");
   // The quote is lit in the text and is not repeated on the whiteboard.
-  await expect(page.getByText("”Tallrikens tysta offer – dags att duka av köttet”")).toHaveCount(0);
+  await expect(page.getByText(`”${structureParts[0]}”`)).toHaveCount(0);
   await page.getByRole("button", { name: "Fortsätt", exact: true }).click();
   await findInText(page, structureParts[1]);
   await expect(surface.locator("mark")).toHaveCount(1);
-  await expect(surface.locator("mark")).toContainText("Det är hög tid att vi ifrågasätter vår köttnorm");
+  await expect(surface.locator("mark")).toContainText(structureParts[1]);
   await expect(surface.locator(".exemplar-plain").first()).toHaveCSS("filter", /blur/);
   // The whole exemplar stays visible without scrolling.
   await expect.poll(() => surface.locator(".exemplar-stage").evaluate((stage) => {
@@ -531,7 +533,8 @@ test("the lesson is guided: chapters are locked and Edda decides what the writin
   // This student found every place alone, so Edda steps back by herself: no example first, and she says why.
   await expect(page.getByText("Du hittade ställena i exempeltexten själv, så du går direkt till din uppgift.")).toBeVisible();
   await expect(page.getByText("Här är två sätt att skriva en tes. Klicka på den som är bäst.")).toHaveCount(0);
-  await expect(page.getByText("Börja med att skriva din inledning med tes.")).toBeVisible();
+  // The wording follows the student's level; every level asks for an introduction with a thesis.
+  await expect(page.getByText(/inledning med tes|rubrik och din tes/)).toBeVisible();
   await expect(page.getByRole("region", { name: "Exempeltext" })).toHaveCount(0);
   await expect(next).toHaveCount(0);
   await page.getByRole("textbox", { name: "Din argumenterande text" }).fill("Skoldagen borde börja senare.");

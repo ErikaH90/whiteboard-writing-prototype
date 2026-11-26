@@ -1,12 +1,10 @@
-import type { ExemplarId } from "../data/exemplars";
-
-const audioUrls = new Map<ExemplarId, Promise<string>>();
+const audioUrls = new Map<string, Promise<string>>();
 
 /**
- * Fetches the read-aloud audio for an exemplar text. Only the exemplar id is sent;
+ * Fetches the read-aloud audio for an exemplar text. Only the id of the exemplar set is sent;
  * the server reads the fixed course text aloud. The result is reused within the session.
  */
-export function loadExemplarAudio(exemplarId: ExemplarId): Promise<string> {
+export function loadExemplarAudio(exemplarId: string): Promise<string> {
   const cached = audioUrls.get(exemplarId);
   if (cached) return cached;
 

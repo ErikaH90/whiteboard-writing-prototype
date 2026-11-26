@@ -2,12 +2,17 @@ import { act, cleanup, render, screen, waitFor, within } from "@testing-library/
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
-import { exemplarFocus, exemplarTexts, modellingFlow } from "./data/exemplars";
+import { exemplarSetForTopic, modellingFlow } from "./data/exemplars";
 import { finalRecallQuestions, lessons } from "./data/lessons";
 import { topicStorageKey, writingTopics } from "./data/topics";
 import { clearExemplarAudioCache } from "./lib/exemplarAudio";
 import { learnerProfileKey } from "./lib/learnerProfile";
 import { effortTimes } from "./lib/effort";
+
+// The tests write about the first topic, and meet the exemplar that belongs to it.
+const testSet = exemplarSetForTopic(writingTopics[0]);
+const exemplarFocus = testSet.focus;
+const exemplarTexts = testSet.texts;
 
 function reviewResponse(draft: string) {
   const successQuote = draft.match(/[\p{L}\p{N}]+/u)?.[0] ?? "";
@@ -105,6 +110,7 @@ beforeEach(() => {
   effortTimes.writingIdle = 90_000;
   // The exploration before Edda's questions has its own tests; the others follow the guided walk-through.
   effortTimes.explore = false;
+  effortTimes.levels = false;
   effortTimes.exploreIdle = 25_000;
   effortTimes.exploreStray = 3;
   vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -435,7 +441,7 @@ describe("writing coach", () => {
 
     await user.click(screen.getByRole("button", { name: "Lyssna på texten" }));
     expect(audioRequests()).toHaveLength(1);
-    expect(JSON.parse(String(audioRequests()[0][1]?.body))).toEqual({ exemplarId: "strong" });
+    expect(JSON.parse(String(audioRequests()[0][1]?.body))).toEqual({ exemplarId: testSet.id });
     expect(FakeAudio.instances[0].play).toHaveBeenCalled();
 
     await user.click(screen.getByRole("button", { name: "Pausa uppläsningen" }));
@@ -1233,5 +1239,27 @@ describe("writing coach", () => {
     expect(screen.queryByRole("button", { name: "Granska texten" })).not.toBeInTheDocument();
     expect(screen.queryByText("Du är författaren. Välj själv vilka förslag du vill arbeta vidare med.")).not.toBeInTheDocument();
     expect(screen.queryByRole("list", { name: "Formativ arbetsgång" })).not.toBeInTheDocument();
+  });
+  it("gives a smaller step to the student who has needed support, and remembers the interest of the chosen topic", async () => {
+    const user = userEvent.setup();
+    effortTimes.levels = true;
+    window.localStorage.setItem(learnerProfileKey, JSON.stringify({
+      version: 1, interest: null, difficulty: {}, evidence: {}, mastery: { structure: 0.1 },
+    }));
+    render(<App />);
+    await completeEntry(user);
+
+    // The writing task is the same task, one step smaller; the chapter's own wording is not shown.
+    await user.click(screen.getByRole("button", { name: /Nästa steg/ }));
+    for (let stop = 0; stop < 8 && !screen.queryByText(lessons[0].practiceLevels!.support); stop += 1) {
+      await user.click(screen.getByRole("button", { name: "Fortsätt" }));
+    }
+    expect(screen.getByText(lessons[0].practiceLevels!.support)).toBeVisible();
+    expect(screen.queryByText(lessons[0].practice)).not.toBeInTheDocument();
+
+    // The exemplar the student met belongs to the topic, and the profile remembers the interest.
+    await waitFor(() => {
+      expect(JSON.parse(window.localStorage.getItem(learnerProfileKey)!).interest).toBe(testSet.interest);
+    });
   });
 });

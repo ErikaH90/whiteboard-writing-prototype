@@ -9,6 +9,8 @@ type Stage = "example" | "recall" | "apply";
 type Props = {
   /** The chapter that taught this part of the text. */
   lesson: Lesson;
+  /** Edda's two examples for this chapter, about the topic of the student's exemplar. */
+  examples: { strong: string; needsWork: string };
   label: string;
   /** How far the part has come in the student's own text (0–3), from the writing map. */
   level: number;
@@ -42,7 +44,7 @@ const reasons = [
  * round contains follows how well the student masters the part: repetition for the one who
  * needs it, and straight to the student's own text for the one who has the basics.
  */
-export default function PracticeRound({ lesson, label, level, hint, priorEvidence, onEvidence, hasRevised, loading, onReadAgain, onBack }: Props) {
+export default function PracticeRound({ lesson, examples, label, level, hint, priorEvidence, onEvidence, hasRevised, loading, onReadAgain, onBack }: Props) {
   const [stages] = useState(() => stagesFor(level));
   const [index, setIndex] = useState(0);
   const [isDone, setIsDone] = useState(false);
@@ -60,7 +62,7 @@ export default function PracticeRound({ lesson, label, level, hint, priorEvidenc
       {stage === "example" && (
         <ExamplePick
           lesson={lesson}
-          examples={lesson.model}
+          examples={examples}
           strongFirst
           priorEvidence={priorEvidence}
           onEvidence={onEvidence}

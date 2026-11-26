@@ -93,8 +93,8 @@ describe("exemplar read-aloud API", () => {
     const speech = vi.fn(async (_text: string) => Buffer.from("ljud"));
     const app = createApiApp({ client: null, speech });
 
-    const first = await requestAudio(app, { exemplarId: "strong", text: "Elevens egen text ska aldrig läsas upp." });
-    const second = await requestAudio(app, { exemplarId: "strong" });
+    const first = await requestAudio(app, { exemplarId: "food", text: "Elevens egen text ska aldrig läsas upp." });
+    const second = await requestAudio(app, { exemplarId: "food" });
 
     expect(first).toMatchObject({ status: 200, isAudio: true, body: "ljud" });
     expect(second).toMatchObject({ status: 200, isAudio: true, body: "ljud" });
@@ -115,16 +115,16 @@ describe("exemplar read-aloud API", () => {
   });
 
   it("returns clear errors when read-aloud is missing or fails", async () => {
-    const missing = await requestAudio(createApiApp({ client: null, speech: null }), { exemplarId: "strong" });
+    const missing = await requestAudio(createApiApp({ client: null, speech: null }), { exemplarId: "food" });
     expect(missing).toMatchObject({ status: 503, body: { error: "Uppläsning är inte konfigurerad på servern." } });
 
     vi.spyOn(console, "error").mockImplementation(() => undefined);
     const speech = vi.fn(async () => { throw new Error("hemlig detalj"); });
     const app = createApiApp({ client: null, speech });
-    const failed = await requestAudio(app, { exemplarId: "strong" });
+    const failed = await requestAudio(app, { exemplarId: "food" });
     expect(failed.status).toBe(502);
     expect(JSON.stringify(failed.body)).not.toContain("hemlig detalj");
-    await requestAudio(app, { exemplarId: "strong" });
+    await requestAudio(app, { exemplarId: "food" });
     expect(speech).toHaveBeenCalledTimes(2);
   });
 });
@@ -545,7 +545,7 @@ describe("server AI API", () => {
 
     expect(result.status).toBe(200);
     // Without a valid level from the model the answer counts as on track but brief.
-    expect(result.body).toEqual({ kind: "on_track", feedback: "Kan du ge ett exempel?", level: 1 });
+    expect(result.body).toEqual({ kind: "on_track", feedback: "Kan du ge ett exempel?", level: 1, next: "same" });
   });
 
   it("passes only validated learning signals with the student's submitted answer", async () => {
@@ -665,8 +665,8 @@ describe("server AI API", () => {
       learningContext: { attempt, supportLevel: 0, priorEvidence: [] },
     });
     // A click on the right place is simply right: it is not given a step.
-    expect((await click(1)).body).toEqual({ kind: "on_track", feedback: "Du valde tesen. Vad visar den?" });
-    expect((await click(2)).body).toEqual({ kind: "on_track", feedback: "Du valde tesen. Vad visar den?" });
+    expect((await click(1)).body).toEqual({ kind: "on_track", feedback: "Du valde tesen. Vad visar den?", next: "same" });
+    expect((await click(2)).body).toEqual({ kind: "on_track", feedback: "Du valde tesen. Vad visar den?", next: "same" });
 
     const retry = await post(createApiApp({ client: mockClient({ kind: "retry", level: 2, feedback: "Vad vill skribenten?" }) }), "/api/check-in", {
       mode: "text",
@@ -674,7 +674,7 @@ describe("server AI API", () => {
       answer: "Vet inte.",
       focus: "tesens funktion",
     });
-    expect(retry.body).toEqual({ kind: "retry", feedback: "Vad vill skribenten?" });
+    expect(retry.body).toEqual({ kind: "retry", feedback: "Vad vill skribenten?", next: "same" });
   });
 
   it("tells the model about the writing task when Edda reads the text after it", async () => {
@@ -728,7 +728,7 @@ describe("server AI API", () => {
       answer: "Det skribenten vill övertyga läsaren om.",
       focus: "tesens funktion",
     });
-    expect(onTrack.body).toEqual({ kind: "on_track", feedback: "Du förklarar vad en tes gör i texten.", level: 2 });
+    expect(onTrack.body).toEqual({ kind: "on_track", feedback: "Du förklarar vad en tes gör i texten.", level: 2, next: "same" });
 
     // A new try without a question is asked for once more; after that Edda's answer is shown anyway.
     const client = mockClient({ kind: "retry", level: 1, feedback: "Titta en gång till." });
@@ -738,7 +738,7 @@ describe("server AI API", () => {
       answer: "Vet inte.",
       focus: "tesens funktion",
     });
-    expect(retry.body).toEqual({ kind: "retry", feedback: "Titta en gång till." });
+    expect(retry.body).toEqual({ kind: "retry", feedback: "Titta en gång till.", next: "same" });
     expect(client.chat.completions.create).toHaveBeenCalledTimes(2);
   });
 

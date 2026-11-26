@@ -63,17 +63,25 @@ export type Lesson = {
   /** The curriculum wording the lesson relates to. Shown as a reference, never invented. */
   goal: string;
   model: {
-    strong: string;
-    needsWork: string;
+    /** Only the last chapter has its own pair; chapters 1–5 take theirs from the exemplar set. */
+    strong?: string;
+    needsWork?: string;
     /**
      * A better and a weaker example of the part the student is about to write, taken from the
-     * two exemplar texts (about eating less meat, not the topic of the student's own text).
+     * two exemplar texts (about another question than the student's own text).
      * Edda shows both before the writing task and the student clicks the better one.
      */
     question: string;
   };
   /** The chapter's writing task in the student's own text. */
   practice: string;
+  /**
+   * The same task one step smaller and one step further, for the student who needs more to hold
+   * on to or more to stretch for. Edda picks the level; the student sees one task.
+   */
+  practiceLevels?: { support: string; extension: string };
+  /** The recall question without support (the third check) in the same two other levels. */
+  recallLevels?: { support: CheckIn; extension: CheckIn };
   /**
    * What Edda says after the writing task to tie the student's writing to what they showed
    * earlier in the chapter. Empty when the chapter gives no such support.
@@ -163,11 +171,17 @@ export const lessons: Lesson[] = [
     goalKeys: ["Tes", "Argument", "Motargument", "Avslutning"],
     goal: writingCriterion,
     model: {
-      strong: "Det är hög tid att vi ifrågasätter vår köttnorm, för konsekvenserna av vår kosthållning drabbar både planeten och dess invånare.",
-      needsWork: "Jag tycker att det är helt fel.",
       question: "Här är två sätt att skriva en tes. Klicka på den som är bäst.",
     },
     practice: "Börja med att skriva din inledning med tes.",
+    practiceLevels: {
+      support: "Skriv en rubrik och din tes: en enda mening som säger vad du tycker i frågan.",
+      extension: "Skriv din inledning med tes, och låt tesen ge ett skäl redan i samma mening.",
+    },
+    recallLevels: {
+      support: { mode: "text", question: "Vad säger tesen till läsaren? Svara med några egna ord." },
+      extension: { mode: "text", question: "Vad är tesen i en argumenterande text, och varför brukar den stå tidigt? Svara med egna ord." },
+    },
     taskLink: "Du hittade tesen i exempeltexten. Samma blick kan du använda på din egen inledning.",
     hint: "En tes tar tydlig ställning. Börja gärna med ”Jag anser att …” eller ”Enligt mig borde …”.",
     recall: "Nu utan exempeltexten. Tänk på inledningen du just skrev.",
@@ -219,11 +233,17 @@ export const lessons: Lesson[] = [
     goalKeys: ["Förklara varför", "Visa vad det leder till"],
     goal: writingCriterion,
     model: {
-      strong: "För det första står köttindustrin för en massiv belastning på miljön. Att föda upp djur för slakt kräver enorma mängder mark, vatten och foder, vilket i sin tur genererar orimligt höga koldioxidutsläpp.",
-      needsWork: "För det första är det inte bra för miljön att äta kött. Det kostar många onödiga koldioxidutsläpp att föda upp ett djur till slakt.",
       question: "Här är två sätt att skriva ett argument. Klicka på det som är bäst.",
     },
     practice: "Skriv nu dina första argument i texten.",
+    practiceLevels: {
+      support: "Skriv ett argument: ett skäl för din tes, och en mening till som förklarar skälet.",
+      extension: "Skriv två argument. Stöd det ena med något som går att kontrollera, och visa vad det leder till.",
+    },
+    recallLevels: {
+      support: { mode: "text", question: "Vad kan du skriva direkt efter ett skäl för att läsaren ska förstå det? Svara med egna ord." },
+      extension: { mode: "text", question: "Förklara med egna ord vad som gör ett resonemang mer utvecklat, och varför det övertygar läsaren mer." },
+    },
     taskLink: "Du kände igen ett sakargument i exempeltexten. Nu vet du vad dina egna argument kan byggas ut med.",
     hint: "Pröva frågorna: Vad kan hända? Vem påverkas? Hur stödjer det min tes?",
     recall: "Vad kan du lägga till efter ett argument för att utveckla resonemanget?",
@@ -275,11 +295,17 @@ export const lessons: Lesson[] = [
     goalKeys: ["Sambandsord", "Tankar som hänger ihop"],
     goal: writingCriterion,
     model: {
-      strong: "Visst hävdas det ofta att kött är en oumbärlig källa till protein och järn, men detta bemöts enkelt av att en väl sammansatt vegetarisk kost både täcker näringsbehovet och minskar risken för välfärdssjukdomar.",
-      needsWork: "Några hävdar nog att vi behöver äta kött för att få i oss bra näringsämnen. Men det finns många bra näringsämnen i grönsaker också, faktiskt!",
       question: "Här är två sätt att bemöta ett motargument. Klicka på det som är bäst.",
     },
     practice: "Om du inte har hunnit skriva ett motargument, skriv det nu och lägg till sambandsord.",
+    practiceLevels: {
+      support: "Skriv ett motargument: vad kan någon som inte håller med dig säga? Svara sedan med en mening som börjar med ”Men”.",
+      extension: "Skriv ett motargument och bemöt det med ett skäl. Använd sambandsord som visar orsak, kontrast och följd.",
+    },
+    recallLevels: {
+      support: { mode: "text", question: "Vad visar ordet ”eftersom” för läsaren? Svara med egna ord." },
+      extension: { mode: "text", question: "Nämn med egna ord tre samband som sambandsord kan visa, och ge ett ord för vart och ett." },
+    },
     taskLink: "Du hittade sambandsorden i exempeltexten. Använd samma sorts ord när du binder ihop dina egna tankar.",
     hint: "Vill du visa orsak, följd, tillägg eller motsats? Välj sambandsord efter tanken.",
     recall: "Nämn två olika samband som sambandsord kan hjälpa dig att visa.",
@@ -331,11 +357,17 @@ export const lessons: Lesson[] = [
     goalKeys: ["Ordval", "Meningsstarter", "Meningslängd"],
     goal: languageCriterion,
     model: {
-      strong: "Sammanfattningsvis är köttnormen ett systemfel som vi måste börja montera ned. Det är dags att sluta äta av vana och i stället välja medvetet.",
-      needsWork: "För att sammanfatta gör vi inte bara en god gärning för miljön och djurens liv när vi slutar äta kött. Vi får också ett hälsosammare matintag som förbättrar vår hälsa avsevärt.",
       question: "Här är två avslutningar. Klicka på den som är bäst.",
     },
     practice: "Skriv nu din avslutning på texten, och glöm inte att kontrollera meningsbyggnaden i hela textens meningar.",
+    practiceLevels: {
+      support: "Skriv en avslutning på två meningar som säger en sista gång vad du tycker. Titta sedan på hur två av dina meningar börjar.",
+      extension: "Skriv en avslutning som knyter tillbaka till tesen utan att upprepa den ordagrant. Variera sedan både meningsstarter och meningslängd i hela texten.",
+    },
+    recallLevels: {
+      support: { mode: "text", question: "Hur kan du börja en mening på ett annat sätt än med ”Jag tycker”? Ge ett exempel med egna ord." },
+      extension: { mode: "text", question: "Beskriv med egna ord två sätt att variera meningsbyggnaden, och vad läsaren vinner på det." },
+    },
     taskLink: "Du såg hur meningarna varierade i exemplen. Pröva samma grepp i en av dina egna meningar.",
     hint: "Du kan börja med en tid, en orsak eller det viktigaste ordet – inte bara med ”jag tycker”.",
     recall: "Vad kan du ändra för att minska enformiga meningsstarter?",
@@ -387,11 +419,17 @@ export const lessons: Lesson[] = [
     goalKeys: ["Stavning", "Skiljetecken", "Ordval"],
     goal: languageCriterion,
     model: {
-      strong: "En vegetarisk kost kan ge oss all den näring vi behöver för att må bra.",
-      needsWork: "en vegetarisk kost kan ge oss all den näringen vi behöver må bra",
       question: "Här är samma mening två gånger. Klicka på den som följer skrivreglerna.",
     },
     practice: "Läs igenom hela texten och kontrollera att du har följt skrivreglerna, som stavning och skiljetecken.",
+    practiceLevels: {
+      support: "Läs din text en mening i taget. Kontrollera två saker i varje mening: stor bokstav i början och punkt i slutet.",
+      extension: "Läs igenom hela texten och kontrollera skrivreglerna. Byt också ut vardagliga ord mot ord som passar en argumenterande text.",
+    },
+    recallLevels: {
+      support: { mode: "text", question: "Vad ska alltid finnas först och sist i en mening? Svara med egna ord." },
+      extension: { mode: "text", question: "Beskriv med egna ord hur skiljetecken och ordval kan hjälpa läsaren, och ge ett exempel på vart och ett." },
+    },
     taskLink: "Du hittade språkfelen i texten hos mig. Läs din egen text med samma ögon.",
     hint: "Kontrollera stor bokstav, meningsgränser och att orden passar ihop. Ändra bara det du själv kan motivera.",
     recall: "Vilka två saker kan du kontrollera när du korrekturläser en mening?",

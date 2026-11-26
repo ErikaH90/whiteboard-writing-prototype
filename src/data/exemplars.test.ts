@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { exemplarFocus, exemplarTexts, markExemplar, modellingFlow, type ExemplarId } from "./exemplars";
+import { defaultExemplarSet, markExemplar, modellingFlow, type ExemplarId } from "./exemplars";
+
+const exemplarFocus = defaultExemplarSet.focus;
+const exemplarTexts = defaultExemplarSet.texts;
 
 function countOccurrences(text: string, quote: string) {
   return text.split(quote).length - 1;

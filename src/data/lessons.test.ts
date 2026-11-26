@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { exemplarTexts } from "./exemplars";
+import { defaultExemplarSet, lessonModel } from "./exemplars";
 import { finalRecallQuestions, lessons, phases } from "./lessons";
+
+const exemplarTexts = defaultExemplarSet.texts;
 
 describe("lesson progression", () => {
   it("defines the five required learning phases in order", () => {
@@ -17,8 +19,9 @@ describe("lesson progression", () => {
     expect(lessons).toHaveLength(6);
 
     for (const [index, lesson] of lessons.entries()) {
-      expect(lesson.model.strong.trim()).not.toBe("");
-      expect(lesson.model.needsWork.trim()).not.toBe("");
+      const model = lessonModel(lesson, index, defaultExemplarSet);
+      expect(model.strong.trim()).not.toBe("");
+      expect(model.needsWork.trim()).not.toBe("");
       expect(lesson.model.question.trim()).not.toBe("");
       expect(lesson.hook.trim()).not.toBe("");
       expect(lesson.canDo).toHaveLength(4);
@@ -102,11 +105,12 @@ describe("lesson progression", () => {
     const strongText = [exemplarTexts.strong.title, ...exemplarTexts.strong.paragraphs].join(" ");
     const basicText = [exemplarTexts.basic.title, ...exemplarTexts.basic.paragraphs].join(" ");
     // Chapters 1–4: the better example comes from the utmärkt text, the weaker from the okej text.
-    for (const lesson of lessons.slice(0, 4)) {
-      for (const sentence of lesson.model.strong.match(/[^.!?]+[.!?]/g) ?? []) {
+    for (const [index, lesson] of lessons.slice(0, 4).entries()) {
+      const model = lessonModel(lesson, index, defaultExemplarSet);
+      for (const sentence of model.strong.match(/[^.!?]+[.!?]/g) ?? []) {
         expect(strongText, lesson.shortTitle).toContain(sentence.trim());
       }
-      for (const sentence of lesson.model.needsWork.match(/[^.!?]+[.!?]/g) ?? []) {
+      for (const sentence of model.needsWork.match(/[^.!?]+[.!?]/g) ?? []) {
         expect(basicText, lesson.shortTitle).toContain(sentence.trim());
       }
       expect(lesson.model.question).toMatch(/Klicka på/);

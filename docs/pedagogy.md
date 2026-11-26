@@ -202,3 +202,20 @@ Appen ska bygga elevens inre motivation enligt självbestämmandeteorin, inte st
 - **Tilltro och handlingsutrymme.** Edda visar att hon tror att eleven klarar nästa steg och lämnar utrymme för elevens egna val: nästa steg formuleras som något eleven kan välja att pröva.
 - **Intresse i starten.** Varje kapitel öppnar med en rad som väcker nyfikenhet, och eleven skriver om ett eget valt ämne till en egen vald mottagare.
 - **Den långsiktiga nyttan.** Under målet står varför kapitlet lönar sig: vad det gör för elevens egen text nu, och att det är något som bedöms i svenska och därför kan höja betyget. Appen anger inga betygssteg eller betygskriterier.
+
+## Exempeltext efter elevens ämne
+
+- Det finns fyra exempelpaket i `src/data/exemplarSets/`: rörelse i skolan, åldersgräns på sociala medier, öppna fritidsgårdar och mindre kött. Varje paket har en utmärkt och en okej text, alla markeringar, jämförelser, felsökningstexten och Eddas två exempel före varje skrivuppgift.
+- Eleven möter paketet som hör till området hen valt att skriva om: Skoldagen ger rörelse i skolan, Mobilen i skolan ger sociala medier och Fritiden ger fritidsgårdar. För ett eget ämne läses området av ur elevens fråga; annars används texten om kött.
+- Exempeltexten handlar aldrig om samma fråga som elevens egen text, så att den inte blir en text att skriva av. Ett eget ämne som sammanfaller med ett pakets fråga får ett annat paket.
+- Paketen är byggda likadant, del för del (samma antal markeringar med samma etiketter i samma ordning), eftersom lektionen, skrivkartan och Eddas väg tillbaka till en lucka pekar på delarna efter plats. `src/data/exemplarSets.test.ts` kontrollerar det.
+- Texterna innehåller inga påhittade siffror, undersökningar eller källor.
+- Området sparas som intresse i lärprofilen.
+
+## Uppgifter på elevens nivå
+
+- Skrivuppgiften och återkallningsfrågan finns i tre nivåer i kapitel 1–5: ett mindre steg med mer att hålla sig i, kapitlets egen uppgift och ett steg längre. Eleven ser en uppgift och får aldrig veta att det finns nivåer.
+- Nivån bygger på en skattning per område (0–1) i lärprofilen. Den flyttas en bit i taget av varje svar: om eleven klarade sig själv, fick stöd eller behövde hjälp, och av Eddas egen bedömning efter varje svar (lättare, lika eller svårare nästa gång). Ett enstaka svar avgör aldrig nivån.
+- Nivån bestäms när eleven kommer fram till uppgiften och ligger sedan fast, så att uppgiften inte ändras medan eleven arbetar.
+- Nivån gäller nästa uppgift, inte eleven. Den är inte ett betyg, visas inte och sparas bara i webbläsaren.
+- Gränserna (under 0,40 ger det mindre steget, från 0,72 det längre) och hur mycket varje svar väger är antaganden som bör prövas med elever. De ligger i `src/lib/challenge.ts`.

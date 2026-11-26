@@ -7,7 +7,7 @@ export type ExemplarAudioState = "idle" | "loading" | "playing" | "paused";
  * Read-aloud of the exemplar text. The audio is fetched only when the student asks for it,
  * and `onListened` is called when the whole text has been played.
  */
-export function useExemplarAudio(onListened: () => void) {
+export function useExemplarAudio(exemplarSetId: string, onListened: () => void) {
   const [state, setState] = useState<ExemplarAudioState>("idle");
   const [error, setError] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -49,7 +49,7 @@ export function useExemplarAudio(onListened: () => void) {
       }
 
       setState("loading");
-      const url = await loadExemplarAudio("strong");
+      const url = await loadExemplarAudio(exemplarSetId);
       if (!activeRef.current) return;
       const audio = new Audio(url);
       audio.addEventListener("ended", () => {

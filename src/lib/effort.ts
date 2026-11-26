@@ -22,6 +22,8 @@ export const effortTimes = {
   exploreStray: 3,
   /** or this many times for a student who has shown that looking alone works. */
   exploreStrayWide: 6,
+  /** Tasks follow the student's level. Tests of the chapter's own tasks turn it off. */
+  levels: true,
 };
 
 /** The writing task is handed in when the student has written this many words and changed the text. */

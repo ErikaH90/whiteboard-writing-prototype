@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import dotenv from "dotenv";
 import express from "express";
@@ -48,9 +48,10 @@ const checkInSchema = {
   properties: {
     kind: { type: "string", enum: ["on_track", "retry"] },
     level: { type: "integer", enum: [1, 2, 3] },
+    next: { type: "string", enum: ["easier", "same", "harder"] },
     feedback: { type: "string" },
   },
-  required: ["kind", "level", "feedback"],
+  required: ["kind", "level", "next", "feedback"],
 };
 
 const exampleSchema = {
@@ -66,14 +67,20 @@ const exampleSchema = {
 
 // The exemplar texts are authored course content shared with the client. Only these
 // fixed texts can be read aloud, so no student text is ever sent to the speech service.
-const exemplarTexts = JSON.parse(
-  readFileSync(resolve(process.cwd(), "src/data/exemplarTexts.json"), "utf8"),
+// There is one file per exemplar topic; the text that is read aloud is its "strong" text.
+const exemplarDirectory = resolve(process.cwd(), "src/data/exemplarSets");
+const exemplarTexts = Object.fromEntries(
+  readdirSync(exemplarDirectory)
+    .filter((file) => file.endsWith(".json"))
+    .map((file) => [file.slice(0, -5), JSON.parse(readFileSync(resolve(exemplarDirectory, file), "utf8")).strong]),
 );
 
 class SpeechServiceError extends Error {
-  constructor(status) {
+  /** `reason` is ElevenLabs' own short code for the refusal, such as "quota_exceeded". */
+  constructor(status, reason) {
     super("speech_service_error");
     this.status = status;
+    this.reason = reason;
   }
 }
 
@@ -145,17 +152,27 @@ function createElevenLabsSpeech(apiKey) {
       },
     );
 
-    if (!response.ok) throw new SpeechServiceError(response.status);
+    if (!response.ok) {
+      // ElevenLabs answers 401 both for a wrong key and for a spent quota; its code tells them apart.
+      const reason = await response.json().then((body) => body?.detail?.status, () => undefined);
+      throw new SpeechServiceError(response.status, typeof reason === "string" ? reason.slice(0, 60) : undefined);
+    }
     return Buffer.from(await response.arrayBuffer());
   };
 }
 
 function reportSpeechFailure(error) {
   const status = error instanceof SpeechServiceError ? error.status : undefined;
+  const reason = error instanceof SpeechServiceError ? error.reason : undefined;
   console.error("ElevenLabs-uppläsning kunde inte skapas:", {
     name: error instanceof Error ? error.name : "UnknownError",
     status,
+    reason,
   });
+
+  if (reason === "quota_exceeded") {
+    return "ElevenLabs-kontot har inte tillräckligt många tecken kvar för den här texten. Kontrollera kvoten.";
+  }
 
   if (status === 401 || status === 403) {
     return "ElevenLabs avvisade serverns API-nyckel. Kontrollera nyckeln och dess behörighet.";
@@ -352,7 +369,8 @@ function validateStudentModel(value) {
     && isList(value.knows, 24)
     && isList(value.next, 6)
     && isList(value.taught, 6)
-    && isList(value.upcoming, 6);
+    && isList(value.upcoming, 6)
+    && (value.level === undefined || [1, 2, 3].includes(value.level));
 }
 
 /** How Edda uses what she knows about the student, for every answer she writes. */
@@ -362,6 +380,7 @@ const studentModelRules = [
   "Knyt det nya till något eleven redan gör. När du pekar framåt eller ber eleven försöka igen: börja i en sak ur knows som hör ihop med det nya, i några få ord (till exempel ”Du har redan en tes.”), och visa sedan hur nästa steg bygger vidare på just den. Förklara inte från början.",
   "Lägg nivån precis över det eleven klarar: ta upp en enda sak i taget, helst något ur next. Ta inte upp något som hör till kapitlen i upcoming, och använd inte deras begrepp.",
   "Använd vardagliga ord. Om ett fackord behövs, säg vad det betyder med några enkla ord.",
+  "Fältet level i studentModel visar hur krävande nästa steg bör vara för eleven just nu: 1 = ett mindre steg med något konkret att hålla sig i, 2 = kapitlets vanliga nivå, 3 = ett steg längre. Lägg din fråga eller ditt nästa steg på den nivån. Det är en bedömning av nästa uppgift, aldrig av eleven: nämn aldrig nivån och jämför aldrig eleven med andra.",
 ].join(" ");
 
 function validateLearningContext(value) {
@@ -855,6 +874,7 @@ export function createApiApp(options = {}) {
               "Sätt level efter hur utvecklat elevens fritextsvar är. 1 = på rätt spår men kort eller ytligt, till exempel ett nyckelord eller en halv tanke utan förklaring. 2 = rätt och förklarat med egna ord. 3 = utvecklat: eleven förklarar, ger skäl eller exempel eller kopplar ihop flera delar. Korta svar på en mening är oftast nivå 1 eller 2. Ge nivå 3 när eleven både förklarar och bygger ut svaret med skäl, exempel eller flera delar som hänger ihop, även om svaret inte är fullständigt. level är inte ett betyg utan visar hur mycket eleven har visat i just det här svaret.",
               "Riktmärken för level, med frågan ”Vad är en tes?” som exempel. Nivå 1: ”En åsikt.” Nivå 2: ”Det skribenten tycker och vill att läsaren ska hålla med om.” Nivå 3: ”Det skribenten vill övertyga läsaren om. Den brukar stå tidigt så att läsaren förstår vad argumenten ska stödja.” Ett svar med två eller flera sammanhängande meningar som förklarar och bygger ut tanken är nivå 3.",
               "Anpassa berömmet efter level. Vid 1: bekräfta kort och sakligt det som stämmer, utan utropstecken och utan stort beröm. Vid 2: konkret beröm. Vid 3: tydligt och varmt beröm för det eleven har ansträngt sig med. Beskriv aldrig vad ett bättre svar skulle ha innehållit.",
+              "Sätt next efter vad svaret visar om nästa uppgift: ”easier” om eleven verkar osäker, gissar, har missuppfattat eller behövde flera försök (se attempt i learningContext); ”harder” om svaret är självständigt, säkert och mer utvecklat än frågan krävde; annars ”same”. Nästa uppgift ska ligga precis över det eleven klarar på egen hand. Fältet visas aldrig för eleven.",
               "Inget betyg. Var kort och koncis: högst två korta meningar, sammanlagt högst 160 tecken. Inga långa förklaringar och inga uppräkningar.",
             ].join(" "),
           },
@@ -911,7 +931,12 @@ export function createApiApp(options = {}) {
         ? null
         : [1, 2, 3].includes(result.level) ? result.level : 1;
 
-      return res.json({ kind: expectedKind, feedback: result.feedback, ...(level && { level }) });
+      // Edda's judgement of the next task. A wrong click never asks for a harder task.
+      const next = ["easier", "same", "harder"].includes(result.next)
+        ? (expectedKind === "retry" && result.next === "harder" ? "same" : result.next)
+        : "same";
+
+      return res.json({ kind: expectedKind, feedback: result.feedback, ...(level && { level }), next });
     } catch (error) {
       return res.status(502).json({
         error: reportModelFailure("OpenAI avstämning misslyckades", error),

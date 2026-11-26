@@ -14,7 +14,7 @@ import ErrorHunt from "./components/ErrorHunt";
 import EddaFeedback, { EddaMark } from "./components/EddaFeedback";
 import ExemplarPanel, { type ExemplarMode } from "./components/ExemplarPanel";
 import ReadingSettings, { ReadingRuler } from "./components/ReadingSettings";
-import { exemplarFocus, exemplarTexts, modellingFlow } from "./data/exemplars";
+import { exemplarSetForTopic, lessonModel, modellingFlow, type ExemplarText } from "./data/exemplars";
 import {
   maxOwnTopicLength,
   maxRecipientLength,
@@ -30,6 +30,7 @@ import {
 } from "./data/topics";
 import { useFitToHeight } from "./lib/useFitToHeight";
 import { setSoundOn, useSoundOn } from "./lib/eddaVoice";
+import { challengeFor, taskAt, type Challenge } from "./lib/challenge";
 import { readingStyle, takesMoreRoom, useReadingSettings } from "./lib/readingSettings";
 import { useExemplarAudio } from "./lib/useExemplarAudio";
 import { AfterWriting, BoardSequence, BoardStep, Written } from "./components/BoardWriting";
@@ -42,6 +43,7 @@ import {
   type ReviewFeedback,
   requestLocate,
   requestProgressMap,
+  setNextTaskListener,
   setStudentModel,
   type MapPart,
   type MapSkill,
@@ -53,6 +55,8 @@ import {
   getLatestEvidence,
   readLearnerProfile,
   recordEvidence as appendEvidence,
+  recordInterest,
+  recordNextTask,
   writeLearnerProfile,
   type LearnerProfile,
 } from "./lib/learnerProfile";
@@ -128,8 +132,7 @@ const taskFeatures: [MapSkill, string][][] = [
 const liveSkills: MapSkill[] = ["cohesion", "sentence"];
 
 /** Where in the exemplar a quote is, said the way a teacher would point: a hint, not the answer. */
-function placeInExemplar(quote: string): string {
-  const text = exemplarTexts.strong;
+function placeInExemplar(text: ExemplarText, quote: string): string {
   if (text.title.includes(quote)) return "rubriken";
   const index = text.paragraphs.findIndex((paragraph) => paragraph.includes(quote));
   if (index <= 0) return index === 0 ? "inledningen" : "texten en gång till";
@@ -217,7 +220,10 @@ function App() {
   const [ownTopicText, setOwnTopicText] = useState("");
   const [ownRecipientText, setOwnRecipientText] = useState("");
   // The read-aloud is started from the whiteboard; when it ends the lesson begins.
-  const exemplarAudio = useExemplarAudio(() => setHasMetExemplar(true));
+  // The exemplar the student reads belongs to the area the student chose to write about.
+  const exemplarSet = useMemo(() => exemplarSetForTopic(topic), [topic]);
+  const exemplarFocus = exemplarSet.focus;
+  const exemplarAudio = useExemplarAudio(exemplarSet.id, () => setHasMetExemplar(true));
   // What the student has shown they can do, per lesson (index into lesson.canDo), and their first
   // answer in each lesson. Kept only in this session; never stored or sent anywhere.
   const [achievements, setAchievements] = useState<Record<number, number[]>>({});
@@ -295,6 +301,26 @@ function App() {
 
   const lesson = lessons[lessonIndex];
   const phase = phases[phaseIndex];
+  // The level of a task is decided when the student reaches it and then stays, so that the task
+  // does not change under the student's hands while they work on it.
+  const taskLevels = useRef<Record<string, Challenge>>({});
+  function levelOf(kind: "practice" | "recall", reached: boolean): Challenge {
+    const key = `${lessonIndex}:${kind}`;
+    if (!effortTimes.levels) return 2;
+    if (taskLevels.current[key]) return taskLevels.current[key];
+    const level = challengeFor(learnerProfile.mastery ?? {}, lesson.skillIds);
+    if (reached) taskLevels.current[key] = level;
+    return level;
+  }
+  const practiceTask = taskAt(levelOf("practice", phaseIndex >= 1), lesson.practice, lesson.practiceLevels);
+  const recallCheckIn = taskAt(levelOf("recall", phaseIndex >= 2), lesson.checkIns[2], lesson.recallLevels);
+  // Edda's judgement after each answer moves the level of the next task in this chapter's part.
+  const skillsNow = useRef(lesson.skillIds);
+  skillsNow.current = lesson.skillIds;
+  useEffect(() => {
+    setNextTaskListener((next) => setLearnerProfile((current) => recordNextTask(current, skillsNow.current, next)));
+    return () => setNextTaskListener(null);
+  }, []);
   const learningEvidence = getLatestEvidence(learnerProfile);
   const priorEvidence = getEvidenceSummaries(learnerProfile).map(({ skillId, latest, ...summary }) => ({
     skillId,
@@ -346,9 +372,12 @@ function App() {
     mapFeatures[part.skill].filter((feature) => part.lacks && !part.lacks.includes(feature.id)).map((feature) => feature.praise));
   const nextLines = mapNow.filter((part) => taughtSkills.includes(part.skill)).flatMap((part) =>
     mapFeatures[part.skill].filter((feature) => part.lacks?.includes(feature.id)).slice(0, 1).map((feature) => feature.hint));
-  const modelKey = `${lessonIndex}|${knownLines.join("|")}|${nextLines.join("|")}`;
+  // How demanding the next step should be for this student in this chapter's part of the writing.
+  const nextLevel = effortTimes.levels ? challengeFor(learnerProfile.mastery ?? {}, lesson.skillIds) : 2;
+  const modelKey = `${lessonIndex}|${nextLevel}|${knownLines.join("|")}|${nextLines.join("|")}`;
   useEffect(() => {
     setStudentModel(hasStarted ? {
+      level: nextLevel,
       knows: knownLines.slice(0, 24),
       next: nextLines.slice(0, 6),
       taught: lessons.slice(0, lessonIndex + 1).map((item) => item.shortTitle),
@@ -498,7 +527,7 @@ function App() {
     // The last chapter is written without support, so Edda does not read the text here.
     if (lesson.taskLink) {
       const reviewedDraft = draft;
-      const result = await runReview(lesson.practice);
+      const result = await runReview(practiceTask);
       const advice = result?.findings[0]?.message;
       setTaskAdvice(advice ? { board: boardKey, message: advice, reviewedDraft, round: 1 } : null);
     }
@@ -549,7 +578,7 @@ function App() {
   /** The student has tried Edda's advice in their text and asks her to look again. */
   async function retryWritingTask() {
     if (!taskAdvice) return;
-    const result = await runReview(lesson.practice, taskAdvice.message);
+    const result = await runReview(practiceTask, taskAdvice.message);
     if (result) setTaskAdvice({ ...taskAdvice, reviewedDraft: draft, round: 2 });
     void assessProgress(true);
   }
@@ -629,6 +658,8 @@ function App() {
 
   function startLesson(chosen: WritingTopic, reader: string) {
     setTopic(chosen);
+    // The exemplar and Edda's examples follow the area the student chose to write about.
+    setLearnerProfile((current) => recordInterest(current, exemplarSetForTopic(chosen).interest));
     setRecipient(reader);
     setHasStarted(true);
     try {
@@ -1116,6 +1147,8 @@ function App() {
   }
 
   const currentAdvice = taskAdvice?.board === boardKey ? taskAdvice : null;
+  // The chapter that taught the part the student has chosen to practise more.
+  const practiceLesson = lessons.find((item) => item.skillIds.length === 1 && item.skillIds[0] === practice?.skill) ?? lesson;
   return (
     <main
       className={`app-shell ${isFinalDiagnosis || isFinalRecall ? "" : "is-fitted"} ${takesMoreRoom(reading) ? "has-roomy-text" : ""}`}
@@ -1476,7 +1509,7 @@ function App() {
                             {eddaResponse}
                             {/* The hint comes by itself when the student has tried and stood still for a while. */}
                             {isCurrent && isStuck && (
-                              <p aria-live="polite" className="hint-card"><span aria-hidden="true">✦</span> {`Ett första steg: titta i ${placeInExemplar(part.quote)}.`}</p>
+                              <p aria-live="polite" className="hint-card"><span aria-hidden="true">✦</span> {`Ett första steg: titta i ${placeInExemplar(exemplarSet.texts.strong, part.quote)}.`}</p>
                             )}
                           </>
                         )}
@@ -1501,7 +1534,7 @@ function App() {
                     <ExamplePick
                       key={lessonIndex}
                       lesson={lesson}
-                      examples={lesson.model}
+                      examples={lessonModel(lesson, lessonIndex, exemplarSet)}
                       strongFirst={lessonIndex % 2 === 1}
                       priorEvidence={priorEvidence}
                       onEvidence={recordCheck}
@@ -1516,7 +1549,7 @@ function App() {
                     <ExamplePick
                       key={lessonIndex}
                       lesson={lesson}
-                      examples={lesson.model}
+                      examples={lessonModel(lesson, lessonIndex, exemplarSet)}
                       strongFirst={lessonIndex % 2 === 1}
                       priorEvidence={priorEvidence}
                       onEvidence={recordEvidence}
@@ -1537,7 +1570,7 @@ function App() {
                       {foundAlone && lessonIndex < lessons.length - 1 && !attemptedBoards.includes(boardKey) && (
                         <p className="edda-steps-back">Du hittade ställena i exempeltexten själv, så du går direkt till din uppgift.</p>
                       )}
-                      <p className="activity-instruction"><Written spoken>{lesson.practice}</Written></p>
+                      <p className="activity-instruction"><Written spoken>{practiceTask}</Written></p>
                       {showHint && <p aria-live="polite" className="hint-card"><span aria-hidden="true">✦</span> Ett första steg: {lesson.hint}</p>}
                       </div>
                       <AfterWriting>
@@ -1713,6 +1746,7 @@ function App() {
                       key={`${lessonIndex}-${phaseIndex}`}
                       lesson={lesson}
                       phaseIndex={phaseIndex}
+                      checkIn={phaseIndex === 2 ? recallCheckIn : undefined}
                       priorEvidence={priorEvidence}
                       onEvidence={recordCheck}
                       onAttempt={markAttempted}
@@ -1729,7 +1763,8 @@ function App() {
                     {practice ? (
                       <PracticeRound
                         key={practice.skill}
-                        lesson={lessons.find((item) => item.skillIds.length === 1 && item.skillIds[0] === practice.skill) ?? lesson}
+                        lesson={practiceLesson}
+                        examples={lessonModel(practiceLesson, lessons.indexOf(practiceLesson), exemplarSet)}
                         label={mapSkills.find(({ skill }) => skill === practice.skill)?.label ?? ""}
                         level={practice.level}
                         hint={practice.hint}
@@ -1790,6 +1825,7 @@ function App() {
         {!isFinalRecall && <section ref={writingCardRef} className={`writing-card ${isFinalDiagnosis ? "final-diagnosis-card" : ""}`} aria-label={isFinalDiagnosis ? "Slutdiagnosens skrivyta" : surfaceView === "exemplar" ? "Exempeltext" : "Elevens skrivyta"}>
           {surfaceView === "exemplar" && (
             <ExemplarPanel
+              set={exemplarSet}
               skillId={loop?.stage === "model" ? loop.skill : lesson.skillIds[0]}
               mode={loop?.stage === "model" ? "focus" : exemplarMode}
               focusIndex={loop?.stage === "model" ? loop.example : focusIndex}

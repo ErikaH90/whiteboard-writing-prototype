@@ -9,7 +9,7 @@
   directory = "netlify/functions"
   node_bundler = "esbuild"
   # The server reads the fixed exemplar texts from disk when it creates speech.
-  included_files = ["src/data/exemplarTexts.json"]
+  included_files = ["src/data/exemplarSets/*.json"]
 
 [[redirects]]
   from = "/api/*"

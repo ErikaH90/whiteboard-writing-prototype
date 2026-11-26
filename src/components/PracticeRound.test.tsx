@@ -1,10 +1,12 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { defaultExemplarSet, lessonModel } from "../data/exemplars";
 import { lessons } from "../data/lessons";
 import PracticeRound from "./PracticeRound";
 
 const lesson = lessons[2];
+const examples = lessonModel(lesson, 2, defaultExemplarSet);
 
 beforeEach(() => {
   vi.stubGlobal("fetch", vi.fn(async () => new Response(
@@ -23,6 +25,7 @@ function renderRound(level: number, props: Partial<Parameters<typeof PracticeRou
   render(
     <PracticeRound
       lesson={lesson}
+      examples={examples}
       label="Textbindning"
       level={level}
       hint="Vilket ord kan visa en orsak?"
@@ -46,7 +49,7 @@ describe("more practice on a part chosen in the writing map", () => {
     // The example comes first: the student picks the better one.
     expect(screen.getByText(lesson.model.question)).toBeVisible();
     expect(screen.queryByRole("button", { name: "Fortsätt" })).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: new RegExp(lesson.model.strong.slice(0, 25)) }));
+    await user.click(screen.getByRole("button", { name: new RegExp(examples.strong.slice(0, 25)) }));
     await user.click(await screen.findByRole("button", { name: "Fortsätt" }));
 
     // Then the core idea is recalled in the student's own words.
